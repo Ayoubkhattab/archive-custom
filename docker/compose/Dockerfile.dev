@@ -1,0 +1,45 @@
+FROM ghcr.io/paperless-ngx/paperless-ngx:latest
+
+# Install development dependencies
+RUN pip install --no-cache-dir \
+    watchfiles \
+    django-debug-toolbar \
+    django-extensions \
+    ipython \
+    black \
+    flake8 \
+    pytest \
+    pytest-django \
+    debugpy \
+    llama-index-core \
+    llama-index-llms-ollama
+
+# Note: postgresql-client and curl are already in the base image
+# so we don't need to install them again
+
+# Install Arabic OCR language pack (base image only includes eng, deu, ita, spa, fra)
+# Dev environment bypasses s6 init, so PAPERLESS_OCR_LANGUAGES won't auto-install
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    tesseract-ocr-ara && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create development directories
+RUN mkdir -p /usr/src/paperless/logs \
+             /usr/src/paperless/debug \
+             /usr/src/paperless/data \
+             /usr/src/paperless/media \
+             /usr/src/paperless/consume \
+             /usr/src/paperless/export
+
+# Copy and set up development entrypoint
+COPY entrypoint-dev.sh /usr/local/bin/entrypoint-dev.sh
+RUN chmod +x /usr/local/bin/entrypoint-dev.sh
+
+# Set working directory
+WORKDIR /usr/src/paperless
+
+# Use the development entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint-dev.sh"]
+CMD []

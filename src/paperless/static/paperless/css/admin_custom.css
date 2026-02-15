@@ -1,0 +1,739 @@
+/* ==========================================================================
+   Paperless-ngx Admin Theme
+   Forest green + warm neutrals palette
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Light Mode Variables
+   -------------------------------------------------------------------------- */
+html[data-theme="light"],
+:root {
+    --primary: #428177;
+    --secondary: #356b62;
+    --accent: #988561;
+    --primary-fg: #ffffff;
+
+    --body-fg: #1a1a1a;
+    --body-bg: #f7f6f3;
+    --body-quiet-color: #6b6b6b;
+    --body-medium-color: #444444;
+    --body-loud-color: #000000;
+
+    --header-color: #edebe0;
+    --header-branding-color: #ffffff;
+    --header-bg: #2d5a52;
+    --header-link-color: #ffffff;
+
+    --breadcrumbs-fg: #b9a779;
+    --breadcrumbs-link-fg: #edebe0;
+    --breadcrumbs-bg: #244a43;
+
+    --link-fg: #356b62;
+    --link-hover-color: #1e3d38;
+    --link-selected-fg: #428177;
+
+    --hairline-color: #e8e6de;
+    --border-color: #d4d0c4;
+
+    --error-fg: #ba2121;
+
+    --message-success-bg: #dfecd8;
+    --message-warning-bg: #f5f0d0;
+    --message-error-bg: #fce4e4;
+
+    --darkened-bg: #f0efe9;
+    --selected-bg: #e8e5d8;
+    --selected-row: #eeeadb;
+
+    --button-fg: #ffffff;
+    --button-bg: #428177;
+    --button-hover-bg: #356b62;
+    --default-button-bg: #356b62;
+    --default-button-hover-bg: #428177;
+    --close-button-bg: #988561;
+    --close-button-hover-bg: #7a6b4e;
+    --delete-button-bg: #ba2121;
+    --delete-button-hover-bg: #a41515;
+
+    --object-tools-fg: #ffffff;
+    --object-tools-bg: #988561;
+    --object-tools-hover-bg: #7a6b4e;
+
+    /* Custom card variables */
+    --card-bg: #ffffff;
+    --card-border: #e8e6de;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
+    --row-hover-bg: #faf9f6;
+    --badge-add-bg: #e8f5f0;
+    --badge-add-fg: #2d6b5f;
+    --badge-change-bg: #f0efe9;
+    --badge-change-fg: #555555;
+}
+
+/* --------------------------------------------------------------------------
+   Dark Mode Variables
+   -------------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary: #5a9e92;
+        --secondary: #428177;
+        --accent: #b9a779;
+        --primary-fg: #ffffff;
+
+        --body-fg: #e0ddd0;
+        --body-bg: #111b19;
+        --body-quiet-color: #8a8a7a;
+        --body-medium-color: #b0ab9e;
+        --body-loud-color: #ffffff;
+
+        --header-color: #edebe0;
+        --header-branding-color: #ffffff;
+        --header-bg: #152825;
+        --header-link-color: #d4d0c4;
+
+        --breadcrumbs-fg: #8a8a7a;
+        --breadcrumbs-link-fg: #d4d0c4;
+        --breadcrumbs-bg: #111b19;
+
+        --link-fg: #6bb3a6;
+        --link-hover-color: #8fcfc3;
+        --link-selected-fg: #b9a779;
+
+        --hairline-color: #2a3533;
+        --border-color: #354240;
+
+        --error-fg: #e35f5f;
+
+        --message-success-bg: #1a2e28;
+        --message-warning-bg: #2e2a1a;
+        --message-error-bg: #2e1a1a;
+
+        --darkened-bg: #1a2624;
+        --selected-bg: #1e302d;
+        --selected-row: #1e302d;
+
+        --button-fg: #ffffff;
+        --button-bg: #428177;
+        --button-hover-bg: #5a9e92;
+        --default-button-bg: #356b62;
+        --default-button-hover-bg: #428177;
+        --close-button-bg: #7a6b4e;
+        --close-button-hover-bg: #988561;
+        --delete-button-bg: #ba2121;
+        --delete-button-hover-bg: #a41515;
+
+        --object-tools-fg: #ffffff;
+        --object-tools-bg: #7a6b4e;
+        --object-tools-hover-bg: #988561;
+
+        --card-bg: #1a2624;
+        --card-border: #2a3533;
+        --card-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.3);
+        --row-hover-bg: #1e302d;
+        --badge-add-bg: #1a3530;
+        --badge-add-fg: #6bb3a6;
+        --badge-change-bg: #252e2c;
+        --badge-change-fg: #8a8a7a;
+    }
+}
+
+html[data-theme="dark"] {
+    --primary: #5a9e92;
+    --secondary: #428177;
+    --accent: #b9a779;
+    --primary-fg: #ffffff;
+
+    --body-fg: #e0ddd0;
+    --body-bg: #111b19;
+    --body-quiet-color: #8a8a7a;
+    --body-medium-color: #b0ab9e;
+    --body-loud-color: #ffffff;
+
+    --header-color: #edebe0;
+    --header-branding-color: #ffffff;
+    --header-bg: #152825;
+    --header-link-color: #d4d0c4;
+
+    --breadcrumbs-fg: #8a8a7a;
+    --breadcrumbs-link-fg: #d4d0c4;
+    --breadcrumbs-bg: #111b19;
+
+    --link-fg: #6bb3a6;
+    --link-hover-color: #8fcfc3;
+    --link-selected-fg: #b9a779;
+
+    --hairline-color: #2a3533;
+    --border-color: #354240;
+
+    --error-fg: #e35f5f;
+
+    --message-success-bg: #1a2e28;
+    --message-warning-bg: #2e2a1a;
+    --message-error-bg: #2e1a1a;
+
+    --darkened-bg: #1a2624;
+    --selected-bg: #1e302d;
+    --selected-row: #1e302d;
+
+    --button-fg: #ffffff;
+    --button-bg: #428177;
+    --button-hover-bg: #5a9e92;
+    --default-button-bg: #356b62;
+    --default-button-hover-bg: #428177;
+    --close-button-bg: #7a6b4e;
+    --close-button-hover-bg: #988561;
+    --delete-button-bg: #ba2121;
+    --delete-button-hover-bg: #a41515;
+
+    --object-tools-fg: #ffffff;
+    --object-tools-bg: #7a6b4e;
+    --object-tools-hover-bg: #988561;
+
+    --card-bg: #1a2624;
+    --card-border: #2a3533;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.3);
+    --row-hover-bg: #1e302d;
+    --badge-add-bg: #1a3530;
+    --badge-add-fg: #6bb3a6;
+    --badge-change-bg: #252e2c;
+    --badge-change-fg: #8a8a7a;
+}
+
+/* ==========================================================================
+   Global Styles
+   ========================================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+a:link, a:visited, .button, input[type="submit"], input[type="button"] {
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ==========================================================================
+   Header
+   ========================================================================== */
+
+#header {
+    padding: 4 28px;
+    height: 52px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    position: relative;
+    z-index: 10;
+}
+
+#site-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0.2px;
+}
+
+#site-name a:link,
+#site-name a:visited {
+    color: var(--header-branding-color) !important;
+    text-decoration: none;
+}
+
+#user-tools {
+    font-size: 0.75rem;
+}
+
+#user-tools a {
+    padding: 5px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    opacity: 0.8;
+}
+
+#user-tools a:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.theme-toggle svg {
+    fill: var(--header-link-color);
+}
+
+/* ==========================================================================
+   Container & Content
+   ========================================================================== */
+
+#container {
+    background: var(--body-bg);
+    min-height: 100vh;
+    min-width: 0;
+}
+
+#content {
+    padding: 0;
+}
+
+/* Override fixed dashboard width */
+.dashboard #content {
+    width: 100%;
+}
+
+/* Override colMS margin */
+.dashboard.colMS {
+    margin-right: 0;
+}
+
+/* ==========================================================================
+   Module & Cards (for non-dashboard pages)
+   ========================================================================== */
+
+.module {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.module table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* ==========================================================================
+   DASHBOARD - Custom Template Styles
+   ========================================================================== */
+
+.pngx-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 32px;
+}
+
+/* ---- Dashboard Header ---- */
+.pngx-dashboard-header {
+    margin-bottom: 28px;
+}
+
+.pngx-dashboard-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--body-fg);
+    margin: 0 0 4px 0;
+    padding: 0;
+}
+
+.pngx-subtitle {
+    font-size: 0.8125rem;
+    color: var(--body-quiet-color);
+    margin: 0;
+}
+
+/* ---- App Grid (masonry columns) ---- */
+.pngx-app-grid {
+    columns: 3 300px;
+    column-gap: 18px;
+}
+
+/* ---- Card ---- */
+.pngx-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    break-inside: avoid;
+    margin-bottom: 18px;
+}
+
+.pngx-card:hover {
+    box-shadow: var(--card-shadow-hover);
+}
+
+/* ---- Card Header ---- */
+.pngx-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.pngx-card-header h2 {
+    margin: 0;
+    padding: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--body-fg);
+    background: none;
+}
+
+.pngx-view-all {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--body-quiet-color) !important;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.pngx-view-all:hover {
+    color: var(--link-fg) !important;
+}
+
+/* ---- Card Body ---- */
+.pngx-card-body {
+    padding: 0;
+}
+
+/* ---- Model Row ---- */
+.pngx-model-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 18px;
+    border-bottom: 1px solid var(--hairline-color);
+    transition: background-color 0.1s ease;
+}
+
+.pngx-model-row:last-child {
+    border-bottom: none;
+}
+
+.pngx-model-row:hover {
+    background-color: var(--row-hover-bg);
+}
+
+/* Model name */
+.pngx-model-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.pngx-model-name a {
+    color: var(--body-fg);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.pngx-model-name a:hover {
+    color: var(--link-fg);
+}
+
+.pngx-model-name span {
+    color: var(--body-quiet-color);
+    font-size: 0.8125rem;
+}
+
+/* ---- Action Buttons ---- */
+.pngx-model-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.pngx-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.pngx-action svg {
+    flex-shrink: 0;
+}
+
+.pngx-action-add {
+    background: var(--badge-add-bg);
+    color: var(--badge-add-fg);
+}
+
+.pngx-action-add:hover {
+    background: var(--primary);
+    color: var(--primary-fg) !important;
+}
+
+.pngx-action-change,
+.pngx-action-view {
+    background: var(--badge-change-bg);
+    color: var(--badge-change-fg);
+}
+
+.pngx-action-change:hover,
+.pngx-action-view:hover {
+    background: var(--selected-bg);
+    color: var(--body-fg) !important;
+}
+
+/* ==========================================================================
+   Recent Actions
+   ========================================================================== */
+
+.pngx-recent-actions {
+    margin-top: 24px;
+}
+
+.pngx-recent-actions .pngx-card-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0;
+}
+
+.pngx-action-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--hairline-color);
+    transition: background-color 0.1s ease;
+}
+
+.pngx-action-entry:hover {
+    background-color: var(--row-hover-bg);
+}
+
+.pngx-action-entry:last-child {
+    border-bottom: none;
+}
+
+/* Colored dot */
+.pngx-action-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.pngx-action-add .pngx-action-dot {
+    background-color: var(--primary);
+}
+
+.pngx-action-change .pngx-action-dot {
+    background-color: var(--accent);
+}
+
+.pngx-action-delete .pngx-action-dot {
+    background-color: var(--delete-button-bg);
+}
+
+.pngx-action-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pngx-action-object {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--link-fg);
+    text-decoration: none;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+a.pngx-action-object:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+}
+
+span.pngx-action-object {
+    color: var(--body-quiet-color);
+}
+
+.pngx-action-type {
+    font-size: 0.6875rem;
+    color: var(--body-quiet-color);
+}
+
+/* ==========================================================================
+   Breadcrumbs (on non-dashboard pages)
+   ========================================================================== */
+
+div.breadcrumbs {
+    padding: 10px 28px;
+    font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   Focus States
+   ========================================================================== */
+
+input:not([type]):focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="url"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+textarea:focus,
+select:focus,
+.vTextField:focus {
+    border-color: #428177;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(66, 129, 119, 0.15);
+}
+
+/* ==========================================================================
+   Login Page
+   ========================================================================== */
+
+.login #container {
+    max-width: 400px;
+    margin: 60px auto;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+.login #header {
+    border-radius: 0;
+    padding: 18px 24px;
+    height: auto;
+    box-shadow: none;
+}
+
+.login .form-row {
+    padding: 10px 24px;
+}
+
+.login .form-row label {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--body-quiet-color);
+}
+
+.login .form-row input[type="text"],
+.login .form-row input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    background: var(--body-bg);
+    color: var(--body-fg);
+}
+
+.login .submit-row {
+    padding: 14px 24px;
+    border-radius: 0;
+    background: var(--darkened-bg);
+}
+
+.login .submit-row input[type="submit"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    border: none;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+#footer {
+    padding: 14px 28px;
+    font-size: 0.6875rem;
+    color: var(--body-quiet-color);
+    border-top: 1px solid var(--hairline-color);
+    text-align: center;
+}
+
+/* ==========================================================================
+   Nav Sidebar (on non-dashboard pages)
+   ========================================================================== */
+
+#nav-sidebar {
+    border-color: var(--hairline-color);
+}
+
+#nav-sidebar .current-app .section:link,
+#nav-sidebar .current-app .section:visited {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Other Pages
+   ========================================================================== */
+
+#changelist-filter h2 {
+    border-radius: 8px 8px 0 0;
+}
+
+.submit-row {
+    border-top-color: var(--hairline-color);
+}
+
+.object-tools a:link,
+.object-tools a:visited {
+    border-radius: 5px;
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.related-widget-wrapper-link {
+    opacity: 0.7;
+}
+
+.related-widget-wrapper-link:hover {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .pngx-dashboard {
+        padding: 16px;
+    }
+
+    .pngx-app-grid {
+        columns: 1;
+    }
+
+    #header {
+        padding: 0 16px;
+    }
+
+    .pngx-dashboard-header h1 {
+        font-size: 1.2rem;
+    }
+}

@@ -1,0 +1,64 @@
+@if (loading) {
+    <div class="d-flex justify-content-center py-3">
+        <div class="spinner-border spinner-border-sm fw-normal" role="status"></div>
+    </div>
+} @else {
+    <ul class="list-group list-group-flush">
+        @if (entries.length === 0) {
+            <li class="list-group-item">
+                <div class="d-flex justify-content-center">
+                    <span class="fst-italic text-muted" i18n>No audit log entries found.</span>
+                </div>
+            </li>
+        } @else {
+            @for (entry of entries; track entry.id) {
+                <li class="list-group-item px-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <ng-template #timestamp>
+                            <div class="text-light">
+                                {{ entry.timestamp | customDate:'longDate' }} {{ entry.timestamp | date:'shortTime' }}
+                            </div>
+                        </ng-template>
+                        <span class="text-muted small" [ngbTooltip]="timestamp">{{ entry.timestamp | customDate:'relative' }}</span>
+                        @if (entry.actor) {
+                            <span class="ms-3 fst-italic small">{{ entry.actor.username }}</span>
+                        } @else {
+                            <span class="ms-3 fst-italic small" i18n>System</span>
+                        }
+                        <span class="badge bg-secondary ms-auto" [class.bg-primary]="entry.action === AuditLogAction.Create">{{ entry.action | titlecase }}</span>
+                    </div>
+                    <ul class="mt-1 small">
+                        @for (change of entry.changes | keyvalue; track change.key) {
+                            @if (change.value["type"] === 'm2m') {
+                                <li>
+                                    <span class="fst-italic">{{ change.value["operation"] | titlecase }}</span>&nbsp;
+                                    <span>{{ change.key | titlecase }}</span>:&nbsp;
+                                    <code class="text-primary">{{ change.value["objects"].join(', ') }}</code>
+                                </li>
+                            }
+                            @else if (change.value["type"] === 'permission') {
+                                <li>
+                                    <span>{{ change.key | titlecase }}</span>:&nbsp;
+                                    @if (change.value["granted"]?.length) {
+                                        <span class="text-success" i18n>Granted:</span>&nbsp;
+                                        <code class="text-success">{{ change.value["granted"].join(', ') }}</code>&nbsp;
+                                    }
+                                    @if (change.value["revoked"]?.length) {
+                                        <span class="text-danger" i18n>Revoked:</span>&nbsp;
+                                        <code class="text-danger">{{ change.value["revoked"].join(', ') }}</code>
+                                    }
+                                </li>
+                            }
+                            @else {
+                                <li>
+                                    <span>{{ change.key | titlecase }}</span>:&nbsp;
+                                    <code class="text-primary">{{ change.value[1] }}</code>
+                                </li>
+                            }
+                        }
+                    </ul>
+                </li>
+            }
+        }
+    </ul>
+}

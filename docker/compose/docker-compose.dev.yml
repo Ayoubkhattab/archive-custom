@@ -1,0 +1,262 @@
+services:
+  broker:
+    image: redis:8
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=paperless
+      - POSTGRES_DB=paperless
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    entrypoint: ["/usr/local/bin/entrypoint-dev.sh"]
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Debugger port
+    volumes:
+      # Mount source code for hot reload
+      - ../../src:/usr/src/paperless/src:cached
+      # Mount data directories
+      - ./data:/usr/src/paperless/data:cached
+      - ./media:/usr/src/paperless/media:cached
+      - ./consume:/usr/src/paperless/consume:cached
+      - ./export:/usr/src/paperless/export:cached
+    environment:
+      # Django settings module
+      - DJANGO_SETTINGS_MODULE=paperless.settings
+
+      # Database
+      - PAPERLESS_DBHOST=postgres
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=paperless
+      - PAPERLESS_DBNAME=paperless
+
+      # Redis
+      - PAPERLESS_REDIS=redis://broker:6379/0
+
+      # Directories
+      - PAPERLESS_DATA_DIR=/usr/src/paperless/data
+      - PAPERLESS_MEDIA_ROOT=/usr/src/paperless/media
+      - PAPERLESS_CONSUMPTION_DIR=/usr/src/paperless/consume
+      - PAPERLESS_STATICDIR=/usr/src/paperless/static
+      - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
+      - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
+
+      # Application settings
+      - PAPERLESS_URL=http://localhost:8000
+      - PAPERLESS_ALLOWED_HOSTS=localhost,127.0.0.1,webserver
+      - PAPERLESS_CORS_ALLOWED_HOSTS=http://localhost:8000,http://127.0.0.1:8000,http://localhost:4200
+      - PAPERLESS_CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000,http://localhost:4200
+
+      # OCR & Language
+      - PAPERLESS_OCR_LANGUAGE=ara+eng
+      - PAPERLESS_OCR_DESKEW=true
+      - PAPERLESS_OCR_ROTATE_PAGES=true
+      - PAPERLESS_OCR_ROTATE_PAGES_THRESHOLD=12.0
+      - PAPERLESS_OCR_CLEAN=clean
+      - PAPERLESS_OCR_OUTPUT_TYPE=pdfa
+      - PAPERLESS_TIME_ZONE=Asia/Riyadh
+
+      # Tika & Gotenberg (Office document support)
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+
+      # Admin user (created automatically on first run)
+      - PAPERLESS_ADMIN_USER=admin
+      - PAPERLESS_ADMIN_PASSWORD=admin123
+
+      # Debug mode
+      - DEBUG=true
+      - PAPERLESS_DEBUG=true
+      - PAPERLESS_LOGGING_LEVEL=DEBUG
+
+      # AI Settings
+      - PAPERLESS_AI_ENABLED=yes
+      - PAPERLESS_AI_LLM_BACKEND=ollama
+      - PAPERLESS_AI_LLM_MODEL=qwen2:0.5b
+      - PAPERLESS_AI_LLM_ENDPOINT=http://host.docker.internal:11434
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    entrypoint: ["/usr/local/bin/entrypoint-dev.sh"]
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      webserver:
+        condition: service_started
+    command: /bin/bash -c "cd /usr/src/paperless/src && celery -A paperless worker --loglevel=info"
+    volumes:
+      # Same volumes as webserver
+      - ../../src:/usr/src/paperless/src:cached
+      - ./data:/usr/src/paperless/data:cached
+      - ./media:/usr/src/paperless/media:cached
+      - ./consume:/usr/src/paperless/consume:cached
+      - ./export:/usr/src/paperless/export:cached
+    environment:
+      # Same environment as webserver
+      - DJANGO_SETTINGS_MODULE=paperless.settings
+      - PAPERLESS_DBHOST=postgres
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=paperless
+      - PAPERLESS_DBNAME=paperless
+      - PAPERLESS_REDIS=redis://broker:6379/0
+      - PAPERLESS_DATA_DIR=/usr/src/paperless/data
+      - PAPERLESS_MEDIA_ROOT=/usr/src/paperless/media
+      - PAPERLESS_CONSUMPTION_DIR=/usr/src/paperless/consume
+      - PAPERLESS_STATICDIR=/usr/src/paperless/static
+      - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
+      - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
+      - PAPERLESS_OCR_LANGUAGE=ara+eng
+      - PAPERLESS_OCR_DESKEW=true
+      - PAPERLESS_OCR_ROTATE_PAGES=true
+      - PAPERLESS_OCR_ROTATE_PAGES_THRESHOLD=12.0
+      - PAPERLESS_OCR_CLEAN=clean
+      - PAPERLESS_OCR_OUTPUT_TYPE=pdfa
+      - PAPERLESS_TIME_ZONE=Asia/Riyadh
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - DEBUG=true
+      - PAPERLESS_DEBUG=true
+      - PAPERLESS_AI_ENABLED=yes
+      - PAPERLESS_AI_LLM_BACKEND=ollama
+      - PAPERLESS_AI_LLM_MODEL=qwen2:0.5b
+      - PAPERLESS_AI_LLM_ENDPOINT=http://host.docker.internal:11434
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    entrypoint: ["/usr/local/bin/entrypoint-dev.sh"]
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      webserver:
+        condition: service_started
+    command: /bin/bash -c "cd /usr/src/paperless/src && celery -A paperless beat --loglevel=info"
+    volumes:
+      # Same volumes as webserver
+      - ../../src:/usr/src/paperless/src:cached
+      - ./data:/usr/src/paperless/data:cached
+      - ./media:/usr/src/paperless/media:cached
+      - ./consume:/usr/src/paperless/consume:cached
+      - ./export:/usr/src/paperless/export:cached
+    environment:
+      # Same environment as webserver
+      - DJANGO_SETTINGS_MODULE=paperless.settings
+      - PAPERLESS_DBHOST=postgres
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=paperless
+      - PAPERLESS_DBNAME=paperless
+      - PAPERLESS_REDIS=redis://broker:6379/0
+      - PAPERLESS_DATA_DIR=/usr/src/paperless/data
+      - PAPERLESS_MEDIA_ROOT=/usr/src/paperless/media
+      - PAPERLESS_CONSUMPTION_DIR=/usr/src/paperless/consume
+      - PAPERLESS_STATICDIR=/usr/src/paperless/static
+      - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
+      - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
+      - PAPERLESS_OCR_LANGUAGE=ara+eng
+      - PAPERLESS_OCR_DESKEW=true
+      - PAPERLESS_OCR_ROTATE_PAGES=true
+      - PAPERLESS_OCR_ROTATE_PAGES_THRESHOLD=12.0
+      - PAPERLESS_OCR_CLEAN=clean
+      - PAPERLESS_OCR_OUTPUT_TYPE=pdfa
+      - PAPERLESS_TIME_ZONE=Asia/Riyadh
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - DEBUG=true
+      - PAPERLESS_DEBUG=true
+      - PAPERLESS_AI_ENABLED=yes
+      - PAPERLESS_AI_LLM_BACKEND=ollama
+      - PAPERLESS_AI_LLM_MODEL=qwen2:0.5b
+      - PAPERLESS_AI_LLM_ENDPOINT=http://host.docker.internal:11434
+
+  frontend:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    depends_on:
+      webserver:
+        condition: service_started
+    ports:
+      - "4200:4200"
+    volumes:
+      - ../../src-ui:/app:cached
+      - frontend_node_modules:/app/node_modules
+      - ../../src/documents/static/frontend:/frontend-build
+    command: >
+      sh -c "
+        apt-get update &&
+        apt-get install -y --no-install-recommends python3 make g++ pkg-config libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev &&
+        rm -rf /var/lib/apt/lists/* &&
+        corepack enable &&
+        corepack prepare pnpm@10.17.1 --activate &&
+        pnpm install --no-frozen-lockfile &&
+        npx ng serve --host 0.0.0.0 --port 4200 --proxy-config proxy.conf.docker.json --live-reload --watch --poll 2000
+      "
+
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:8.25
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+
+  tika:
+    image: docker.io/apache/tika:latest
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  frontend_node_modules:
+
+networks:
+  default:
+    name: paperless-dev

@@ -1,0 +1,22 @@
+{
+  "/api": {
+    "target": "http://webserver:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/ws": {
+    "target": "ws://webserver:8000",
+    "ws": true,
+    "secure": false
+  },
+  "/static": {
+    "target": "http://webserver:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/logo": {
+    "target": "http://webserver:8000",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
