@@ -1,0 +1,217 @@
+# Production Docker Compose
+# Usage:
+#   cd docker/compose
+#   cp .env.prod.example .env.prod
+#   nano .env.prod          # edit passwords and settings
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+services:
+
+  # ── Database ──────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-paperless}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME:-paperless}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-paperless}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Message Broker ────────────────────────────────────────────────────────────
+  broker:
+    image: redis:8
+    restart: always
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Web Server ────────────────────────────────────────────────────────────────
+  webserver:
+    build:
+      context: ../..        # project root
+      dockerfile: docker/compose/Dockerfile.prod
+    image: paperless-ngx-custom:latest
+    restart: always
+    entrypoint: ["/usr/local/bin/entrypoint-prod.sh"]
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PAPERLESS_PORT:-8000}:8000"
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - paperless_consume:/usr/src/paperless/consume
+      - paperless_export:/usr/src/paperless/export
+    environment:
+      - DJANGO_SETTINGS_MODULE=paperless.settings
+      - PAPERLESS_DBHOST=postgres
+      - PAPERLESS_DBUSER=${DB_USER:-paperless}
+      - PAPERLESS_DBPASS=${DB_PASS}
+      - PAPERLESS_DBNAME=${DB_NAME:-paperless}
+      - PAPERLESS_REDIS=redis://broker:6379/0
+      - PAPERLESS_DATA_DIR=/usr/src/paperless/data
+      - PAPERLESS_MEDIA_ROOT=/usr/src/paperless/media
+      - PAPERLESS_CONSUMPTION_DIR=/usr/src/paperless/consume
+      - PAPERLESS_STATICDIR=/usr/src/paperless/static
+      - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
+      - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
+      - PAPERLESS_SECRET_KEY=${SECRET_KEY}
+      - PAPERLESS_URL=${PAPERLESS_URL:-http://localhost:8000}
+      - PAPERLESS_ALLOWED_HOSTS=${PAPERLESS_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - PAPERLESS_CORS_ALLOWED_HOSTS=${PAPERLESS_URL:-http://localhost:8000}
+      - PAPERLESS_CSRF_TRUSTED_ORIGINS=${PAPERLESS_URL:-http://localhost:8000}
+      - PAPERLESS_OCR_LANGUAGE=ara+eng
+      - PAPERLESS_OCR_LANGUAGES=ara
+      - PAPERLESS_OCR_DESKEW=true
+      - PAPERLESS_OCR_ROTATE_PAGES=true
+      - PAPERLESS_OCR_ROTATE_PAGES_THRESHOLD=12.0
+      - PAPERLESS_OCR_CLEAN=clean
+      - PAPERLESS_OCR_OUTPUT_TYPE=pdfa
+      - PAPERLESS_TIME_ZONE=${TZ:-Asia/Riyadh}
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - PAPERLESS_ADMIN_USER=${ADMIN_USER:-admin}
+      - PAPERLESS_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - PAPERLESS_AI_ENABLED=${AI_ENABLED:-yes}
+      - PAPERLESS_AI_LLM_BACKEND=${AI_BACKEND:-ollama}
+      - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-qwen2:0.5b}
+      - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
+      - DEBUG=false
+      - PAPERLESS_DEBUG=false
+      - PAPERLESS_LOGGING_LEVEL=WARNING
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    # Allows containers to reach Ollama running on the Ubuntu host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Celery Worker ─────────────────────────────────────────────────────────────
+  celery:
+    image: paperless-ngx-custom:latest
+    restart: always
+    entrypoint: ["/usr/local/bin/entrypoint-celery.sh"]
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      webserver:
+        condition: service_healthy
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - paperless_consume:/usr/src/paperless/consume
+      - paperless_export:/usr/src/paperless/export
+    environment:
+      - DJANGO_SETTINGS_MODULE=paperless.settings
+      - PAPERLESS_DBHOST=postgres
+      - PAPERLESS_DBUSER=${DB_USER:-paperless}
+      - PAPERLESS_DBPASS=${DB_PASS}
+      - PAPERLESS_DBNAME=${DB_NAME:-paperless}
+      - PAPERLESS_REDIS=redis://broker:6379/0
+      - PAPERLESS_DATA_DIR=/usr/src/paperless/data
+      - PAPERLESS_MEDIA_ROOT=/usr/src/paperless/media
+      - PAPERLESS_CONSUMPTION_DIR=/usr/src/paperless/consume
+      - PAPERLESS_STATICDIR=/usr/src/paperless/static
+      - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
+      - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
+      - PAPERLESS_SECRET_KEY=${SECRET_KEY}
+      - PAPERLESS_OCR_LANGUAGE=ara+eng
+      - PAPERLESS_OCR_LANGUAGES=ara
+      - PAPERLESS_OCR_DESKEW=true
+      - PAPERLESS_OCR_ROTATE_PAGES=true
+      - PAPERLESS_OCR_ROTATE_PAGES_THRESHOLD=12.0
+      - PAPERLESS_OCR_CLEAN=clean
+      - PAPERLESS_OCR_OUTPUT_TYPE=pdfa
+      - PAPERLESS_TIME_ZONE=${TZ:-Asia/Riyadh}
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - PAPERLESS_AI_ENABLED=${AI_ENABLED:-yes}
+      - PAPERLESS_AI_LLM_BACKEND=${AI_BACKEND:-ollama}
+      - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-qwen2:0.5b}
+      - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
+      - DEBUG=false
+      - PAPERLESS_DEBUG=false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Celery Beat (Scheduler) ───────────────────────────────────────────────────
+  celery-beat:
+    image: paperless-ngx-custom:latest
+    restart: always
+    entrypoint: ["/usr/local/bin/entrypoint-celery-beat.sh"]
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      webserver:
+        condition: service_healthy
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+    environment:
+      - DJANGO_SETTINGS_MODULE=paperless.settings
+      - PAPERLESS_DBHOST=postgres
+      - PAPERLESS_DBUSER=${DB_USER:-paperless}
+      - PAPERLESS_DBPASS=${DB_PASS}
+      - PAPERLESS_DBNAME=${DB_NAME:-paperless}
+      - PAPERLESS_REDIS=redis://broker:6379/0
+      - PAPERLESS_DATA_DIR=/usr/src/paperless/data
+      - PAPERLESS_MEDIA_ROOT=/usr/src/paperless/media
+      - PAPERLESS_CONSUMPTION_DIR=/usr/src/paperless/consume
+      - PAPERLESS_STATICDIR=/usr/src/paperless/static
+      - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
+      - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
+      - PAPERLESS_SECRET_KEY=${SECRET_KEY}
+      - PAPERLESS_TIME_ZONE=${TZ:-Asia/Riyadh}
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - DEBUG=false
+      - PAPERLESS_DEBUG=false
+
+  # ── Document Conversion ───────────────────────────────────────────────────────
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:8.25
+    restart: always
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+
+  tika:
+    image: docker.io/apache/tika:latest
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+  paperless_data:
+  paperless_media:
+  paperless_consume:
+  paperless_export:
+
+networks:
+  default:
+    name: paperless-prod
