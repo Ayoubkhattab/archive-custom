@@ -77,6 +77,9 @@ else
   echo -e "${BOLD}Configure your installation:${NC}"
   echo ""
 
+  # Force reading from terminal even when script is piped (curl | bash)
+  exec < /dev/tty
+
   read -rp "  Admin username [admin]: " ADMIN_USER
   ADMIN_USER=${ADMIN_USER:-admin}
 
