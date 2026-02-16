@@ -695,12 +695,13 @@ export class DocumentDetailComponent
         PermissionType.Document
       )
     ) {
-      this.tagService.getCachedMany(doc.tags).subscribe((tags) => {
-        // only show suggestions if document has inbox tags
-        if (tags.some((tag) => tag.is_inbox_tag)) {
-          this.getSuggestions()
-        }
-      })
+      // TODO: Re-enable suggestions when AI suggestions endpoint is ready
+      // this.tagService.getCachedMany(doc.tags).subscribe((tags) => {
+      //   // only show suggestions if document has inbox tags
+      //   if (tags.some((tag) => tag.is_inbox_tag)) {
+      //     this.getSuggestions()
+      //   }
+      // })
     }
     this.title = this.documentTitlePipe.transform(doc.title)
     this.prepareForm(doc)
