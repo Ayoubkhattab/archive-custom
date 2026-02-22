@@ -26,17 +26,19 @@
     @for (user of users; track user) {
       <li class="list-group-item">
         <div class="row">
-          <div class="col d-flex align-items-center" [class.opacity-50]="!user.is_active"><button class="btn btn-link p-0 text-start" type="button" (click)="editUser(user)" [disabled]="!permissionsService.currentUserCan(PermissionAction.Change, PermissionType.User)">{{user.username}}</button></div>
+          <div class="col d-flex align-items-center" [class.opacity-50]="!user.is_active"><button class="btn btn-link p-0 text-start" type="button" (click)="editUser(user)" [disabled]="!permissionsService.currentUserCan(PermissionAction.Change, PermissionType.User) || (user.is_superuser && !permissionsService.isSuperUser())">{{user.username}}</button></div>
           <div class="col d-flex align-items-center">{{user.first_name}} {{user.last_name}}</div>
           <div class="col d-flex align-items-center">{{user.groups?.map(getGroupName, this).join(', ')}}</div>
           <div class="col">
             <div class="btn-group">
-              <button class="btn btn-sm btn-outline-secondary" type="button" (click)="editUser(user)" *pngxIfPermissions="{ action: PermissionAction.Change, type: PermissionType.User }">
-                <i-bs width="1em" height="1em" name="pencil"></i-bs>&nbsp;<ng-container i18n>Edit</ng-container>
-              </button>
-              <button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteUser(user)" *pngxIfPermissions="{ action: PermissionAction.Delete, type: PermissionType.User }">
-                <i-bs width="1em" height="1em" name="trash"></i-bs>&nbsp;<ng-container i18n>Delete</ng-container>
-              </button>
+              @if (!user.is_superuser || permissionsService.isSuperUser()) {
+                <button class="btn btn-sm btn-outline-secondary" type="button" (click)="editUser(user)" *pngxIfPermissions="{ action: PermissionAction.Change, type: PermissionType.User }">
+                  <i-bs width="1em" height="1em" name="pencil"></i-bs>&nbsp;<ng-container i18n>Edit</ng-container>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteUser(user)" *pngxIfPermissions="{ action: PermissionAction.Delete, type: PermissionType.User }">
+                  <i-bs width="1em" height="1em" name="trash"></i-bs>&nbsp;<ng-container i18n>Delete</ng-container>
+                </button>
+              }
             </div>
           </div>
         </div>

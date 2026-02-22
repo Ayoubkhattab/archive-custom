@@ -67,8 +67,10 @@ export class UserEditDialogComponent
     this.onToggleSuperUser()
     if (!this.currentUserIsSuperUser) {
       this.objectForm.get('is_superuser').disable()
+      this.objectForm.get('is_staff').disable()
     } else {
       this.objectForm.get('is_superuser').enable()
+      this.objectForm.get('is_staff').enable()
     }
     if (this.object?.id) {
       this.historyEntries$ = (this.service as UserService).getHistory(this.object.id)
@@ -125,6 +127,11 @@ export class UserEditDialogComponent
 
   get currentUserIsSuperUser(): boolean {
     return this.permissionsService.isSuperUser()
+  }
+
+  get editorPermissionsForSelect(): string[] | null {
+    if (this.currentUserIsSuperUser) return null
+    return this.permissionsService.allPermissions ?? []
   }
 
   deactivateTotp() {

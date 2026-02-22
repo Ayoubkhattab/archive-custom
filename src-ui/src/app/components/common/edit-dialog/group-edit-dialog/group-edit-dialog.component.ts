@@ -12,6 +12,7 @@ import { Group } from 'src/app/data/group'
 import { GroupService } from 'src/app/services/rest/group.service'
 import { UserService } from 'src/app/services/rest/user.service'
 import { SettingsService } from 'src/app/services/settings.service'
+import { PermissionsService } from 'src/app/services/permissions.service'
 import { AuditHistoryComponent } from '../../audit-history/audit-history.component'
 import { TextComponent } from '../../input/text/text.component'
 import { PermissionsSelectComponent } from '../../permissions-select/permissions-select.component'
@@ -30,6 +31,7 @@ import { PermissionsSelectComponent } from '../../permissions-select/permissions
 })
 export class GroupEditDialogComponent extends EditDialogComponent<Group> implements OnInit {
   public historyEntries$: Observable<AuditLogEntry[]> = of([])
+  private permissionsService = inject(PermissionsService)
 
   constructor() {
     super()
@@ -43,6 +45,15 @@ export class GroupEditDialogComponent extends EditDialogComponent<Group> impleme
     if (this.object?.id) {
       this.historyEntries$ = (this.service as GroupService).getHistory(this.object.id)
     }
+  }
+
+  get currentUserIsSuperUser(): boolean {
+    return this.permissionsService.isSuperUser()
+  }
+
+  get editorPermissionsForSelect(): string[] | null {
+    if (this.currentUserIsSuperUser) return null
+    return this.permissionsService.allPermissions ?? []
   }
 
   getCreateTitle() {

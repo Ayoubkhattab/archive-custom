@@ -18,7 +18,9 @@
         }
         <div>
             <p class="ms-2 mb-0 text-break">{{toast.content}}</p>
-            @if (toast.error) {
+            <dd class="col-sm-9">{{ toast.error.status }} <em>{{ toast.error.statusText }}</em></dd>
+
+            @if (toast.error && isSuperUser) {
             <details class="ms-2">
                 <div class="mt-2 ms-n4 me-n2 small">
                 @if (isDetailedError(toast.error)) {

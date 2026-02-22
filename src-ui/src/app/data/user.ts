@@ -12,4 +12,5 @@ export interface User extends ObjectWithId {
   user_permissions?: string[]
   inherited_permissions?: string[]
   is_mfa_enabled?: boolean
+  created_by_id?: number
 }

@@ -47,6 +47,7 @@ from paperless.serialisers import PaperlessAuthTokenSerializer
 from paperless.serialisers import ProfileSerializer
 from paperless.serialisers import UserSerializer
 from paperless_ai.indexing import vector_store_file_exists
+from paperless.models import ApplicationConfiguration, UserOwnership, GroupOwnership
 
 
 class PaperlessObtainAuthTokenView(ObtainAuthToken):
@@ -120,21 +121,112 @@ class UserViewSet(ModelViewSet):
     filterset_class = UserFilterSet
     ordering_fields = ("username",)
 
-    def create(self, request, *args, **kwargs):
-        if not request.user.is_superuser and request.data.get("is_superuser") is True:
+    def _validate_privilege_escalation(self, request, existing_user=None):
+        """
+        Validate that a non-superuser is not escalating privileges beyond
+        what they themselves have. For updates, only NEWLY ADDED permissions
+        and groups are checked (existing ones are preserved).
+        Returns HttpResponseForbidden if violation detected, None otherwise.
+        """
+        if request.user.is_superuser:
+            return None
+
+        # Check is_superuser
+        if request.data.get("is_superuser") is True:
             return HttpResponseForbidden(
                 "Superuser status can only be granted by a superuser",
             )
+
+        # Check is_staff
+        if existing_user is None:
+            # CREATE: block if trying to set is_staff=True
+            if request.data.get("is_staff") is True:
+                return HttpResponseForbidden(
+                    "Staff status can only be granted by a superuser",
+                )
+        else:
+            # UPDATE: block only if CHANGING is_staff
+            if (
+                request.data.get("is_staff") is not None
+                and request.data.get("is_staff") != existing_user.is_staff
+            ):
+                return HttpResponseForbidden(
+                    "Staff status can only be changed by a superuser",
+                )
+
+        # Check user_permissions - only block ADDING permissions the requester doesn't have
+        requested_perms = set(request.data.get("user_permissions", []) or [])
+        if requested_perms:
+            if existing_user is not None:
+                current_perms = set(
+                    existing_user.user_permissions.values_list("codename", flat=True),
+                )
+                new_perms = requested_perms - current_perms
+            else:
+                new_perms = requested_perms
+
+            if new_perms:
+                my_codenames = {
+                    p.split(".")[-1] for p in request.user.get_all_permissions()
+                }
+                extra_perms = new_perms - my_codenames
+                if extra_perms:
+                    return HttpResponseForbidden(
+                        f"Cannot grant permissions you do not have: "
+                        f"{', '.join(sorted(extra_perms))}",
+                    )
+
+        # Check groups - only block ADDING groups the requester doesn't belong to
+        raw_groups = request.data.get("groups", []) or []
+        requested_groups = {int(g) for g in raw_groups}
+        if requested_groups:
+            if existing_user is not None:
+                current_groups = set(
+                    existing_user.groups.values_list("id", flat=True),
+                )
+                new_groups = requested_groups - current_groups
+            else:
+                new_groups = requested_groups
+
+            if new_groups:
+                my_group_ids = set(
+                    request.user.groups.values_list("id", flat=True),
+                )
+                extra_groups = new_groups - my_group_ids
+                if extra_groups:
+                    return HttpResponseForbidden(
+                        "Cannot assign groups you do not belong to",
+                    )
+
+        return None
+
+    def _check_user_ownership(self, request, user_to_modify):
+        if request.user.is_superuser:
+            return None
+        try:
+            if user_to_modify.ownership.created_by_id == request.user.id:
+                return None
+        except UserOwnership.DoesNotExist:
+            pass
+        return HttpResponseForbidden("You can only modify users you created")
+
+    def create(self, request, *args, **kwargs):
+        forbidden = self._validate_privilege_escalation(request, existing_user=None)
+        if forbidden:
+            return forbidden
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        if settings.AUDIT_LOG_ENABLED:
-            from auditlog.context import set_actor
-
-            with set_actor(self.request.user):
-                serializer.save()
-        else:
-            serializer.save()
+        # أولاً قم بإنشاء الـ user باستخدام الطريقة الافتراضية
+        super().perform_create(serializer)
+        
+        # ثم قم بإنشاء الـ ownership record
+        UserOwnership.objects.create(
+            user=serializer.instance, 
+            created_by=self.request.user
+        )
+        
+        # audit log code موجود مسبقاً في super().perform_create
 
     def perform_update(self, serializer):
         if settings.AUDIT_LOG_ENABLED:
@@ -145,20 +237,48 @@ class UserViewSet(ModelViewSet):
         else:
             serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        user_to_delete = self.get_object()
+        
+        # منع حذف superuser إلا بواسطة superuser آخر
+        if user_to_delete.is_superuser and not request.user.is_superuser:
+            return HttpResponseForbidden(
+                "Superuser accounts can only be deleted by other superusers"
+            )
+        
+        # منع المستخدم من حذف نفسه
+        if user_to_delete.id == request.user.id:
+            return HttpResponseForbidden("Users cannot delete their own accounts")
+        
+        # Check user ownership
+        forbidden = self._check_user_ownership(request, user_to_delete)
+        if forbidden:
+            return forbidden
+        
+        return super().destroy(request, *args, **kwargs)
+
     def update(self, request, *args, **kwargs):
         user_to_update: User = self.get_object()
+
+        # Block non-superusers from editing superuser accounts entirely
         if not request.user.is_superuser and user_to_update.is_superuser:
             return HttpResponseForbidden(
                 "Superusers can only be modified by other superusers",
             )
-        if (
-            not request.user.is_superuser
-            and request.data.get("is_superuser") is not None
-            and request.data.get("is_superuser") != user_to_update.is_superuser
-        ):
-            return HttpResponseForbidden(
-                "Superuser status can only be changed by a superuser",
-            )
+
+        # Validate privilege escalation (is_superuser, is_staff, permissions, groups)
+        forbidden = self._validate_privilege_escalation(
+            request,
+            existing_user=user_to_update,
+        )
+        if forbidden:
+            return forbidden
+        
+        # Check user ownership
+        forbidden = self._check_user_ownership(request, user_to_update)
+        if forbidden:
+            return forbidden
+
         return super().update(request, *args, **kwargs)
 
     @extend_schema(
@@ -232,14 +352,68 @@ class GroupViewSet(ModelViewSet):
     filterset_class = GroupFilterSet
     ordering_fields = ("name",)
 
-    def perform_create(self, serializer):
-        if settings.AUDIT_LOG_ENABLED:
-            from auditlog.context import set_actor
-
-            with set_actor(self.request.user):
-                serializer.save()
+    def _validate_group_permissions(self, request, existing_group=None):
+        if request.user.is_superuser:
+            return None
+        requested_perms = set(request.data.get("permissions", []) or [])
+        if not requested_perms:
+            return None
+        if existing_group is not None:
+            current_perms = set(
+                existing_group.permissions.values_list("codename", flat=True)
+            )
+            new_perms = requested_perms - current_perms
         else:
-            serializer.save()
+            new_perms = requested_perms
+        if new_perms:
+            my_codenames = {
+                p.split(".")[-1] for p in request.user.get_all_permissions()
+            }
+            extra_perms = new_perms - my_codenames
+            if extra_perms:
+                return HttpResponseForbidden(
+                    f"Cannot add permissions you do not have: "
+                    f"{', '.join(sorted(extra_perms))}"
+                )
+        return None
+
+    def _check_group_ownership(self, request, group):
+        if request.user.is_superuser:
+            return None
+        try:
+            if group.ownership.created_by_id == request.user.id:
+                return None
+        except GroupOwnership.DoesNotExist:
+            pass
+        return HttpResponseForbidden("You can only modify groups you created")
+
+    def create(self, request, *args, **kwargs):
+        forbidden = self._validate_group_permissions(request)
+        if forbidden:
+            return forbidden
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        # أولاً قم بإنشاء الـ group باستخدام الطريقة الافتراضية
+        super().perform_create(serializer)
+        
+        # ثم قم بإنشاء الـ ownership record
+        GroupOwnership.objects.create(
+            group=serializer.instance, 
+            created_by=self.request.user
+        )
+        
+        # audit log code موجود مسبقاً في super().perform_create
+
+    def update(self, request, *args, **kwargs):
+        group = self.get_object()
+        forbidden = self._check_group_ownership(request, group)
+        if forbidden:
+            return forbidden
+        forbidden = self._validate_group_permissions(request, existing_group=group)
+        if forbidden:
+            return forbidden
+        return super().update(request, *args, **kwargs)
 
     def perform_update(self, serializer):
         if settings.AUDIT_LOG_ENABLED:
@@ -249,6 +423,13 @@ class GroupViewSet(ModelViewSet):
                 serializer.save()
         else:
             serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        group = self.get_object()
+        forbidden = self._check_group_ownership(request, group)
+        if forbidden:
+            return forbidden
+        return super().destroy(request, *args, **kwargs)
 
     @action(methods=["get"], detail=True, name="Group Audit Trail", filter_backends=[])
     def history(self, request, pk=None):

@@ -35,11 +35,15 @@ export enum PermissionType {
   providedIn: 'root',
 })
 export class PermissionsService {
-  private permissions: string[]
+  private _permissions: string[]
   private currentUser: User
 
+  public get allPermissions(): string[] {
+    return this._permissions
+  }
+
   public initialize(permissions: string[], currentUser: User) {
-    this.permissions = permissions
+    this._permissions = permissions
     this.currentUser = currentUser
   }
 
@@ -49,7 +53,7 @@ export class PermissionsService {
   ): boolean {
     return (
       this.currentUser?.is_superuser ||
-      this.permissions?.includes(this.getPermissionCode(action, type))
+      this._permissions?.includes(this.getPermissionCode(action, type))
     )
   }
 

@@ -97,6 +97,14 @@ export class UsersAndGroupsComponent
   }
 
   editUser(user: User = null) {
+    // إضافة تحقق إضافي
+    if (user && user.is_superuser && !this.permissionsService.isSuperUser()) {
+      this.toastService.showError(
+        $localize`Cannot edit superuser accounts`
+      );
+      return;
+    }
+    
     var modal = this.modalService.open(UserEditDialogComponent, {
       backdrop: 'static',
       size: 'xl',
@@ -137,6 +145,14 @@ export class UsersAndGroupsComponent
   }
 
   deleteUser(user: User) {
+    // إضافة تحقق إضافي
+    if (user.is_superuser && !this.permissionsService.isSuperUser()) {
+      this.toastService.showError(
+        $localize`Cannot delete superuser accounts`
+      );
+      return;
+    }
+    
     let modal = this.modalService.open(ConfirmDialogComponent, {
       backdrop: 'static',
     })

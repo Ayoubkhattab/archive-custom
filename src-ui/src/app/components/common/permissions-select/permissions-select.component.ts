@@ -59,6 +59,16 @@ export class PermissionsSelectComponent
   typesWithAllActions: Set<string> = new Set()
 
   _inheritedPermissions: string[] = []
+  private _editorPermissions: string[] | null = null
+  private _lockedPermissions: string[] = []
+  lockedWarning: string = $localize`Requires higher privilege level`
+
+  @Input()
+  set editorPermissions(perms: string[] | null) {
+    this._editorPermissions = perms
+    this._computeLockedPermissions()
+    this.updateDisabledStates()
+  }
 
   @Input()
   set inheritedPermissions(inherited: string[]) {
@@ -99,6 +109,7 @@ export class PermissionsSelectComponent
     }
 
     this.permissions = permissions ?? []
+    this._computeLockedPermissions()
     const allPerms = this._inheritedPermissions.concat(this.permissions)
 
     allPerms.forEach((permissionStr) => {
@@ -171,7 +182,10 @@ export class PermissionsSelectComponent
       })
 
       this.onChange(
-        permissions.filter((p) => !this._inheritedPermissions.includes(p))
+        [
+          ...permissions.filter((p) => !this._inheritedPermissions.includes(p)),
+          ...this._lockedPermissions,
+        ]
       )
     })
   }
@@ -212,13 +226,47 @@ export class PermissionsSelectComponent
     }
   }
 
+  isLocked(typeKey: string, actionKey: string): boolean {
+    if (this._editorPermissions === null) return false
+    const permCode = this.permissionsService.getPermissionCode(
+      PermissionAction[actionKey],
+      PermissionType[typeKey]
+    )
+    return !this._editorPermissions.includes(permCode)
+  }
+
+  isAnyLocked(typeKey: string): boolean {
+    if (this._editorPermissions === null) return false
+    return Object.keys(PermissionAction).some((action) => this.isLocked(typeKey, action))
+  }
+
+  private _computeLockedPermissions(): void {
+    if (this._editorPermissions === null || !this.permissions?.length) {
+      this._lockedPermissions = []
+      return
+    }
+    this._lockedPermissions = this.permissions.filter(
+      (p) =>
+        !this._editorPermissions.includes(p) &&
+        !this._inheritedPermissions.includes(p)
+    )
+  }
+
   updateDisabledStates() {
     this.allowedTypes.forEach((type) => {
       const control = this.form.get(type)
-      let actionControl: AbstractControl
       for (const action in PermissionAction) {
-        actionControl = control.get(action)
-        this.isInherited(type, action) || this.disabled
+        const actionControl = control.get(action)
+        const permCode = this.permissionsService.getPermissionCode(
+          PermissionAction[action],
+          PermissionType[type]
+        )
+        const isInheritedPerm = this.isInherited(type, action)
+        const isLockedPerm =
+          this._editorPermissions !== null &&
+          !this._editorPermissions.includes(permCode)
+
+        isInheritedPerm || isLockedPerm || this.disabled
           ? actionControl.disable()
           : actionControl.enable()
       }
