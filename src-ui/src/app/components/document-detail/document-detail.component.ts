@@ -181,6 +181,7 @@ export enum ZoomSetting {
     NgxBootstrapIconsModule,
     PdfViewerModule,
     TextAreaComponent,
+    PasswordRemovalConfirmDialogComponent,
   ],
 })
 export class DocumentDetailComponent
