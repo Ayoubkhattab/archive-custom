@@ -48,10 +48,10 @@
           }
         </div>
         <div class="col">
-          <pngx-permissions-select i18n-title title="Permissions" formControlName="user_permissions" [error]="error?.user_permissions" [inheritedPermissions]="inheritedPermissions"></pngx-permissions-select>
+          <pngx-permissions-select i18n-title title="Permissions" formControlName="user_permissions" [error]="error?.user_permissions" [inheritedPermissions]="inheritedPermissions" [editorPermissions]="editorPermissionsForSelect"></pngx-permissions-select>
         </div>
       </div>
-      @if (object?.id) {
+      @if (object?.id && currentUserIsSuperUser) {
         <div class="col-12 mt-3">
           <h6 i18n>Audit History</h6>
           <div style="max-height: 250px; overflow-y: auto;">

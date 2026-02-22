@@ -8,6 +8,7 @@ import {
 import { NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { interval, take } from 'rxjs'
 import { Toast } from 'src/app/services/toast.service'
+import { PermissionsService } from 'src/app/services/permissions.service'
 
 @Component({
   selector: 'pngx-toast',
@@ -22,12 +23,17 @@ import { Toast } from 'src/app/services/toast.service'
 })
 export class ToastComponent {
   private clipboard = inject(Clipboard)
+  private permissionsService = inject(PermissionsService)
 
   @Input() toast: Toast
 
   @Input() autohide: boolean = true
 
   @Output() hidden: EventEmitter<Toast> = new EventEmitter<Toast>()
+
+  get isSuperUser(): boolean {
+    return this.permissionsService.isSuperUser() ?? false
+  }
 
   @Output() closed: EventEmitter<Toast> = new EventEmitter<Toast>()
 

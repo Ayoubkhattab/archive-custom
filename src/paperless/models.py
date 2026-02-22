@@ -2,6 +2,7 @@ from django.core.validators import FileExtensionValidator
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import User, Group
 
 DEFAULT_SINGLETON_INSTANCE_ID = 1
 
@@ -338,3 +339,31 @@ class ApplicationConfiguration(AbstractSingletonModel):
 
     def __str__(self) -> str:  # pragma: no cover
         return "ApplicationConfiguration"
+
+
+class UserOwnership(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='ownership'
+    )
+    created_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL,
+        related_name='created_users'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'paperless'
+
+
+class GroupOwnership(models.Model):
+    group = models.OneToOneField(
+        Group, on_delete=models.CASCADE, related_name='ownership'
+    )
+    created_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL,
+        related_name='created_groups'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'paperless'

@@ -78,10 +78,17 @@ class UserSerializer(PasswordValidationMixin, serializers.ModelSerializer):
     )
     inherited_permissions = serializers.SerializerMethodField()
     is_mfa_enabled = serializers.SerializerMethodField()
+    created_by_id = serializers.SerializerMethodField(read_only=True)
 
     def get_is_mfa_enabled(self, user: User) -> bool:
         mfa_adapter = get_mfa_adapter()
         return mfa_adapter.is_mfa_enabled(user)
+
+    def get_created_by_id(self, obj):
+        try:
+            return obj.ownership.created_by_id
+        except Exception:
+            return None
 
     class Meta:
         model = User
@@ -100,10 +107,30 @@ class UserSerializer(PasswordValidationMixin, serializers.ModelSerializer):
             "user_permissions",
             "inherited_permissions",
             "is_mfa_enabled",
+            "created_by_id",
         )
 
     def get_inherited_permissions(self, obj) -> list[str]:
         return obj.get_group_permissions()
+
+    def validate_is_superuser(self, value):
+        request = self.context.get('request')
+        if request and not request.user.is_superuser and value:
+            raise serializers.ValidationError(
+                "Superuser status can only be granted by a superuser"
+            )
+        return value
+
+    def validate_is_staff(self, value):
+        request = self.context.get('request')
+        if request and not request.user.is_superuser and value:
+            # Allow if instance already has is_staff=True (no change)
+            if self.instance and self.instance.is_staff:
+                return value
+            raise serializers.ValidationError(
+                "Staff status can only be granted by a superuser"
+            )
+        return value
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
@@ -142,6 +169,13 @@ class GroupSerializer(serializers.ModelSerializer):
         queryset=Permission.objects.exclude(content_type__app_label="admin"),
         slug_field="codename",
     )
+    created_by_id = serializers.SerializerMethodField(read_only=True)
+
+    def get_created_by_id(self, obj):
+        try:
+            return obj.ownership.created_by_id
+        except Exception:
+            return None
 
     class Meta:
         model = Group
@@ -149,6 +183,7 @@ class GroupSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "permissions",
+            "created_by_id",
         )
 
 
