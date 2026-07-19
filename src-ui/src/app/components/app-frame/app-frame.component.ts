@@ -169,6 +169,24 @@ export class AppFrameComponent
     )
   }
 
+  get darkModeEnabled(): boolean {
+    return this.settingsService.get(SETTINGS_KEYS.DARK_MODE_ENABLED)
+  }
+
+  darkModeToggleLabelLight = $localize`Light mode`
+  darkModeToggleLabelDark = $localize`Dark mode`
+
+  toggleDarkMode(): void {
+    const enabled = !this.darkModeEnabled
+    this.settingsService.set(SETTINGS_KEYS.DARK_MODE_USE_SYSTEM, false)
+    this.settingsService.set(SETTINGS_KEYS.DARK_MODE_ENABLED, enabled)
+    this.settingsService.updateAppearanceSettings(false, enabled)
+    this.settingsService
+      .storeSettings()
+      .pipe(first())
+      .subscribe()
+  }
+
   get slimSidebarEnabled(): boolean {
     return this.settingsService.get(SETTINGS_KEYS.SLIM_SIDEBAR)
   }

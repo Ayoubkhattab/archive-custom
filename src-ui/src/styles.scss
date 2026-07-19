@@ -1,7 +1,7 @@
 @use "sass:meta";
 // bs variables
 $grid-gutter-width: 1.5rem;
-$border-radius: .375rem;
+$border-radius: .625rem;
 $btn-border-width: var(--bs-border-width);
 
 $form-file-button-bg: var(--bs-body-bg);
@@ -63,15 +63,139 @@ $grid-breakpoints: (
   }
 }
 
-// Paperless-ngx styles
+// أرشيف المعلومات styles
+
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("assets/fonts/ibm-plex-sans-arabic-300.ttf") format("truetype");
+}
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/ibm-plex-sans-arabic-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/ibm-plex-sans-arabic-500.ttf") format("truetype");
+}
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/ibm-plex-sans-arabic-600.ttf") format("truetype");
+}
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/ibm-plex-sans-arabic-700.ttf") format("truetype");
+}
+
+:root {
+  --pngx-font-family: "IBM Plex Sans Arabic", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+html, body {
+  font-family: var(--pngx-font-family);
+}
+
 body {
   --pngx-body-font-size: 0.875rem;
   font-size: var(--pngx-body-font-size);
   height: 100vh;
+  letter-spacing: 0;
 }
 
 * {
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+// Modernized surfaces: softer corners + subtle elevation
+.card,
+.modal-content,
+.dropdown-menu,
+.list-group-item:first-child,
+.list-group-item:last-child,
+.btn,
+.form-control,
+.form-select,
+input,
+textarea {
+  border-radius: var(--bs-border-radius, #{$border-radius});
+}
+
+.card,
+.modal-content {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08));
+}
+
+.btn {
+  font-weight: 500;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--pngx-bg-alt, rgba(0, 0, 0, 0.2));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// RTL/LTR: keep numeric, date and code-like content visually correct
+// inside the RTL layout (IDs, dates, file sizes, table sorting arrows, etc.)
+[dir="rtl"] {
+  table td.date,
+  table td .date,
+  .table td,
+  .badge,
+  time,
+  input[type="number"],
+  input[type="date"],
+  code,
+  .text-monospace,
+  .doc-count,
+  .filesize {
+    unicode-bidi: plaintext;
+  }
+
+  table th,
+  table td {
+    text-align: start;
+  }
+
+  .navbar-brand,
+  .sidebar .nav-link {
+    text-align: start;
+  }
+}
+
+// Theme toggle button in navbar
+.theme-toggle {
+  color: var(--pngx-primary-text-contrast);
+  opacity: 0.9;
+
+  &:hover {
+    opacity: 1;
+  }
 }
 
 @media(min-width: 768px) {

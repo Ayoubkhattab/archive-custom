@@ -4,7 +4,6 @@
 FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /app
-COPY src-ui/ .
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -12,9 +11,16 @@ RUN apt-get update && \
       libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev && \
     rm -rf /var/lib/apt/lists/* && \
     corepack enable && \
-    corepack prepare pnpm@10.17.1 --activate && \
-    pnpm install --frozen-lockfile && \
-    npx ng build --output-path /frontend-build/ --configuration production
+    corepack prepare pnpm@10.17.1 --activate
+
+# Install dependencies first, in their own layer, so source-only edits
+# (the common case) don't invalidate the pnpm install layer.
+COPY src-ui/package.json src-ui/pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+COPY src-ui/ .
+RUN npx ng build --output-path /frontend-build/ --configuration production
 
 # ─── Stage 2: Production Image ─────────────────────────────────────────────────
 FROM ghcr.io/paperless-ngx/paperless-ngx:latest

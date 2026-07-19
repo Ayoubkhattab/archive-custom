@@ -37,6 +37,7 @@ from django.db.models import Sum
 from django.db.models import When
 from django.db.models.functions import Length
 from django.db.models.functions import Lower
+from django.db.models.functions import TruncDate
 from django.db.models.manager import Manager
 from django.http import FileResponse
 from django.http import Http404
@@ -2493,6 +2494,38 @@ class StatisticsView(GenericAPIView):
             "archive_serial_number__max",
         )
 
+        # Documents added per day, last 14 days (for activity chart)
+        since = timezone.now() - timezone.timedelta(days=13)
+        added_per_day_qs = (
+            documents.filter(added__date__gte=since.date())
+            .annotate(day=TruncDate("added"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+        added_per_day_map = {
+            entry["day"].isoformat(): entry["count"] for entry in added_per_day_qs
+        }
+        documents_added_last_14_days = [
+            {
+                "date": (since.date() + timezone.timedelta(days=i)).isoformat(),
+                "count": added_per_day_map.get(
+                    (since.date() + timezone.timedelta(days=i)).isoformat(),
+                    0,
+                ),
+            }
+            for i in range(14)
+        ]
+
+        # Task status breakdown, last 30 days (for activity/progress chart)
+        task_since = timezone.now() - timezone.timedelta(days=30)
+        task_status_qs = (
+            PaperlessTask.objects.filter(date_created__gte=task_since)
+            .values("status")
+            .annotate(count=Count("id"))
+        )
+        task_status_counts = {entry["status"]: entry["count"] for entry in task_status_qs}
+
         return Response(
             {
                 "documents_total": documents_total,
@@ -2510,6 +2543,8 @@ class StatisticsView(GenericAPIView):
                 "document_type_count": document_type_count,
                 "storage_path_count": storage_path_count,
                 "current_asn": current_asn,
+                "documents_added_last_14_days": documents_added_last_14_days,
+                "task_status_counts": task_status_counts,
             },
         )
 

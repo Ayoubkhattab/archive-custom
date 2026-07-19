@@ -33,6 +33,10 @@
   --pngx-accent: #988561;
   --pngx-success-darken-10: #988561;
 
+  // Danger = Deep Umber (distinct from the Golden Wheat accent above)
+  --bs-danger: #6b1f2a;
+  --bs-danger-rgb: 107, 31, 42;
+
   --pngx-focus-alpha: 0.3;
   --pngx-toast-max-width: 340px;
 
@@ -81,8 +85,8 @@ $text-color-dark-bg-accent: #edebe0;
 
   --pngx-body-color-accent: #b9a779;
 
-  --bs-danger: #988561;
-  --bs-danger-rgb: 152, 133, 97;
+  --bs-danger: #b23a49;
+  --bs-danger-rgb: 178, 58, 73;
 
   --bs-body-bg: #002623;
   --bs-body-bg-rgb: 0, 38, 35;

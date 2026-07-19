@@ -29,6 +29,17 @@
     </div>
   </div>
   <ul ngbNav class="order-sm-3">
+    <li class="nav-item">
+      <button type="button" class="btn btn-link nav-link theme-toggle" (click)="toggleDarkMode()"
+        [attr.aria-label]="darkModeEnabled ? darkModeToggleLabelLight : darkModeToggleLabelDark"
+        [title]="darkModeEnabled ? darkModeToggleLabelLight : darkModeToggleLabelDark">
+        @if (darkModeEnabled) {
+          <i-bs width="1.2em" height="1.2em" name="sun"></i-bs>
+        } @else {
+          <i-bs width="1.2em" height="1.2em" name="moon-stars"></i-bs>
+        }
+      </button>
+    </li>
     @if (aiEnabled) {
       <pngx-chat></pngx-chat>
     }
@@ -302,12 +313,12 @@
                 @if (!settingsService.updateCheckingIsSet || appRemoteVersion) {
                   <div class="version-check">
                     <ng-template #updateAvailablePopContent>
-                      <span class="small">Paperless-ngx {{ appRemoteVersion.version }} <ng-container i18n>is
+                      <span class="small">أرشيف المعلومات {{ appRemoteVersion.version }} <ng-container i18n>is
                           available.</ng-container><br /><ng-container i18n>Click to view.</ng-container></span>
                     </ng-template>
                     <ng-template #updateCheckingNotEnabledPopContent>
                       <p class="small mb-2">
-                        <ng-container i18n>Paperless-ngx can automatically check for updates</ng-container>
+                        <ng-container i18n>أرشيف المعلومات can automatically check for updates</ng-container>
                       </p>
                       <div class="btn-group btn-group-xs flex-fill w-100">
                         <button class="btn btn-outline-primary" (click)="setUpdateChecking(true)">Enable</button>

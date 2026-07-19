@@ -1,0 +1,26 @@
+<pngx-widget-frame title="Activity &amp; progress" i18n-title [loading]="loading" [cardless]="false">
+  <ng-container content>
+    @if (loading) {
+      <div class="placeholder-glow">
+        <div class="placeholder w-100" style="height: 160px;"></div>
+      </div>
+    } @else {
+      <div class="mb-4">
+        <h6 class="small text-muted mb-2" i18n>Documents added &middot; last 14 days</h6>
+        <div class="chart-container chart-trend">
+          <canvas #trendCanvas></canvas>
+        </div>
+      </div>
+      <div>
+        <h6 class="small text-muted mb-2" i18n>Task activity &middot; last 30 days</h6>
+        @if (totalTasksTracked > 0) {
+          <div class="chart-container chart-tasks">
+            <canvas #taskCanvas></canvas>
+          </div>
+        } @else {
+          <p class="small text-muted mb-0" i18n>No task activity recorded yet.</p>
+        }
+      </div>
+    }
+  </ng-container>
+</pngx-widget-frame>

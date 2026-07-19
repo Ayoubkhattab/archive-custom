@@ -2,15 +2,15 @@
 
 {% load static i18n %}
 
-<html lang="en" data-bs-theme="auto">
+<html lang="ar" data-bs-theme="auto">
 <head>
 	<meta charset="utf-8">
-	<title>archive</title>
+	<title>أرشيف المعلومات</title>
 	<base href="{% url 'base' %}">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="cookie_prefix" content="{{cookie_prefix}}">
 	<meta name="robots" content="noindex,nofollow">
-	<meta name="author" content="The Paperless-ngx Team">
+	<meta name="author" content="أرشيف المعلومات">
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
 	<link rel="manifest" href="{% static webmanifest %}">
 	<link rel="stylesheet" href="{% static styles_css %}">
@@ -57,8 +57,8 @@
 		</style>
 		<div class="bg-light w-100 h-100 d-flex align-items-center">
 			<div class="app-loader align-self-center text-center mx-auto">
-				{% include "paperless-ngx/snippets/svg_logo.html" with extra_attrs="class='logo mb-2' height='6em'" %}
-				<h6 class="m-auto">{% translate "Paperless-ngx is loading..." %}</h6>
+				<img src="{% static 'paperless/img/logo.jpg' %}" class="logo mb-2" height="96" alt="أرشيف المعلومات" />
+				<h6 class="m-auto">{% translate "أرشيف المعلومات جاري التحميل..." %}</h6>
  			</div>
 		</div>
 		<script type="text/javascript">{# Pass Django messages to Angular frontend #}

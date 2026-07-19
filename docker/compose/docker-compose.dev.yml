@@ -92,8 +92,9 @@ services:
       - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
 
       # Admin user (created automatically on first run)
-      - PAPERLESS_ADMIN_USER=admin
-      - PAPERLESS_ADMIN_PASSWORD=admin123
+      - PAPERLESS_ADMIN_USER=${PAPERLESS_ADMIN_USER:-admin}
+      - PAPERLESS_ADMIN_PASSWORD=${PAPERLESS_ADMIN_PASSWORD:-admin123}
+      - PAPERLESS_ADMIN_EMAIL=${PAPERLESS_ADMIN_EMAIL:-admin@example.com}
 
       # Debug mode
       - DEBUG=true
