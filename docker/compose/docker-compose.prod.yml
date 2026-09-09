@@ -13,7 +13,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=${DB_USER:-paperless}
-      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_PASSWORD=${DB_PASS:?DB_PASS must be set in .env.prod}
       - POSTGRES_DB=${DB_NAME:-paperless}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -23,6 +23,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    security_opt:
+      - no-new-privileges:true
 
   # ── Message Broker ────────────────────────────────────────────────────────────
   broker:
@@ -35,6 +37,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
 
   # ── Web Server ────────────────────────────────────────────────────────────────
   webserver:
@@ -50,6 +54,8 @@ services:
       postgres:
         condition: service_healthy
     ports:
+      # Granian listens on 8000 inside the container (see entrypoint-prod.sh);
+      # PAPERLESS_PORT only chooses the published host port.
       - "${PAPERLESS_PORT:-8000}:8000"
     volumes:
       - paperless_data:/usr/src/paperless/data
@@ -60,7 +66,7 @@ services:
       - DJANGO_SETTINGS_MODULE=paperless.settings
       - PAPERLESS_DBHOST=postgres
       - PAPERLESS_DBUSER=${DB_USER:-paperless}
-      - PAPERLESS_DBPASS=${DB_PASS}
+      - PAPERLESS_DBPASS=${DB_PASS:?DB_PASS must be set in .env.prod}
       - PAPERLESS_DBNAME=${DB_NAME:-paperless}
       - PAPERLESS_REDIS=redis://broker:6379/0
       - PAPERLESS_DATA_DIR=/usr/src/paperless/data
@@ -69,11 +75,11 @@ services:
       - PAPERLESS_STATICDIR=/usr/src/paperless/static
       - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
       - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
-      - PAPERLESS_SECRET_KEY=${SECRET_KEY}
-      - PAPERLESS_URL=${PAPERLESS_URL:-http://localhost:8000}
+      - PAPERLESS_SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env.prod}
+      - PAPERLESS_URL=${PAPERLESS_URL:-http://localhost:8083}
       - PAPERLESS_ALLOWED_HOSTS=${PAPERLESS_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      - PAPERLESS_CORS_ALLOWED_HOSTS=${PAPERLESS_URL:-http://localhost:8000}
-      - PAPERLESS_CSRF_TRUSTED_ORIGINS=${PAPERLESS_URL:-http://localhost:8000}
+      - PAPERLESS_CORS_ALLOWED_HOSTS=${PAPERLESS_URL:-http://localhost:8083}
+      - PAPERLESS_CSRF_TRUSTED_ORIGINS=${PAPERLESS_URL:-http://localhost:8083}
       - PAPERLESS_OCR_LANGUAGE=ara+eng
       - PAPERLESS_OCR_LANGUAGES=ara
       - PAPERLESS_OCR_DESKEW=true
@@ -86,11 +92,12 @@ services:
       - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
       - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
       - PAPERLESS_ADMIN_USER=${ADMIN_USER:-admin}
-      - PAPERLESS_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - PAPERLESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env.prod}
       - PAPERLESS_AI_ENABLED=${AI_ENABLED:-yes}
       - PAPERLESS_AI_LLM_BACKEND=${AI_BACKEND:-ollama}
       - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-qwen2:0.5b}
       - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
+      - PAPERLESS_AI_LLM_EMBEDDING_BACKEND=${AI_EMBEDDING_BACKEND:-huggingface}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
       - PAPERLESS_LOGGING_LEVEL=WARNING
@@ -103,6 +110,8 @@ services:
     # Allows containers to reach Ollama running on the Ubuntu host
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
 
   # ── Celery Worker ─────────────────────────────────────────────────────────────
   celery:
@@ -125,7 +134,7 @@ services:
       - DJANGO_SETTINGS_MODULE=paperless.settings
       - PAPERLESS_DBHOST=postgres
       - PAPERLESS_DBUSER=${DB_USER:-paperless}
-      - PAPERLESS_DBPASS=${DB_PASS}
+      - PAPERLESS_DBPASS=${DB_PASS:?DB_PASS must be set in .env.prod}
       - PAPERLESS_DBNAME=${DB_NAME:-paperless}
       - PAPERLESS_REDIS=redis://broker:6379/0
       - PAPERLESS_DATA_DIR=/usr/src/paperless/data
@@ -134,7 +143,7 @@ services:
       - PAPERLESS_STATICDIR=/usr/src/paperless/static
       - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
       - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
-      - PAPERLESS_SECRET_KEY=${SECRET_KEY}
+      - PAPERLESS_SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env.prod}
       - PAPERLESS_OCR_LANGUAGE=ara+eng
       - PAPERLESS_OCR_LANGUAGES=ara
       - PAPERLESS_OCR_DESKEW=true
@@ -150,10 +159,13 @@ services:
       - PAPERLESS_AI_LLM_BACKEND=${AI_BACKEND:-ollama}
       - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-qwen2:0.5b}
       - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
+      - PAPERLESS_AI_LLM_EMBEDDING_BACKEND=${AI_EMBEDDING_BACKEND:-huggingface}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
 
   # ── Celery Beat (Scheduler) ───────────────────────────────────────────────────
   celery-beat:
@@ -174,7 +186,7 @@ services:
       - DJANGO_SETTINGS_MODULE=paperless.settings
       - PAPERLESS_DBHOST=postgres
       - PAPERLESS_DBUSER=${DB_USER:-paperless}
-      - PAPERLESS_DBPASS=${DB_PASS}
+      - PAPERLESS_DBPASS=${DB_PASS:?DB_PASS must be set in .env.prod}
       - PAPERLESS_DBNAME=${DB_NAME:-paperless}
       - PAPERLESS_REDIS=redis://broker:6379/0
       - PAPERLESS_DATA_DIR=/usr/src/paperless/data
@@ -183,13 +195,15 @@ services:
       - PAPERLESS_STATICDIR=/usr/src/paperless/static
       - PAPERLESS_EXPORT_DIR=/usr/src/paperless/export
       - PAPERLESS_SCRATCH_DIR=/usr/src/paperless/data/scratch
-      - PAPERLESS_SECRET_KEY=${SECRET_KEY}
+      - PAPERLESS_SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env.prod}
       - PAPERLESS_TIME_ZONE=${TZ:-Asia/Riyadh}
       - PAPERLESS_TIKA_ENABLED=1
       - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
       - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
       - DEBUG=false
       - PAPERLESS_DEBUG=false
+    security_opt:
+      - no-new-privileges:true
 
   # ── Document Conversion ───────────────────────────────────────────────────────
   gotenberg:
@@ -199,10 +213,14 @@ services:
       - "gotenberg"
       - "--chromium-disable-javascript=true"
       - "--chromium-allow-list=file:///tmp/.*"
+    security_opt:
+      - no-new-privileges:true
 
   tika:
-    image: docker.io/apache/tika:latest
+    image: docker.io/apache/tika:3.2.2.0
     restart: always
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   postgres_data:

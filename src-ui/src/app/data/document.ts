@@ -159,6 +159,28 @@ export interface Document extends ObjectWithPermissions {
 
   page_count?: number
 
+  // Official correspondence routing
+  sender?: number
+
+  recipient?: number
+
+  classification?: number
+
+  diwan_number?: string
+
+  sent_date?: string // Date
+
+  internal_closed_date?: string // Date
+
+  returned_date?: string // Date
+
+  // Read-only, computed by the backend
+  turnaround_days?: number
+
+  bottleneck_days?: number
+
+  is_awaiting_return?: boolean
+
   // Frontend only
   __changedFields?: string[]
 }

@@ -192,22 +192,33 @@ def set_permissions_for_object(permissions: dict, object, *, merge: bool = False
         )
 
 
-def get_document_count_filter_for_user(user):
+def get_document_count_filter_for_user(user, relation: str = "documents"):
     """
     Return the Q object used to filter document counts for the given user.
+
+    ``relation`` is the reverse accessor to count over, which lets the same
+    visibility rules be reused for relations other than the default
+    ``documents`` one (e.g. ``sent_documents`` / ``received_documents``).
     """
 
     if user is None or not getattr(user, "is_authenticated", False):
-        return Q(documents__deleted_at__isnull=True, documents__owner__isnull=True)
+        return Q(
+            **{
+                f"{relation}__deleted_at__isnull": True,
+                f"{relation}__owner__isnull": True,
+            },
+        )
     if getattr(user, "is_superuser", False):
-        return Q(documents__deleted_at__isnull=True)
+        return Q(**{f"{relation}__deleted_at__isnull": True})
     return Q(
-        documents__deleted_at__isnull=True,
-        documents__id__in=get_objects_for_user_owner_aware(
-            user,
-            "documents.view_document",
-            Document,
-        ).values_list("id", flat=True),
+        **{
+            f"{relation}__deleted_at__isnull": True,
+            f"{relation}__id__in": get_objects_for_user_owner_aware(
+                user,
+                "documents.view_document",
+                Document,
+            ).values_list("id", flat=True),
+        },
     )
 
 

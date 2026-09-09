@@ -6,7 +6,13 @@ import {
   moveItemInArray,
 } from '@angular/cdk/drag-drop'
 import { NgClass } from '@angular/common'
-import { Component, HostListener, inject, OnInit } from '@angular/core'
+import {
+  Component,
+  HostListener,
+  inject,
+  OnInit,
+  ViewChild,
+} from '@angular/core'
 import { ActivatedRoute, Router, RouterModule } from '@angular/router'
 import {
   NgbCollapseModule,
@@ -167,6 +173,13 @@ export class AppFrameComponent
         PermissionType.UISettings
       )
     )
+  }
+
+  @ViewChild('chatWidget') private chatWidget?: ChatComponent
+
+  openChat(): void {
+    this.closeMenu()
+    this.chatWidget?.open()
   }
 
   get darkModeEnabled(): boolean {

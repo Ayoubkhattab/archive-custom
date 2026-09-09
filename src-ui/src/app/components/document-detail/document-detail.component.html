@@ -65,19 +65,20 @@
         <i-bs width="1em" height="1em" name="diagram-3"></i-bs>&nbsp;<span i18n>More like this</span>
       </button>
 
-      <!--
-        AI Action Dropdwon btn disabled in documents details 
-      <button ngbDropdownItem (click)="aiSuggest()" [disabled]="!userCanEdit || !userIsOwner">
-        <i-bs width="1em" height="1em" name="cpu"></i-bs>&nbsp;<span i18n>AI Suggest</span>
-      </button>
+      @if (aiEnabled) {
+        <div class="dropdown-divider"></div>
+        <button ngbDropdownItem (click)="aiSuggest()" [disabled]="!userCanEdit || !userIsOwner">
+          <i-bs width="1em" height="1em" name="cpu"></i-bs>&nbsp;<span i18n>AI Suggest</span>
+        </button>
 
-      <button ngbDropdownItem (click)="aiChat()" [disabled]="!userCanEdit || !userIsOwner">
-        <i-bs width="1em" height="1em" name="chat-dots"></i-bs>&nbsp;<span i18n>AI Chat</span>
-      </button>
+        <button ngbDropdownItem (click)="aiChat()" [disabled]="!userCanEdit || !userIsOwner">
+          <i-bs width="1em" height="1em" name="chat-dots"></i-bs>&nbsp;<span i18n>AI Chat</span>
+        </button>
 
-      <button ngbDropdownItem (click)="aiClassify()" [disabled]="!userCanEdit || !userIsOwner">
-        <i-bs width="1em" height="1em" name="robot"></i-bs>&nbsp;<span i18n>AI Classify</span>
-      </button> -->
+        <button ngbDropdownItem (click)="aiClassify()" [disabled]="!userCanEdit || !userIsOwner">
+          <i-bs width="1em" height="1em" name="robot"></i-bs>&nbsp;<span i18n>AI Classify</span>
+        </button>
+      }
 
       <button ngbDropdownItem (click)="editPdf()"
         [disabled]="!userIsOwner || !userCanEdit || originalContentRenderType !== ContentRenderType.PDF">
@@ -192,6 +193,47 @@
                 [horizontal]="true" (filterDocuments)="filterDocuments($event, DataType.Tag)"
                 [hideAddButton]="createDisabled(DataType.Tag)"
                 *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.Tag }"></pngx-input-tags>
+
+              <hr class="my-3">
+              <h6 class="text-muted small text-uppercase mb-3" i18n>Official correspondence</h6>
+
+              <pngx-input-select [items]="correspondents" i18n-title title="Sending entity"
+                formControlName="sender" [allowNull]="true" [showFilter]="true" [horizontal]="true"
+                [hideAddButton]="true"
+                *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.Correspondent }"></pngx-input-select>
+              <pngx-input-select [items]="correspondents" i18n-title title="Receiving entity"
+                formControlName="recipient" [allowNull]="true" [showFilter]="true" [horizontal]="true"
+                [hideAddButton]="true"
+                *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.Correspondent }"></pngx-input-select>
+              <pngx-input-select [items]="documentClassifications" i18n-title title="Classification"
+                formControlName="classification" [allowNull]="true" [showFilter]="true" [horizontal]="true"
+                [hideAddButton]="true"></pngx-input-select>
+              <pngx-input-text i18n-title title="Diwan number" formControlName="diwan_number" [horizontal]="true"
+                [error]="error?.diwan_number"></pngx-input-text>
+              <pngx-input-date i18n-title title="Sent date" formControlName="sent_date" [horizontal]="true"
+                [error]="error?.sent_date"></pngx-input-date>
+              <pngx-input-date i18n-title title="Internal closing date" formControlName="internal_closed_date"
+                [horizontal]="true" [error]="error?.internal_closed_date"></pngx-input-date>
+              <pngx-input-date i18n-title title="Returned date" formControlName="returned_date" [horizontal]="true"
+                [error]="error?.returned_date"></pngx-input-date>
+
+              @if (document?.turnaround_days !== null && document?.turnaround_days !== undefined) {
+                <div class="row mb-3">
+                  <div class="col-md-3"></div>
+                  <div class="col">
+                    <p class="small mb-0">
+                      <span class="text-muted" i18n>Turnaround</span>:
+                      <span i18n>{{ document.turnaround_days }} days</span>
+                      @if (document.bottleneck_days > 0) {
+                        <span class="badge bg-danger ms-2" i18n>{{ document.bottleneck_days }} bottleneck days</span>
+                      }
+                      @if (document.is_awaiting_return) {
+                        <span class="badge bg-warning text-dark ms-2" i18n>Awaiting return</span>
+                      }
+                    </p>
+                  </div>
+                </div>
+              }
               @for (fieldInstance of document?.custom_fields; track fieldInstance.field; let i = $index) {
               <div [formGroup]="customFieldFormFields.controls[i]">
                 @switch (getCustomFieldFromInstance(fieldInstance)?.data_type) {

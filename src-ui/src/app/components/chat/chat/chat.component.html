@@ -1,30 +1,43 @@
 <li ngbDropdown class="nav-item me-n2" (openChange)="onOpenChange($event)">
-  <!-- 
-  chat AI btn 
-  <button class="btn border-0" id="chatDropdown" ngbDropdownToggle>
+  <button class="btn border-0 nav-link" id="chatDropdown" ngbDropdownToggle
+    aria-label="AI chat" i18n-aria-label title="AI chat" i18n-title>
     <i-bs width="1.3em" height="1.3em" name="chatSquareDots"></i-bs>
-  </button> -->
+  </button>
   <div ngbDropdownMenu class="dropdown-menu-end shadow p-3" aria-labelledby="chatDropdown">
-    <div class="chat-container bg-light p-2">
-      <div class="chat-messages font-monospace small">
+    <div class="chat-container p-2">
+      <div class="chat-messages small">
+        @if (!messages.length) {
+          <p class="text-muted small text-center mb-0 py-3" i18n>Ask a question to get started.</p>
+        }
         @for (message of messages; track message) {
-        <div class="message d-flex flex-row small" [class.justify-content-end]="message.role === 'user'">
-          <span class="p-2 m-2" [class.bg-dark]="message.role === 'user'">
-            {{ message.content }}
+        <div class="message d-flex flex-column" [class.align-items-end]="message.role === 'user'">
+          <div class="chat-bubble p-2" [class.chat-bubble-user]="message.role === 'user'"
+            [class.chat-bubble-assistant]="message.role !== 'user'">
+            @if (message.role === 'user' || message.isStreaming) {
+              <span class="chat-plain">{{ message.content }}</span>
+            } @else {
+              <div class="chat-markdown" [innerHTML]="renderMarkdown(message.content)"></div>
+            }
             @if (message.isStreaming) { <span class="blinking-cursor">|</span> }
-          </span>
+          </div>
+          @if (message.role !== 'user' && !message.isStreaming && message.content) {
+            <button type="button" class="btn btn-sm btn-link copy-btn p-0 mt-1" (click)="copyMessage(message)"
+              title="Copy response" i18n-title>
+              <i-bs width="0.9em" height="0.9em" name="clipboard"></i-bs>&nbsp;<span i18n>Copy</span>
+            </button>
+          }
         </div>
         }
         <div #scrollAnchor></div>
       </div>
 
-      <form class="chat-input">
+      <form class="chat-input mt-2">
         <div class="input-group">
           <input #chatInput class="form-control form-control-sm" name="chatInput" type="text"
             [placeholder]="placeholder" [disabled]="loading" [(ngModel)]="input"
             (keydown)="searchInputKeyDown($event)" />
-          <button class="btn btn-sm btn-secondary" type="button" (click)="sendMessage()"
-            [disabled]="loading">Send</button>
+          <button class="btn btn-sm btn-primary" type="button" (click)="sendMessage()"
+            [disabled]="loading || !input.trim()" i18n>Send</button>
         </div>
       </form>
     </div>

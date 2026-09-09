@@ -22,7 +22,9 @@ from documents.views import BulkEditObjectsView
 from documents.views import BulkEditView
 from documents.views import ChatStreamingView
 from documents.views import CorrespondentViewSet
+from documents.views import CorrespondenceAnalyticsView
 from documents.views import CustomFieldViewSet
+from documents.views import DocumentClassificationViewSet
 from documents.views import DocumentTypeViewSet
 from documents.views import GlobalSearchView
 from documents.views import IndexView
@@ -65,6 +67,10 @@ from paperless_mail.views import ProcessedMailViewSet
 api_router = DefaultRouter()
 api_router.register(r"correspondents", CorrespondentViewSet)
 api_router.register(r"document_types", DocumentTypeViewSet)
+api_router.register(
+    r"document_classifications",
+    DocumentClassificationViewSet,
+)
 api_router.register(r"documents", UnifiedSearchViewSet)
 api_router.register(r"logs", LogViewSet, basename="logs")
 api_router.register(r"tags", TagViewSet)
@@ -117,6 +123,11 @@ urlpatterns = [
                     "^statistics/",
                     StatisticsView.as_view(),
                     name="statistics",
+                ),
+                re_path(
+                    "^correspondence_analytics/",
+                    CorrespondenceAnalyticsView.as_view(),
+                    name="correspondence_analytics",
                 ),
                 re_path(
                     "^documents/",

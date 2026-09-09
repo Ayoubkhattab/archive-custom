@@ -1,0 +1,38 @@
+.chart-container {
+  position: relative;
+  height: 260px;
+  width: 100%;
+}
+
+.report-controls {
+  // Keeps the period picker visually separate from the figures below it.
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.stat-tile {
+  height: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.5rem;
+  background-color: var(--bs-tertiary-bg);
+  border-inline-end: 3px solid var(--pngx-primary, #428177);
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+  }
+
+  .stat-value {
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+}
+
+.stat-tile-warning {
+  border-inline-end-color: #988561;
+}
+
+.stat-tile-danger {
+  border-inline-end-color: #6b1f2a;
+}

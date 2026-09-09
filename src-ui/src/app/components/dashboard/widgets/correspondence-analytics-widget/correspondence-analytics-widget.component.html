@@ -1,0 +1,168 @@
+<pngx-widget-frame title="Correspondence analytics" i18n-title [loading]="loading" [cardless]="false">
+  <ng-container header-buttons>
+    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" (click)="reload()"
+      [disabled]="loading || !rangeIsValid" i18n>Refresh</button>
+    <button type="button" class="btn btn-sm btn-primary ms-2" (click)="exportPdf()"
+      [disabled]="!report || loading || exporting">
+      @if (exporting) {
+        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+      }
+      <ng-container i18n>Export PDF</ng-container>
+    </button>
+  </ng-container>
+
+  <ng-container content>
+    <form class="row g-2 align-items-end mb-4 report-controls">
+      <div class="col-12 col-md-3">
+        <label class="form-label small text-muted mb-1" for="periodMode" i18n>Period</label>
+        <select id="periodMode" class="form-select form-select-sm" [(ngModel)]="periodMode"
+          name="periodMode" (ngModelChange)="onPeriodChange()">
+          <option [value]="PeriodMode.Month" i18n>Single month</option>
+          <option [value]="PeriodMode.Range" i18n>Date range</option>
+        </select>
+      </div>
+
+      @if (periodMode === PeriodMode.Month) {
+        <div class="col-12 col-md-3">
+          <label class="form-label small text-muted mb-1" for="month" i18n>Month</label>
+          <input id="month" type="month" class="form-control form-control-sm" [(ngModel)]="month"
+            name="month" (change)="onPeriodChange()">
+        </div>
+      } @else {
+        <div class="col-6 col-md-3">
+          <label class="form-label small text-muted mb-1" for="dateFrom" i18n>From</label>
+          <input id="dateFrom" type="date" class="form-control form-control-sm" [(ngModel)]="dateFrom"
+            name="dateFrom" [max]="dateTo" (change)="onPeriodChange()">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small text-muted mb-1" for="dateTo" i18n>To</label>
+          <input id="dateTo" type="date" class="form-control form-control-sm" [(ngModel)]="dateTo"
+            name="dateTo" [min]="dateFrom" (change)="onPeriodChange()">
+        </div>
+      }
+
+      <div class="col-12 col-md-3">
+        <label class="form-label small text-muted mb-1" for="dateField" i18n>Based on</label>
+        <select id="dateField" class="form-select form-select-sm" [(ngModel)]="dateField"
+          name="dateField" (ngModelChange)="onPeriodChange()">
+          @for (option of dateFieldOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </div>
+
+      @if (!rangeIsValid) {
+        <div class="col-12">
+          <p class="small text-danger mb-0" i18n>Please choose a valid period. The start date must not
+            be after the end date.</p>
+        </div>
+      }
+    </form>
+
+    @if (loading) {
+      <div class="placeholder-glow">
+        <div class="placeholder w-100 mb-3" style="height: 76px;"></div>
+        <div class="placeholder w-100" style="height: 240px;"></div>
+      </div>
+    } @else if (error) {
+      <p class="small text-danger mb-0">{{ error }}</p>
+    } @else if (report) {
+      <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+        <div class="col">
+          <div class="stat-tile">
+            <div class="stat-label" i18n>Documents</div>
+            <div class="stat-value">{{ report.totals.documents | number }}</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat-tile">
+            <div class="stat-label" i18n>Routed</div>
+            <div class="stat-value">{{ report.totals.routed_count | number }}</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat-tile stat-tile-warning">
+            <div class="stat-label" i18n>Awaiting return</div>
+            <div class="stat-value">{{ report.totals.awaiting_return_count | number }}</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat-tile stat-tile-danger">
+            <div class="stat-label" i18n>Bottleneck days</div>
+            <div class="stat-value">{{ report.totals.total_bottleneck_days | number }}</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="small text-muted mb-4" i18n>A turnaround of up to {{ report.grace_days }} days is
+        considered normal; only the days beyond that count as bottleneck days.</p>
+
+      <div class="row g-4 mb-2">
+        <div class="col-12 col-xl-6">
+          <h6 class="small text-muted mb-2" i18n>Sent vs. received per entity</h6>
+          <div class="chart-container">
+            <canvas #entityCanvas></canvas>
+          </div>
+        </div>
+        <div class="col-12 col-xl-6">
+          <h6 class="small text-muted mb-2" i18n>Monthly volume &middot; last 12 months</h6>
+          <div class="chart-container">
+            <canvas #trendCanvas></canvas>
+          </div>
+        </div>
+        <div class="col-12 col-xl-6">
+          <h6 class="small text-muted mb-2" i18n>Bottleneck days per entity</h6>
+          <div class="chart-container">
+            <canvas #bottleneckCanvas></canvas>
+          </div>
+        </div>
+        <div class="col-12 col-xl-6">
+          <h6 class="small text-muted mb-2" i18n>Documents by type</h6>
+          <div class="chart-container">
+            <canvas #breakdownCanvas></canvas>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="small text-muted mt-4 mb-2" i18n>Entity breakdown</h6>
+      @if (report.entities.length) {
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col" i18n>Entity</th>
+                <th scope="col" i18n>Code</th>
+                <th scope="col" i18n>Diwan no.</th>
+                <th scope="col" class="text-center" i18n>Sent</th>
+                <th scope="col" class="text-center" i18n>Received</th>
+                <th scope="col" class="text-center" i18n>Uploaded</th>
+                <th scope="col" class="text-center" i18n>Awaiting</th>
+                <th scope="col" class="text-center" i18n>Avg. days</th>
+                <th scope="col" class="text-center" i18n>Bottleneck days</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entity of report.entities; track entity.id) {
+                <tr>
+                  <td>{{ entity.name }}</td>
+                  <td class="text-muted">{{ entity.code || '—' }}</td>
+                  <td class="text-muted">{{ entity.diwan_number || '—' }}</td>
+                  <td class="text-center">{{ entity.sent_count | number }}</td>
+                  <td class="text-center">{{ entity.received_count | number }}</td>
+                  <td class="text-center">{{ entity.uploaded_count | number }}</td>
+                  <td class="text-center">{{ entity.awaiting_return_count | number }}</td>
+                  <td class="text-center">{{ entity.average_turnaround_days ?? '—' }}</td>
+                  <td class="text-center" [class.text-danger]="entity.total_bottleneck_days > 0">
+                    {{ entity.total_bottleneck_days | number }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="small text-muted mb-0" i18n>No correspondence recorded in this period.</p>
+      }
+    }
+  </ng-container>
+</pngx-widget-frame>

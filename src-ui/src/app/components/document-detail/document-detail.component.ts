@@ -41,6 +41,7 @@ import { Document } from 'src/app/data/document'
 import { DocumentMetadata } from 'src/app/data/document-metadata'
 import { DocumentNote } from 'src/app/data/document-note'
 import { DocumentSuggestions } from 'src/app/data/document-suggestions'
+import { DocumentClassification } from 'src/app/data/document-classification'
 import { DocumentType } from 'src/app/data/document-type'
 import { FilterRule } from 'src/app/data/filter-rule'
 import {
@@ -73,6 +74,7 @@ import {
 } from 'src/app/services/permissions.service'
 import { CorrespondentService } from 'src/app/services/rest/correspondent.service'
 import { CustomFieldsService } from 'src/app/services/rest/custom-fields.service'
+import { DocumentClassificationService } from 'src/app/services/rest/document-classification.service'
 import { DocumentTypeService } from 'src/app/services/rest/document-type.service'
 import { DocumentService } from 'src/app/services/rest/document.service'
 import { SavedViewService } from 'src/app/services/rest/saved-view.service'
@@ -193,6 +195,7 @@ export class DocumentDetailComponent
   private tagService = inject(TagService)
   private correspondentService = inject(CorrespondentService)
   private documentTypeService = inject(DocumentTypeService)
+  private documentClassificationService = inject(DocumentClassificationService)
   private router = inject(Router)
   private modalService = inject(NgbModal)
   private openDocumentService = inject(OpenDocumentsService)
@@ -240,6 +243,7 @@ export class DocumentDetailComponent
 
   correspondents: Correspondent[]
   documentTypes: DocumentType[]
+  documentClassifications: DocumentClassification[]
   storagePaths: StoragePath[]
 
   documentForm: FormGroup = new FormGroup({
@@ -253,6 +257,14 @@ export class DocumentDetailComponent
     tags: new FormControl([]),
     permissions_form: new FormControl(null),
     custom_fields: new FormArray([]),
+    // Official correspondence routing
+    sender: new FormControl(),
+    recipient: new FormControl(),
+    classification: new FormControl(),
+    diwan_number: new FormControl(''),
+    sent_date: new FormControl(),
+    internal_closed_date: new FormControl(),
+    returned_date: new FormControl(),
   })
 
   previewCurrentPage: number = 1
@@ -394,6 +406,13 @@ export class DocumentDetailComponent
       document_type: originalDocument.document_type,
       storage_path: originalDocument.storage_path,
       archive_serial_number: originalDocument.archive_serial_number,
+      sender: originalDocument.sender,
+      recipient: originalDocument.recipient,
+      classification: originalDocument.classification,
+      diwan_number: originalDocument.diwan_number,
+      sent_date: originalDocument.sent_date,
+      internal_closed_date: originalDocument.internal_closed_date,
+      returned_date: originalDocument.returned_date,
       tags: [...originalDocument.tags],
       permissions_form: {
         owner: originalDocument.owner,
@@ -531,6 +550,15 @@ export class DocumentDetailComponent
         .pipe(first(), takeUntil(this.unsubscribeNotifier))
         .subscribe((result) => (this.documentTypes = result.results))
     }
+    this.documentClassificationService
+      .listAll()
+      .pipe(first(), takeUntil(this.unsubscribeNotifier))
+      .subscribe({
+        next: (result) => (this.documentClassifications = result.results),
+        // Classifications are optional metadata; a user without access to them
+        // should still be able to edit everything else on the document.
+        error: () => (this.documentClassifications = []),
+      })
     if (
       this.permissionsService.currentUserCan(
         PermissionAction.View,

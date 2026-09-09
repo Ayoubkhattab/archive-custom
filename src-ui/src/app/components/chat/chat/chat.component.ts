@@ -1,9 +1,19 @@
-import { Component, ElementRef, inject, OnInit, ViewChild } from '@angular/core'
+import {
+  Component,
+  ElementRef,
+  inject,
+  OnInit,
+  SecurityContext,
+  ViewChild,
+} from '@angular/core'
 import { FormsModule, ReactiveFormsModule } from '@angular/forms'
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser'
 import { NavigationEnd, Router } from '@angular/router'
-import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap'
+import { NgbDropdown, NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap'
+import { marked } from 'marked'
 import { NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { filter, map } from 'rxjs'
+import { ToastService } from 'src/app/services/toast.service'
 import { ChatMessage, ChatService } from 'src/app/services/chat.service'
 
 @Component({
@@ -25,9 +35,16 @@ export class ChatComponent implements OnInit {
 
   private chatService: ChatService = inject(ChatService)
   private router: Router = inject(Router)
+  private sanitizer: DomSanitizer = inject(DomSanitizer)
+  private toastService: ToastService = inject(ToastService)
 
   @ViewChild('scrollAnchor') scrollAnchor!: ElementRef<HTMLDivElement>
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>
+  @ViewChild(NgbDropdown) private dropdown!: NgbDropdown
+
+  public open(): void {
+    this.dropdown?.open()
+  }
 
   private typewriterBuffer: string[] = []
   private typewriterActive = false
@@ -136,5 +153,22 @@ export class ChatComponent implements OnInit {
       event.preventDefault()
       this.sendMessage()
     }
+  }
+
+  public renderMarkdown(content: string): SafeHtml {
+    const html = marked.parse(content ?? '', { async: false, breaks: true }) as string
+    const sanitized = this.sanitizer.sanitize(SecurityContext.HTML, html) ?? ''
+    return this.sanitizer.bypassSecurityTrustHtml(sanitized)
+  }
+
+  public copyMessage(message: ChatMessage): void {
+    navigator.clipboard
+      .writeText(message.content)
+      .then(() => {
+        this.toastService.showInfo($localize`Copied response to clipboard`)
+      })
+      .catch(() => {
+        this.toastService.showError($localize`Unable to copy response`)
+      })
   }
 }

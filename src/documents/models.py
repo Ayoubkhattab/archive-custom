@@ -93,9 +93,84 @@ class MatchingModel(ModelWithOwner):
 
 
 class Correspondent(MatchingModel):
+    ENTITY_EXTERNAL = "external"
+    ENTITY_INTERNAL = "internal"
+    ENTITY_TYPES = (
+        (ENTITY_EXTERNAL, _("External entity")),
+        (ENTITY_INTERNAL, _("Internal department")),
+    )
+
+    code = models.CharField(
+        _("entity code"),
+        max_length=32,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text=_(
+            "Short official code identifying this entity in correspondence "
+            "(e.g. MOC-01). Must be unique.",
+        ),
+    )
+
+    diwan_number = models.CharField(
+        _("diwan number"),
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=_("The registry (diwan) number assigned to this entity."),
+    )
+
+    entity_type = models.CharField(
+        _("entity type"),
+        max_length=16,
+        choices=ENTITY_TYPES,
+        default=ENTITY_EXTERNAL,
+        db_index=True,
+        help_text=_(
+            "Whether this entity is external to the organization or an "
+            "internal department. Used to separate internal handling time "
+            "from external turnaround time in reports.",
+        ),
+    )
+
     class Meta(MatchingModel.Meta):
         verbose_name = _("correspondent")
         verbose_name_plural = _("correspondents")
+
+    def save(self, *args, **kwargs):
+        # An empty code must be stored as NULL, otherwise the unique constraint
+        # would reject every entity after the first one that has no code.
+        if not self.code:
+            self.code = None
+        return super().save(*args, **kwargs)
+
+
+class DocumentClassification(MatchingModel):
+    """
+    The official classification (تصنيف) of a document, kept separate from its
+    type (نوع). A "Letter" (type) may be classified as "Confidential" or
+    "Routine" for example.
+    """
+
+    code = models.CharField(
+        _("classification code"),
+        max_length=32,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text=_("Short official code identifying this classification."),
+    )
+
+    class Meta(MatchingModel.Meta):
+        verbose_name = _("document classification")
+        verbose_name_plural = _("document classifications")
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = None
+        return super().save(*args, **kwargs)
 
 
 class Tag(MatchingModel, TreeNodeModel):
@@ -313,6 +388,81 @@ class Document(SoftDeleteModel, ModelWithOwner):
         ),
     )
 
+    # ---------------------------------------------------------------------
+    # Official correspondence routing (المراسلات الرسمية)
+    # ---------------------------------------------------------------------
+
+    sender = models.ForeignKey(
+        Correspondent,
+        blank=True,
+        null=True,
+        related_name="sent_documents",
+        on_delete=models.SET_NULL,
+        verbose_name=_("sending entity"),
+        help_text=_("The entity this document was sent from."),
+        # `Document.sender` was renamed to `correspondent` in migration 0011
+        # (2016). RenameField renames the column but not the index, so the
+        # index `documents_document_sender_id_950512b2` still sits on
+        # `correspondent_id`. Django derives index names from the column, so a
+        # column named `sender_id` would regenerate that exact name and clash.
+        db_column="sending_entity_id",
+    )
+
+    recipient = models.ForeignKey(
+        Correspondent,
+        blank=True,
+        null=True,
+        related_name="received_documents",
+        on_delete=models.SET_NULL,
+        verbose_name=_("receiving entity"),
+        help_text=_("The entity this document was sent to."),
+    )
+
+    classification = models.ForeignKey(
+        DocumentClassification,
+        blank=True,
+        null=True,
+        related_name="documents",
+        on_delete=models.SET_NULL,
+        verbose_name=_("classification"),
+    )
+
+    diwan_number = models.CharField(
+        _("diwan number"),
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text=_("The registry (diwan) number recorded for this document."),
+    )
+
+    sent_date = models.DateField(
+        _("sent date"),
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text=_("The date this document was handed over to the receiving entity."),
+    )
+
+    internal_closed_date = models.DateField(
+        _("internal closing date"),
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text=_(
+            "The date processing of this document was closed internally. When "
+            "set, turnaround is measured from this date instead of the sent date.",
+        ),
+    )
+
+    returned_date = models.DateField(
+        _("returned date"),
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text=_("The date this document came back from the receiving entity."),
+    )
+
     class Meta:
         ordering = ("-created",)
         verbose_name = _("document")
@@ -328,6 +478,49 @@ class Document(SoftDeleteModel, ModelWithOwner):
         if self.title:
             res += f" {self.title}"
         return res
+
+    # ---------------------------------------------------------------------
+    # Bottleneck / turnaround analysis (مدة الاختناق)
+    # ---------------------------------------------------------------------
+
+    @property
+    def turnaround_start(self) -> datetime.date | None:
+        """
+        The date the clock starts: the internal closing date when one was
+        recorded, otherwise the date the document was sent out.
+        """
+        return self.internal_closed_date or self.sent_date
+
+    @property
+    def turnaround_days(self) -> int | None:
+        """
+        Calendar days the document spent outside. ``None`` when it never left.
+        Still-open documents are measured against today so that overdue items
+        surface in reports instead of being invisible until they come back.
+        """
+        from documents.correspondence import compute_turnaround_days
+
+        return compute_turnaround_days(self.turnaround_start, self.returned_date)
+
+    @property
+    def bottleneck_days(self) -> int | None:
+        """
+        Days beyond the tolerated grace period (``PAPERLESS_BOTTLENECK_GRACE_DAYS``,
+        3 by default). A turnaround inside the grace period is considered normal
+        and contributes zero bottleneck days.
+        """
+        from documents.correspondence import compute_bottleneck_days
+
+        return compute_bottleneck_days(self.turnaround_start, self.returned_date)
+
+    @property
+    def is_bottlenecked(self) -> bool:
+        return bool(self.bottleneck_days)
+
+    @property
+    def is_awaiting_return(self) -> bool:
+        """True once the document has gone out and has not come back yet."""
+        return self.turnaround_start is not None and self.returned_date is None
 
     @property
     def suggestion_content(self):

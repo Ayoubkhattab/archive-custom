@@ -6,7 +6,11 @@ import {
   ReactiveFormsModule,
 } from '@angular/forms'
 import { EditDialogComponent } from 'src/app/components/common/edit-dialog/edit-dialog.component'
-import { Correspondent } from 'src/app/data/correspondent'
+import {
+  Correspondent,
+  ENTITY_TYPE_LABELS,
+  EntityType,
+} from 'src/app/data/correspondent'
 import { DEFAULT_MATCHING_ALGORITHM } from 'src/app/data/matching-model'
 import { IfOwnerDirective } from 'src/app/directives/if-owner.directive'
 import { CorrespondentService } from 'src/app/services/rest/correspondent.service'
@@ -47,9 +51,17 @@ export class CorrespondentEditDialogComponent extends EditDialogComponent<Corres
     return $localize`Edit correspondent`
   }
 
+  public entityTypes = Object.values(EntityType).map((id) => ({
+    id,
+    name: ENTITY_TYPE_LABELS[id],
+  }))
+
   getForm(): FormGroup {
     return new FormGroup({
       name: new FormControl(''),
+      code: new FormControl(''),
+      diwan_number: new FormControl(''),
+      entity_type: new FormControl(EntityType.External),
       matching_algorithm: new FormControl(DEFAULT_MATCHING_ALGORITHM),
       match: new FormControl(''),
       is_insensitive: new FormControl(true),

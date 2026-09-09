@@ -1394,6 +1394,17 @@ EMPTY_TRASH_DELAY = max(__get_int("PAPERLESS_EMPTY_TRASH_DELAY", 30), 1)
 
 
 ###############################################################################
+# Correspondence turnaround                                                   #
+###############################################################################
+# Number of calendar days a document may spend with the receiving entity before
+# the extra days start counting as bottleneck days (أيام اختناق).
+BOTTLENECK_GRACE_DAYS: Final[int] = max(
+    __get_int("PAPERLESS_BOTTLENECK_GRACE_DAYS", 3),
+    0,
+)
+
+
+###############################################################################
 # Oauth Email                                                                 #
 ###############################################################################
 OAUTH_CALLBACK_BASE_URL = os.getenv("PAPERLESS_OAUTH_CALLBACK_BASE_URL")

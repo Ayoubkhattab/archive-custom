@@ -32,10 +32,12 @@ from rest_framework import serializers
 from rest_framework.filters import OrderingFilter
 from rest_framework_guardian.filters import ObjectPermissionsFilter
 
+from documents import correspondence
 from documents.models import Correspondent
 from documents.models import CustomField
 from documents.models import CustomFieldInstance
 from documents.models import Document
+from documents.models import DocumentClassification
 from documents.models import DocumentType
 from documents.models import PaperlessTask
 from documents.models import ShareLink
@@ -81,6 +83,19 @@ class CorrespondentFilterSet(FilterSet):
         fields = {
             "id": ID_KWARGS,
             "name": CHAR_KWARGS,
+            "code": CHAR_KWARGS,
+            "diwan_number": CHAR_KWARGS,
+            "entity_type": ["exact"],
+        }
+
+
+class DocumentClassificationFilterSet(FilterSet):
+    class Meta:
+        model = DocumentClassification
+        fields = {
+            "id": ID_KWARGS,
+            "name": CHAR_KWARGS,
+            "code": CHAR_KWARGS,
         }
 
 
@@ -719,6 +734,36 @@ class DocumentFilterSet(FilterSet):
 
     storage_path__id__none = ObjectFilter(field_name="storage_path", exclude=True)
 
+    sender__id__none = ObjectFilter(field_name="sender", exclude=True)
+
+    recipient__id__none = ObjectFilter(field_name="recipient", exclude=True)
+
+    classification__id__none = ObjectFilter(field_name="classification", exclude=True)
+
+    is_awaiting_return = BooleanFilter(
+        label="Is awaiting return",
+        method="filter_awaiting_return",
+    )
+
+    is_bottlenecked = BooleanFilter(
+        label="Is bottlenecked",
+        method="filter_bottlenecked",
+    )
+
+    def filter_awaiting_return(self, queryset, name, value):
+        """Documents that went out to an entity and have not come back."""
+        awaiting = correspondence.is_awaiting_return()
+        return queryset.filter(awaiting) if value else queryset.exclude(awaiting)
+
+    def filter_bottlenecked(self, queryset, name, value):
+        """
+        Documents whose turnaround exceeded the tolerated grace period. Items
+        still outside are measured against today, matching the model property.
+        """
+        annotated = correspondence.annotate_turnaround_start(queryset)
+        over_grace = correspondence.is_bottlenecked()
+        return annotated.filter(over_grace) if value else annotated.exclude(over_grace)
+
     is_in_inbox = InboxFilter()
 
     title_content = TitleContentFilter()
@@ -784,6 +829,22 @@ class DocumentFilterSet(FilterSet):
             "owner": ["isnull"],
             "owner__id": ID_KWARGS,
             "custom_fields": ["icontains"],
+            # Official correspondence routing
+            "sender": ["isnull"],
+            "sender__id": ID_KWARGS,
+            "sender__name": CHAR_KWARGS,
+            "sender__code": CHAR_KWARGS,
+            "recipient": ["isnull"],
+            "recipient__id": ID_KWARGS,
+            "recipient__name": CHAR_KWARGS,
+            "recipient__code": CHAR_KWARGS,
+            "classification": ["isnull"],
+            "classification__id": ID_KWARGS,
+            "classification__name": CHAR_KWARGS,
+            "diwan_number": CHAR_KWARGS,
+            "sent_date": DATE_KWARGS,
+            "internal_closed_date": DATE_KWARGS,
+            "returned_date": DATE_KWARGS,
         }
 
 

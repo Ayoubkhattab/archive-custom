@@ -8,6 +8,7 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from documents.models import Document
 from paperless_ai.client import AIClient
 from paperless_ai.indexing import load_or_build_index
+from paperless_ai.indexing import update_llm_index
 
 logger = logging.getLogger("paperless_ai.chat")
 
@@ -27,7 +28,18 @@ CHAT_PROMPT_TMPL = PromptTemplate(
 
 def stream_chat_with_documents(query_str: str, documents: list[Document]):
     client = AIClient()
-    index = load_or_build_index()
+    try:
+        index = load_or_build_index()
+    except ValueError:
+        # No index exists on disk yet (first use) — build it from all
+        # documents now instead of failing the request.
+        logger.info("No LLM index found; building it now for the first time.")
+        update_llm_index()
+        try:
+            index = load_or_build_index()
+        except ValueError:
+            yield "There are no indexed documents to search yet."
+            return
 
     doc_ids = [str(doc.pk) for doc in documents]
 

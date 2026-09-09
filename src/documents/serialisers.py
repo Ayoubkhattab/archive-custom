@@ -54,6 +54,7 @@ from documents.models import Correspondent
 from documents.models import CustomField
 from documents.models import CustomFieldInstance
 from documents.models import Document
+from documents.models import DocumentClassification
 from documents.models import DocumentType
 from documents.models import MatchingModel
 from documents.models import Note
@@ -487,6 +488,8 @@ class OwnedObjectListSerializer(serializers.ListSerializer):
 
 class CorrespondentSerializer(MatchingModelSerializer, OwnedObjectSerializer):
     last_correspondence = serializers.DateField(read_only=True, required=False)
+    sent_document_count = serializers.IntegerField(read_only=True, required=False)
+    received_document_count = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
         model = Correspondent
@@ -494,11 +497,36 @@ class CorrespondentSerializer(MatchingModelSerializer, OwnedObjectSerializer):
             "id",
             "slug",
             "name",
+            "code",
+            "diwan_number",
+            "entity_type",
             "match",
             "matching_algorithm",
             "is_insensitive",
             "document_count",
+            "sent_document_count",
+            "received_document_count",
             "last_correspondence",
+            "owner",
+            "permissions",
+            "user_can_change",
+            "user_can_delete",
+            "set_permissions",
+        )
+
+
+class DocumentClassificationSerializer(MatchingModelSerializer, OwnedObjectSerializer):
+    class Meta:
+        model = DocumentClassification
+        fields = (
+            "id",
+            "slug",
+            "name",
+            "code",
+            "match",
+            "matching_algorithm",
+            "is_insensitive",
+            "document_count",
             "owner",
             "permissions",
             "user_can_change",
@@ -734,6 +762,11 @@ class DocumentTypeField(serializers.PrimaryKeyRelatedField):
 class StoragePathField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         return StoragePath.objects.all()
+
+
+class DocumentClassificationField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        return DocumentClassification.objects.all()
 
 
 class CustomFieldSerializer(serializers.ModelSerializer):
@@ -1065,6 +1098,13 @@ class DocumentSerializer(
     tags = TagsField(many=True)
     document_type = DocumentTypeField(allow_null=True)
     storage_path = StoragePathField(allow_null=True)
+    sender = CorrespondentField(allow_null=True, required=False)
+    recipient = CorrespondentField(allow_null=True, required=False)
+    classification = DocumentClassificationField(allow_null=True, required=False)
+
+    turnaround_days = serializers.IntegerField(read_only=True)
+    bottleneck_days = serializers.IntegerField(read_only=True)
+    is_awaiting_return = serializers.BooleanField(read_only=True)
 
     original_file_name = SerializerMethodField()
     archived_file_name = SerializerMethodField()
@@ -1156,7 +1196,43 @@ class DocumentSerializer(
                     ],
                 },
             )
+        self._validate_correspondence_dates(attrs)
         return super().validate(attrs)
+
+    def _validate_correspondence_dates(self, attrs):
+        """
+        Keep the routing timeline consistent so turnaround and bottleneck days
+        can never be computed from an impossible sequence of dates.
+        """
+
+        def resolve(field):
+            if field in attrs:
+                return attrs[field]
+            return getattr(self.instance, field, None) if self.instance else None
+
+        sent = resolve("sent_date")
+        closed = resolve("internal_closed_date")
+        returned = resolve("returned_date")
+
+        errors = {}
+        if sent and closed and closed < sent:
+            errors["internal_closed_date"] = [
+                "The internal closing date cannot be before the sent date.",
+            ]
+        if sent and returned and returned < sent:
+            errors["returned_date"] = [
+                "The returned date cannot be before the sent date.",
+            ]
+        if closed and returned and returned < closed:
+            errors["returned_date"] = [
+                "The returned date cannot be before the internal closing date.",
+            ]
+        if returned and not sent and not closed:
+            errors["returned_date"] = [
+                "A returned date requires a sent date or an internal closing date.",
+            ]
+        if errors:
+            raise serializers.ValidationError(errors)
 
     def update(self, instance: Document, validated_data):
         if "created_date" in validated_data and "created" not in validated_data:
@@ -1283,6 +1359,17 @@ class DocumentSerializer(
             "remove_inbox_tags",
             "page_count",
             "mime_type",
+            # Official correspondence routing
+            "sender",
+            "recipient",
+            "classification",
+            "diwan_number",
+            "sent_date",
+            "internal_closed_date",
+            "returned_date",
+            "turnaround_days",
+            "bottleneck_days",
+            "is_awaiting_return",
         )
         list_serializer_class = OwnedObjectListSerializer
 

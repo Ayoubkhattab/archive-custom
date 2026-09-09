@@ -31,13 +31,35 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install custom Python packages
+# whoosh-reloaded is pinned explicitly: it's a core paperless-ngx dependency
+# (used for search indexing) but the upstream base image's ":latest" tag has
+# been observed missing it depending on when/where it was pulled.
 RUN pip install --no-cache-dir \
     llama-index-core \
     llama-index-llms-ollama \
-    granian
+    llama-index-embeddings-huggingface \
+    llama-index-embeddings-openai \
+    llama-index-vector-stores-faiss \
+    faiss-cpu \
+    granian \
+    "whoosh-reloaded>=2.7.5" \
+    django-celery-results
+
+# Wipe the base image's source tree before copying ours in. COPY only adds
+# or overwrites files by name — it never deletes files the base image has
+# that we don't — so leftover base-image files (e.g. a paperless/settings/
+# package shadowing our paperless/settings.py, or old-numbering migration
+# files coexisting with our renumbered ones and corrupting the migration
+# graph) would otherwise silently persist alongside/instead of our code.
+RUN rm -rf /usr/src/paperless/src
 
 # Copy custom source code (overrides official paperless code)
 COPY src/ /usr/src/paperless/src/
+
+# Remove any bytecode cache left over from the base image's build of these
+# same modules — without this, a stale .pyc for an overwritten .py file can
+# get picked up and cause phantom "attribute doesn't exist" errors at runtime.
+RUN find /usr/src/paperless/src -name "__pycache__" -type d -prune -exec rm -rf {} +
 
 # Copy pre-built Angular frontend (en-US + ar-AR)
 COPY --from=frontend-builder /frontend-build/ /usr/src/paperless/src/documents/static/frontend/

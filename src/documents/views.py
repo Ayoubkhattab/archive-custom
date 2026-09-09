@@ -8,6 +8,7 @@ import zipfile
 from collections import defaultdict
 from collections import deque
 from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 from time import mktime
 from typing import Literal
@@ -90,6 +91,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.viewsets import ViewSet
 
 from documents import bulk_edit
+from documents import correspondence
 from documents import index
 from documents.bulk_download import ArchiveOnlyStrategy
 from documents.bulk_download import OriginalAndArchiveStrategy
@@ -116,6 +118,7 @@ from documents.data_models import DocumentSource
 from documents.file_handling import format_filename
 from documents.filters import CorrespondentFilterSet
 from documents.filters import CustomFieldFilterSet
+from documents.filters import DocumentClassificationFilterSet
 from documents.filters import DocumentFilterSet
 from documents.filters import DocumentsOrderingFilter
 from documents.filters import DocumentTypeFilterSet
@@ -134,6 +137,7 @@ from documents.matching import match_tags
 from documents.models import Correspondent
 from documents.models import CustomField
 from documents.models import Document
+from documents.models import DocumentClassification
 from documents.models import DocumentType
 from documents.models import Note
 from documents.models import PaperlessTask
@@ -163,6 +167,7 @@ from documents.serialisers import BulkEditObjectsSerializer
 from documents.serialisers import BulkEditSerializer
 from documents.serialisers import CorrespondentSerializer
 from documents.serialisers import CustomFieldSerializer
+from documents.serialisers import DocumentClassificationSerializer
 from documents.serialisers import DocumentListSerializer
 from documents.serialisers import DocumentSerializer
 from documents.serialisers import DocumentTypeSerializer
@@ -202,6 +207,7 @@ from paperless.serialisers import GroupSerializer
 from paperless.serialisers import UserSerializer
 from paperless.views import StandardPagination
 from paperless_ai.ai_classifier import get_ai_document_classification
+from paperless_ai.chat import stream_chat_with_documents
 from paperless_ai.client import AIClient
 from paperless_ai.matching import extract_unmatched_names
 from paperless_ai.matching import match_correspondents_by_name
@@ -401,7 +407,12 @@ class PermissionsAwareDocumentCountMixin(BulkPermissionMixin, PassUserMixin):
         return (
             super()
             .get_queryset()
-            .annotate(document_count=Count("documents", filter=filter))
+            .annotate(
+                # distinct is required: subclasses may annotate additional
+                # counts over other multi-valued relations, and the resulting
+                # join fan-out would otherwise multiply every count.
+                document_count=Count("documents", filter=filter, distinct=True),
+            )
         )
 
 
@@ -422,11 +433,37 @@ class CorrespondentViewSet(ModelViewSet, PermissionsAwareDocumentCountMixin):
     filterset_class = CorrespondentFilterSet
     ordering_fields = (
         "name",
+        "code",
+        "entity_type",
         "matching_algorithm",
         "match",
         "document_count",
+        "sent_document_count",
+        "received_document_count",
         "last_correspondence",
     )
+
+    def get_queryset(self):
+        user = getattr(self.request, "user", None)
+        return (
+            super()
+            .get_queryset()
+            .annotate(
+                sent_document_count=Count(
+                    "sent_documents",
+                    filter=get_document_count_filter_for_user(user, "sent_documents"),
+                    distinct=True,
+                ),
+                received_document_count=Count(
+                    "received_documents",
+                    filter=get_document_count_filter_for_user(
+                        user,
+                        "received_documents",
+                    ),
+                    distinct=True,
+                ),
+            )
+        )
 
     def list(self, request, *args, **kwargs):
         if request.query_params.get("last_correspondence", None):
@@ -530,6 +567,28 @@ class DocumentTypeViewSet(ModelViewSet, PermissionsAwareDocumentCountMixin):
     )
     filterset_class = DocumentTypeFilterSet
     ordering_fields = ("name", "matching_algorithm", "match", "document_count")
+
+
+@extend_schema_view(
+    **generate_object_with_permissions_schema(DocumentClassificationSerializer),
+)
+class DocumentClassificationViewSet(ModelViewSet, PermissionsAwareDocumentCountMixin):
+    model = DocumentClassification
+
+    queryset = DocumentClassification.objects.select_related("owner").order_by(
+        Lower("name"),
+    )
+
+    serializer_class = DocumentClassificationSerializer
+    pagination_class = StandardPagination
+    permission_classes = (IsAuthenticated, PaperlessObjectPermissions)
+    filter_backends = (
+        DjangoFilterBackend,
+        OrderingFilter,
+        ObjectOwnedOrGrantedPermissionsFilter,
+    )
+    filterset_class = DocumentClassificationFilterSet
+    ordering_fields = ("name", "code", "matching_algorithm", "match", "document_count")
 
 
 @extend_schema_serializer(
@@ -1416,10 +1475,12 @@ class ChatStreamingView(GenericAPIView):
             documents = [document]
             document_text = (document.content or "").strip()
         else:
-            documents = get_objects_for_user_owner_aware(
-                request.user,
-                "view_document",
-                Document,
+            documents = list(
+                get_objects_for_user_owner_aware(
+                    request.user,
+                    "view_document",
+                    Document,
+                ),
             )
             document = None
             document_text = ""
@@ -1469,27 +1530,30 @@ class ChatStreamingView(GenericAPIView):
                     f"Document text excerpts:\n{trimmed_document_text}\n\n"
                     f"User question: {question}"
                 )
-            else:
-                system = (
-                    "You are a helpful assistant. Respond in the same language as the user's question."
+                result = client.run_chat(
+                    [
+                        ChatMessage(role="system", content=system),
+                        ChatMessage(role="user", content=user),
+                    ],
                 )
-                user = question
+                if hasattr(result, "message") and hasattr(result.message, "content"):
+                    text = result.message.content
+                elif isinstance(result, str):
+                    text = result
+                else:
+                    text = str(result)
 
-            result = client.run_chat(
-                [
-                    ChatMessage(role="system", content=system),
-                    ChatMessage(role="user", content=user),
-                ],
-            )
-            if hasattr(result, "message") and hasattr(result.message, "content"):
-                text = result.message.content
-            elif isinstance(result, str):
-                text = result
+                for i in range(0, len(text), 20):
+                    yield text[i : i + 20]
             else:
-                text = str(result)
-
-            for i in range(0, len(text), 20):
-                yield text[i : i + 20]
+                # No document scoped: answer strictly from the user's own
+                # documents via retrieval (RAG) instead of unscoped free chat,
+                # so responses are grounded in what's actually stored, not
+                # the model's general knowledge.
+                if not documents:
+                    yield "You don't have any documents to search yet."
+                    return
+                yield from stream_chat_with_documents(question, documents)
 
         response = StreamingHttpResponse(
             _stream_chat(),
@@ -2547,6 +2611,316 @@ class StatisticsView(GenericAPIView):
                 "task_status_counts": task_status_counts,
             },
         )
+
+
+# Document dates a correspondence report may be scoped to. "added" is a
+# datetime, the rest are plain dates, which changes the ORM lookup used.
+CORRESPONDENCE_DATE_FIELDS = (
+    "added",
+    "created",
+    "sent_date",
+    "returned_date",
+)
+
+
+def _period_lookups(date_field: str, date_from, date_to) -> dict:
+    """Build the range filter for a report date field, datetime-aware."""
+    suffix = "__date" if date_field == "added" else ""
+    return {
+        f"{date_field}{suffix}__gte": date_from,
+        f"{date_field}{suffix}__lte": date_to,
+    }
+
+
+@extend_schema_view(
+    get=extend_schema(
+        description=(
+            "Correspondence analytics per entity: documents sent, received and "
+            "uploaded, turnaround and bottleneck days, over a selectable period."
+        ),
+        parameters=[
+            OpenApiParameter(
+                "month",
+                str,
+                description="Report month as YYYY-MM. Overrides date_from/date_to.",
+            ),
+            OpenApiParameter("date_from", OpenApiTypes.DATE),
+            OpenApiParameter("date_to", OpenApiTypes.DATE),
+            OpenApiParameter(
+                "date_field",
+                str,
+                enum=CORRESPONDENCE_DATE_FIELDS,
+                description="Which document date the period applies to.",
+            ),
+        ],
+        responses={(200, "application/json"): OpenApiTypes.OBJECT},
+    ),
+)
+class CorrespondenceAnalyticsView(GenericAPIView):
+    """
+    Aggregated reporting over the official correspondence routing fields.
+
+    Figures are computed in Python from a narrow ``values()`` queryset rather
+    than with database date arithmetic, so turnaround and bottleneck days match
+    ``Document.turnaround_days`` / ``Document.bottleneck_days`` exactly on every
+    supported backend.
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    MONTHLY_TREND_MONTHS = 12
+
+    def get(self, request, format=None):
+        try:
+            date_from, date_to, date_field = self._parse_period(request)
+        except ValidationError as e:
+            return HttpResponseBadRequest(str(e.detail[0] if e.detail else e))
+
+        user = request.user
+        documents = get_objects_for_user_owner_aware(
+            user,
+            "documents.view_document",
+            Document,
+        )
+        entities = get_objects_for_user_owner_aware(
+            user,
+            "documents.view_correspondent",
+            Correspondent,
+        )
+
+        rows = list(
+            documents.filter(
+                **_period_lookups(date_field, date_from, date_to),
+            ).values(
+                "id",
+                "sender_id",
+                "recipient_id",
+                "correspondent_id",
+                "document_type_id",
+                "classification_id",
+                "sent_date",
+                "internal_closed_date",
+                "returned_date",
+            ),
+        )
+
+        today = timezone.localdate()
+        grace = correspondence.grace_days()
+
+        entity_names = {
+            e.id: {
+                "id": e.id,
+                "name": e.name,
+                "code": e.code,
+                "diwan_number": e.diwan_number,
+                "entity_type": e.entity_type,
+            }
+            for e in entities
+        }
+
+        per_entity: dict[int, dict] = {}
+        overall = correspondence.TurnaroundStats()
+
+        def entity_bucket(entity_id):
+            if entity_id not in entity_names:
+                # The document points at an entity this user cannot see; it is
+                # still counted in the totals but not attributed to a row.
+                return None
+            bucket = per_entity.get(entity_id)
+            if bucket is None:
+                bucket = {
+                    **entity_names[entity_id],
+                    "sent_count": 0,
+                    "received_count": 0,
+                    "uploaded_count": 0,
+                    "stats": correspondence.TurnaroundStats(),
+                }
+                per_entity[entity_id] = bucket
+            return bucket
+
+        type_counts: dict[int | None, int] = {}
+        classification_counts: dict[int | None, int] = {}
+
+        for row in rows:
+            start = row["internal_closed_date"] or row["sent_date"]
+            returned = row["returned_date"]
+            turnaround = correspondence.compute_turnaround_days(start, returned, today)
+            bottleneck = correspondence.compute_bottleneck_days(
+                start,
+                returned,
+                today,
+                grace,
+            )
+            overall.add(turnaround, bottleneck, returned=returned is not None)
+
+            if row["sender_id"]:
+                bucket = entity_bucket(row["sender_id"])
+                if bucket is not None:
+                    bucket["sent_count"] += 1
+            if row["recipient_id"]:
+                bucket = entity_bucket(row["recipient_id"])
+                if bucket is not None:
+                    bucket["received_count"] += 1
+                    # Turnaround is the receiving entity's responsibility.
+                    bucket["stats"].add(
+                        turnaround,
+                        bottleneck,
+                        returned=returned is not None,
+                    )
+            if row["correspondent_id"]:
+                bucket = entity_bucket(row["correspondent_id"])
+                if bucket is not None:
+                    bucket["uploaded_count"] += 1
+
+            type_counts[row["document_type_id"]] = (
+                type_counts.get(row["document_type_id"], 0) + 1
+            )
+            classification_counts[row["classification_id"]] = (
+                classification_counts.get(row["classification_id"], 0) + 1
+            )
+
+        entity_rows = [
+            {
+                **{k: v for k, v in bucket.items() if k != "stats"},
+                **bucket["stats"].as_dict(),
+            }
+            for bucket in per_entity.values()
+        ]
+        entity_rows.sort(
+            key=lambda r: (-(r["sent_count"] + r["received_count"]), r["name"]),
+        )
+
+        return Response(
+            {
+                "period": {
+                    "date_from": date_from.isoformat(),
+                    "date_to": date_to.isoformat(),
+                    "date_field": date_field,
+                },
+                "grace_days": grace,
+                "totals": {
+                    "documents": len(rows),
+                    **overall.as_dict(),
+                },
+                "entities": entity_rows,
+                "monthly": self._monthly_trend(documents, date_to, date_field),
+                "by_document_type": self._named_counts(
+                    type_counts,
+                    get_objects_for_user_owner_aware(
+                        user,
+                        "documents.view_documenttype",
+                        DocumentType,
+                    ),
+                ),
+                "by_classification": self._named_counts(
+                    classification_counts,
+                    get_objects_for_user_owner_aware(
+                        user,
+                        "documents.view_documentclassification",
+                        DocumentClassification,
+                    ),
+                ),
+            },
+        )
+
+    def _parse_period(self, request):
+        params = request.query_params
+        date_field = params.get("date_field", "added")
+        if date_field not in CORRESPONDENCE_DATE_FIELDS:
+            raise ValidationError(
+                [
+                    f"date_field must be one of "
+                    f"{', '.join(CORRESPONDENCE_DATE_FIELDS)}.",
+                ],
+            )
+
+        month = params.get("month")
+        if month:
+            try:
+                first = datetime.strptime(month, "%Y-%m").date()
+            except ValueError:
+                raise ValidationError(["month must be formatted as YYYY-MM."])
+            return first, _end_of_month(first), date_field
+
+        today = timezone.localdate()
+        date_to = _parse_date(params.get("date_to"), default=today, label="date_to")
+        date_from = _parse_date(
+            params.get("date_from"),
+            default=date_to.replace(day=1),
+            label="date_from",
+        )
+        if date_from > date_to:
+            raise ValidationError(["date_from cannot be after date_to."])
+        return date_from, date_to, date_field
+
+    def _monthly_trend(self, documents, date_to, date_field):
+        """
+        A fixed-length trailing series so the trend chart always has the same
+        shape, regardless of how narrow the selected period is.
+        """
+        months = []
+        cursor = date_to.replace(day=1)
+        for _ in range(self.MONTHLY_TREND_MONTHS):
+            months.append(cursor)
+            cursor = (cursor - timedelta(days=1)).replace(day=1)
+        months.reverse()
+
+        window_start = months[0]
+        window_end = _end_of_month(months[-1])
+        counts: dict[str, dict[str, int]] = {
+            f"{m.year:04d}-{m.month:02d}": {"sent": 0, "received": 0, "uploaded": 0}
+            for m in months
+        }
+
+        rows = documents.filter(
+            **_period_lookups(date_field, window_start, window_end),
+        ).values(date_field, "sender_id", "recipient_id", "correspondent_id")
+
+        for row in rows:
+            value = row[date_field]
+            if value is None:
+                continue
+            date_value = value.date() if hasattr(value, "date") else value
+            key = f"{date_value.year:04d}-{date_value.month:02d}"
+            bucket = counts.get(key)
+            if bucket is None:
+                continue
+            if row["sender_id"]:
+                bucket["sent"] += 1
+            if row["recipient_id"]:
+                bucket["received"] += 1
+            if row["correspondent_id"]:
+                bucket["uploaded"] += 1
+
+        return [{"month": key, **value} for key, value in counts.items()]
+
+    def _named_counts(self, counts, queryset):
+        names = dict(queryset.values_list("id", "name"))
+        result = [
+            {"id": key, "name": names.get(key), "count": value}
+            for key, value in counts.items()
+            if key is not None and key in names
+        ]
+        unassigned = counts.get(None, 0)
+        if unassigned:
+            result.append({"id": None, "name": None, "count": unassigned})
+        result.sort(key=lambda r: -r["count"])
+        return result
+
+
+def _end_of_month(day):
+    if day.month == 12:
+        return day.replace(day=31)
+    return day.replace(month=day.month + 1, day=1) - timedelta(days=1)
+
+
+def _parse_date(value, *, default, label):
+    if not value:
+        return default
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValidationError([f"{label} must be formatted as YYYY-MM-DD."])
 
 
 class BulkDownloadView(GenericAPIView):

@@ -19,6 +19,7 @@ import { LogoComponent } from '../common/logo/logo.component'
 import { PageHeaderComponent } from '../common/page-header/page-header.component'
 import { ComponentWithPermissions } from '../with-permissions/with-permissions.component'
 import { ActivityWidgetComponent } from './widgets/activity-widget/activity-widget.component'
+import { CorrespondenceAnalyticsWidgetComponent } from './widgets/correspondence-analytics-widget/correspondence-analytics-widget.component'
 import { SavedViewWidgetComponent } from './widgets/saved-view-widget/saved-view-widget.component'
 import { StatisticsWidgetComponent } from './widgets/statistics-widget/statistics-widget.component'
 import { UploadFileWidgetComponent } from './widgets/upload-file-widget/upload-file-widget.component'
@@ -32,6 +33,7 @@ import { WelcomeWidgetComponent } from './widgets/welcome-widget/welcome-widget.
     LogoComponent,
     PageHeaderComponent,
     ActivityWidgetComponent,
+    CorrespondenceAnalyticsWidgetComponent,
     SavedViewWidgetComponent,
     StatisticsWidgetComponent,
     UploadFileWidgetComponent,

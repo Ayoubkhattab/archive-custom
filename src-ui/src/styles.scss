@@ -192,10 +192,17 @@ textarea {
 .theme-toggle {
   color: var(--pngx-primary-text-contrast);
   opacity: 0.9;
+  border-radius: 999px;
 
   &:hover {
     opacity: 1;
+    background-color: rgba(255, 255, 255, 0.12);
   }
+}
+
+.navbar #userDropdown:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
 }
 
 @media(min-width: 768px) {
@@ -216,6 +223,7 @@ svg.logo {
 .navbar.bg-primary {
   --bs-primary: hsl(var(--pngx-primary),var(--pngx-primary-lightness));
   --bs-primary-rgb: var(--bs-primary);
+  background-image: linear-gradient(180deg, hsl(var(--pngx-primary), calc(var(--pngx-primary-lightness) + 3%)) 0%, var(--bs-primary) 100%);
 }
 
 .border {

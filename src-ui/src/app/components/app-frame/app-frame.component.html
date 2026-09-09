@@ -9,9 +9,7 @@
     routerLink="/dashboard"
     tourAnchor="tour.intro">
  
-      <div class="border  ">
-     <pngx-logo extra_classes="d-none d-md-block  " height="2rem"></pngx-logo>
-  </div>
+      <pngx-logo extra_classes="d-none d-md-block" height="2rem"></pngx-logo>
 
     <div class="ms-2 ms-md-3 d-inline-block" [class.d-md-none]="slimSidebarEnabled">
       @if (customAppTitle?.length) {
@@ -19,7 +17,7 @@
           <span class="title">{{customAppTitle}}</span>
          </div>
       } @else {
-        archive
+        أرشيف المعلومات
       }
     </div>
   </a>
@@ -41,7 +39,7 @@
       </button>
     </li>
     @if (aiEnabled) {
-      <pngx-chat></pngx-chat>
+      <pngx-chat #chatWidget></pngx-chat>
     }
     <pngx-toasts-dropdown></pngx-toasts-dropdown>
     <li ngbDropdown class="nav-item dropdown">
@@ -103,6 +101,15 @@
               <i-bs class="me-1" name="files"></i-bs><span>&nbsp;<ng-container i18n>Documents</ng-container></span>
             </a>
           </li>
+          @if (aiEnabled) {
+            <li class="nav-item app-link">
+              <button type="button" class="nav-link w-100 text-start border-0 bg-transparent" (click)="openChat()"
+                ngbPopover="AI chat" i18n-ngbPopover [disablePopover]="!slimSidebarEnabled" placement="end"
+                container="body" triggers="mouseenter:mouseleave" popoverClass="popover-slim">
+                <i-bs class="me-1" name="chat-square-dots"></i-bs><span>&nbsp;<ng-container i18n>AI chat</ng-container></span>
+              </button>
+            </li>
+          }
         </ul>
 
         <div class="nav-group mt-3 mb-1" *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.SavedView }">

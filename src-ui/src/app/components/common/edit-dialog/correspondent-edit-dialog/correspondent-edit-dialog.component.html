@@ -10,6 +10,13 @@
   <div class="modal-body">
 
     <pngx-input-text i18n-title title="Name" formControlName="name" [error]="error?.name" autocomplete="off"></pngx-input-text>
+    <pngx-input-text i18n-title title="Entity code" formControlName="code" [error]="error?.code"
+      i18n-hint hint="Short official code identifying this entity, e.g. MOC-01. Must be unique."
+      autocomplete="off"></pngx-input-text>
+    <pngx-input-text i18n-title title="Diwan number" formControlName="diwan_number"
+      [error]="error?.diwan_number" autocomplete="off"></pngx-input-text>
+    <pngx-input-select i18n-title title="Entity type" [items]="entityTypes" formControlName="entity_type"
+      [allowNull]="false"></pngx-input-select>
     <pngx-input-select i18n-title title="Matching algorithm" [items]="getMatchingAlgorithms()" formControlName="matching_algorithm"></pngx-input-select>
     @if (patternRequired) {
       <pngx-input-text i18n-title title="Matching pattern" formControlName="match" [error]="error?.match"></pngx-input-text>

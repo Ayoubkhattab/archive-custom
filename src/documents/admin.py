@@ -7,6 +7,7 @@ from documents.models import Correspondent
 from documents.models import CustomField
 from documents.models import CustomFieldInstance
 from documents.models import Document
+from documents.models import DocumentClassification
 from documents.models import DocumentType
 from documents.models import Note
 from documents.models import PaperlessTask
@@ -23,9 +24,17 @@ if settings.AUDIT_LOG_ENABLED:
 
 
 class CorrespondentAdmin(GuardedModelAdmin):
-    list_display = ("name", "match", "matching_algorithm")
+    list_display = ("name", "code", "diwan_number", "entity_type", "matching_algorithm")
+    list_filter = ("matching_algorithm", "entity_type")
+    list_editable = ("code", "diwan_number", "entity_type", "matching_algorithm")
+    search_fields = ("name", "code", "diwan_number")
+
+
+class DocumentClassificationAdmin(GuardedModelAdmin):
+    list_display = ("name", "code", "match", "matching_algorithm")
     list_filter = ("matching_algorithm",)
-    list_editable = ("match", "matching_algorithm")
+    list_editable = ("code", "match", "matching_algorithm")
+    search_fields = ("name", "code")
 
 
 class TagAdmin(GuardedModelAdmin, TreeNodeModelAdmin):
@@ -210,6 +219,7 @@ class CustomFieldInstancesAdmin(GuardedModelAdmin):
 admin.site.register(Correspondent, CorrespondentAdmin)
 admin.site.register(Tag, TagAdmin)
 admin.site.register(DocumentType, DocumentTypeAdmin)
+admin.site.register(DocumentClassification, DocumentClassificationAdmin)
 admin.site.register(Document, DocumentAdmin)
 admin.site.register(SavedView, SavedViewAdmin)
 admin.site.register(StoragePath, StoragePathAdmin)
