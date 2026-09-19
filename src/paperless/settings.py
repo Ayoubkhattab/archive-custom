@@ -1471,3 +1471,17 @@ LLM_BACKEND = os.getenv("PAPERLESS_AI_LLM_BACKEND")  # "ollama" or "openai"
 LLM_MODEL = os.getenv("PAPERLESS_AI_LLM_MODEL")
 LLM_API_KEY = os.getenv("PAPERLESS_AI_LLM_API_KEY")
 LLM_ENDPOINT = os.getenv("PAPERLESS_AI_LLM_ENDPOINT")
+
+# Ollama tuning. An explicit context window matters: left unset, llama-index
+# asks Ollama for the model's maximum context and allocates a huge KV cache.
+LLM_REQUEST_TIMEOUT = float(os.getenv("PAPERLESS_AI_LLM_TIMEOUT", "300"))
+LLM_CONTEXT_WINDOW = int(os.getenv("PAPERLESS_AI_LLM_CONTEXT_WINDOW", "8192"))
+LLM_MAX_OUTPUT_TOKENS = int(os.getenv("PAPERLESS_AI_LLM_MAX_TOKENS", "1024"))
+# "-1" keeps the model loaded in memory; Ollama's default unloads it after 5m.
+LLM_KEEP_ALIVE = os.getenv("PAPERLESS_AI_LLM_KEEP_ALIVE", "-1")
+LLM_THINKING = __get_boolean("PAPERLESS_AI_LLM_THINKING", "false")
+# Characters of document text sent to the model per chat question. On CPU the
+# prompt prefill dominates time-to-first-token, so keep this modest.
+LLM_CHAT_MAX_CONTEXT_CHARS = int(os.getenv("PAPERLESS_AI_CHAT_MAX_CHARS", "8000"))
+# Concurrent chat streams served per web worker process.
+LLM_STREAM_THREADS = int(os.getenv("PAPERLESS_AI_STREAM_THREADS", "4"))

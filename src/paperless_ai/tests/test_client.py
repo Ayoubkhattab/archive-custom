@@ -6,6 +6,7 @@ from llama_index.core.llms import ChatMessage
 from llama_index.core.llms.llm import ToolSelection
 
 from paperless_ai.client import AIClient
+from paperless_ai.client import _parse_keep_alive
 
 
 @pytest.fixture
@@ -18,29 +19,46 @@ def mock_ai_config():
 
 @pytest.fixture
 def mock_ollama_llm():
-    with patch("paperless_ai.client.Ollama") as MockOllama:
+    with patch("llama_index.llms.ollama.Ollama") as MockOllama:
         yield MockOllama
 
 
 @pytest.fixture
 def mock_openai_llm():
-    with patch("paperless_ai.client.OpenAI") as MockOpenAI:
+    with patch("llama_index.llms.openai.OpenAI") as MockOpenAI:
         yield MockOpenAI
 
 
-def test_get_llm_ollama(mock_ai_config, mock_ollama_llm):
+def test_get_llm_ollama(mock_ai_config, mock_ollama_llm, settings):
     mock_ai_config.llm_backend = "ollama"
     mock_ai_config.llm_model = "test_model"
     mock_ai_config.llm_endpoint = "http://test-url"
+    settings.LLM_REQUEST_TIMEOUT = 300.0
+    settings.LLM_CONTEXT_WINDOW = 8192
+    settings.LLM_MAX_OUTPUT_TOKENS = 1024
+    settings.LLM_KEEP_ALIVE = "-1"
+    settings.LLM_THINKING = False
 
     client = AIClient()
 
     mock_ollama_llm.assert_called_once_with(
         model="test_model",
         base_url="http://test-url",
-        request_timeout=120,
+        request_timeout=300.0,
+        context_window=8192,
+        keep_alive=-1.0,
+        thinking=False,
+        additional_kwargs={"num_predict": 1024},
     )
     assert client.llm == mock_ollama_llm.return_value
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("-1", -1.0), ("300", 300.0), ("30m", "30m"), ("24h", "24h")],
+)
+def test_parse_keep_alive(raw, expected):
+    assert _parse_keep_alive(raw) == expected
 
 
 def test_get_llm_openai(mock_ai_config, mock_openai_llm):
@@ -109,3 +127,20 @@ def test_run_chat(mock_ai_config, mock_ollama_llm):
 
     mock_llm_instance.chat.assert_called_once_with(messages)
     assert result == "test_chat_result"
+
+
+def test_stream_chat_yields_only_non_empty_deltas(mock_ai_config, mock_ollama_llm):
+    mock_ai_config.llm_backend = "ollama"
+    mock_ai_config.llm_model = "test_model"
+    mock_ai_config.llm_endpoint = "http://test-url"
+
+    mock_llm_instance = mock_ollama_llm.return_value
+    mock_llm_instance.stream_chat.return_value = iter(
+        [MagicMock(delta="Hel"), MagicMock(delta=""), MagicMock(delta="lo")],
+    )
+
+    client = AIClient()
+    messages = [ChatMessage(role="user", content="Hello")]
+
+    assert list(client.stream_chat(messages)) == ["Hel", "lo"]
+    mock_llm_instance.stream_chat.assert_called_once_with(messages)

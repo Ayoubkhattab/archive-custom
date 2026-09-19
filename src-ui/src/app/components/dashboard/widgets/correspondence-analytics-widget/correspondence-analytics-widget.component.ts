@@ -313,7 +313,7 @@ export class CorrespondenceAnalyticsWidgetComponent
             position: 'bottom',
             labels: {
               color: this.textColor,
-              font: { family: 'IBM Plex Sans Arabic', size: 11 },
+              font: { family: 'ITF Qomra Arabic', size: 11 },
               boxWidth: 10,
             },
           },
@@ -332,7 +332,7 @@ export class CorrespondenceAnalyticsWidgetComponent
             grid: { display: false },
             ticks: {
               color: this.textColor,
-              font: { family: 'IBM Plex Sans Arabic' },
+              font: { family: 'ITF Qomra Arabic' },
             },
           },
           y: {
@@ -406,7 +406,7 @@ export class CorrespondenceAnalyticsWidgetComponent
             position: 'bottom',
             labels: {
               color: this.textColor,
-              font: { family: 'IBM Plex Sans Arabic', size: 11 },
+              font: { family: 'ITF Qomra Arabic', size: 11 },
               boxWidth: 10,
             },
           },
@@ -416,7 +416,7 @@ export class CorrespondenceAnalyticsWidgetComponent
             grid: { display: false },
             ticks: {
               color: this.textColor,
-              font: { family: 'IBM Plex Sans Arabic' },
+              font: { family: 'ITF Qomra Arabic' },
             },
           },
           y: {
@@ -488,7 +488,7 @@ export class CorrespondenceAnalyticsWidgetComponent
             grid: { display: false },
             ticks: {
               color: this.textColor,
-              font: { family: 'IBM Plex Sans Arabic' },
+              font: { family: 'ITF Qomra Arabic' },
             },
           },
         },
@@ -531,7 +531,7 @@ export class CorrespondenceAnalyticsWidgetComponent
             position: 'bottom',
             labels: {
               color: this.textColor,
-              font: { family: 'IBM Plex Sans Arabic', size: 11 },
+              font: { family: 'ITF Qomra Arabic', size: 11 },
               boxWidth: 10,
             },
           },
