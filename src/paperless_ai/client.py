@@ -38,6 +38,11 @@ class AIClient:
                 raise ModuleNotFoundError(
                     "llama-index-llms-ollama is required for llm_backend=ollama",
                 ) from exc
+            options = {"num_predict": settings.LLM_MAX_OUTPUT_TOKENS}
+            if settings.LLM_NUM_THREAD > 0:
+                # Left unset, Ollama guesses the core count, which is often
+                # wrong on virtual machines.
+                options["num_thread"] = settings.LLM_NUM_THREAD
             return Ollama(
                 model=self.settings.llm_model or "llama3.1",
                 base_url=self.settings.llm_endpoint or "http://localhost:11434",
@@ -45,7 +50,7 @@ class AIClient:
                 context_window=settings.LLM_CONTEXT_WINDOW,
                 keep_alive=_parse_keep_alive(settings.LLM_KEEP_ALIVE),
                 thinking=settings.LLM_THINKING,
-                additional_kwargs={"num_predict": settings.LLM_MAX_OUTPUT_TOKENS},
+                additional_kwargs=options,
             )
         elif self.settings.llm_backend == "openai":
             try:

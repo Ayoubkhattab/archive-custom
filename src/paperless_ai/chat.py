@@ -1,17 +1,31 @@
 import logging
+import time
 
 from django.conf import settings
+from django.core.cache import cache
 from llama_index.core import VectorStoreIndex
 from llama_index.core.llms import ChatMessage
 
 from documents.models import Document
 from paperless_ai.client import AIClient
 from paperless_ai.indexing import load_or_build_index
-from paperless_ai.indexing import update_llm_index
 
 logger = logging.getLogger("paperless_ai.chat")
 
 SINGLE_DOC_SNIPPET_CHARS = 800
+
+# At or below this many chunks, embedding them again is cheap. Above it, search
+# the persisted vector index instead of re-embedding on every question.
+LOCAL_RETRIEVAL_MAX_NODES = 40
+
+INDEX_BUILD_LOCK = "paperless_ai.index_build_queued"
+INDEX_BUILD_LOCK_SECONDS = 1800
+INDEX_BUILDING_MESSAGE = (
+    "جارٍ بناء فهرس البحث بالذكاء الاصطناعي في الخلفية، "
+    "يرجى المحاولة مجدداً بعد بضع دقائق.\n"
+    "The AI search index is being built in the background. "
+    "Please try again in a few minutes."
+)
 
 SYSTEM_PROMPT = (
     "You are a document assistant. Answer using ONLY the context provided. "
@@ -29,13 +43,45 @@ USER_PROMPT_TMPL = (
 )
 
 
-def _retrieve(nodes, query_str: str, top_k: int):
-    # Embeds only the selected documents' nodes, so build it only when needed.
-    return (
-        VectorStoreIndex(nodes=nodes)
-        .as_retriever(similarity_top_k=top_k)
-        .retrieve(query_str)
-    )
+def _queue_index_build() -> None:
+    """
+    Build the index in a celery task. Doing it inside the chat request embeds
+    every document on the CPU while the user stares at a frozen chat window.
+    """
+    if not cache.add(INDEX_BUILD_LOCK, True, timeout=INDEX_BUILD_LOCK_SECONDS):
+        return
+    try:
+        from documents.tasks import llmindex_index
+
+        llmindex_index.delay(
+            progress_bar_disable=True,
+            rebuild=False,
+            scheduled=False,
+            auto=True,
+        )
+    except Exception:
+        cache.delete(INDEX_BUILD_LOCK)
+        logger.warning("Could not queue the LLM index build", exc_info=True)
+
+
+def _retrieve(index, nodes, allowed_ids: set[str], query_str: str, top_k: int):
+    if len(nodes) <= LOCAL_RETRIEVAL_MAX_NODES:
+        return (
+            VectorStoreIndex(nodes=nodes)
+            .as_retriever(similarity_top_k=top_k)
+            .retrieve(query_str)
+        )
+
+    # FAISS can't filter on metadata, so search wider and filter afterwards,
+    # widening until enough of the user's own documents are found.
+    total = len(index.docstore.docs)
+    k = min(max(top_k * 10, 50), total)
+    while True:
+        results = index.as_retriever(similarity_top_k=k).retrieve(query_str)
+        matches = [r for r in results if r.metadata.get("document_id") in allowed_ids]
+        if len(matches) >= top_k or k >= total:
+            return matches[:top_k]
+        k = min(k * 4, total)
 
 
 def _format_matches(top_nodes) -> str:
@@ -46,27 +92,23 @@ def _format_matches(top_nodes) -> str:
 
 
 def stream_chat_with_documents(query_str: str, documents: list[Document]):
+    started = time.monotonic()
     client = AIClient()
     try:
         index = load_or_build_index()
     except ValueError:
-        # No index exists on disk yet (first use) — build it from all
-        # documents now instead of failing the request.
-        logger.info("No LLM index found; building it now for the first time.")
-        update_llm_index()
-        try:
-            index = load_or_build_index()
-        except ValueError:
-            yield "There are no indexed documents to search yet."
-            return
+        logger.info("No LLM index found; queueing a background build.")
+        _queue_index_build()
+        yield INDEX_BUILDING_MESSAGE
+        return
 
-    doc_ids = [str(doc.pk) for doc in documents]
+    allowed_ids = {str(doc.pk) for doc in documents}
 
     # Filter only the node(s) that match the document IDs
     nodes = [
         node
         for node in index.docstore.docs.values()
-        if node.metadata.get("document_id") in doc_ids
+        if node.metadata.get("document_id") in allowed_ids
     ]
 
     if len(nodes) == 0:
@@ -89,7 +131,7 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
             )
             context_body = content[:max_chars]
 
-            top_nodes = _retrieve(nodes, query_str, top_k=3)
+            top_nodes = _retrieve(index, nodes, allowed_ids, query_str, top_k=3)
             if len(top_nodes) > 0:
                 context_body = (
                     f"{context_body}\n\nTOP MATCHES:\n{_format_matches(top_nodes)}"
@@ -97,7 +139,7 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
 
         context = f"TITLE: {doc.title or doc.filename}\n{context_body}"
     else:
-        top_nodes = _retrieve(nodes, query_str, top_k=5)
+        top_nodes = _retrieve(index, nodes, allowed_ids, query_str, top_k=5)
 
         if len(top_nodes) == 0:
             logger.warning("Retriever returned no nodes for the given documents.")
@@ -115,4 +157,15 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
     ]
     logger.debug("Document chat messages: %s", messages)
 
-    yield from client.stream_chat(messages)
+    prepared = time.monotonic()
+    first_token_logged = False
+    for chunk in client.stream_chat(messages):
+        if not first_token_logged:
+            first_token_logged = True
+            logger.info(
+                "AI chat: context ready after %.2fs, first token after %.2fs",
+                prepared - started,
+                time.monotonic() - started,
+            )
+        yield chunk
+    logger.info("AI chat: finished in %.2fs", time.monotonic() - started)

@@ -3,8 +3,12 @@ from unittest.mock import patch
 
 import pytest
 from llama_index.core import VectorStoreIndex
+from llama_index.core.schema import NodeWithScore
 from llama_index.core.schema import TextNode
 
+from paperless_ai.chat import INDEX_BUILD_LOCK
+from paperless_ai.chat import INDEX_BUILDING_MESSAGE
+from paperless_ai.chat import _queue_index_build
 from paperless_ai.chat import stream_chat_with_documents
 
 
@@ -143,3 +147,89 @@ def test_stream_chat_no_matching_nodes():
         output = list(stream_chat_with_documents("Any info?", [MagicMock(pk=1)]))
 
         assert output == ["Sorry, I couldn't find any content to answer your question."]
+
+
+@pytest.fixture
+def clear_index_lock():
+    from django.core.cache import cache
+
+    cache.delete(INDEX_BUILD_LOCK)
+    yield
+    cache.delete(INDEX_BUILD_LOCK)
+
+
+def test_stream_chat_without_index_answers_immediately_and_queues_build(
+    clear_index_lock,
+):
+    with (
+        patch("paperless_ai.chat.AIClient"),
+        patch("paperless_ai.chat.load_or_build_index", side_effect=ValueError),
+        patch("documents.tasks.llmindex_index") as mock_task,
+    ):
+        first = list(stream_chat_with_documents("Any info?", [MagicMock(pk=1)]))
+        second = list(stream_chat_with_documents("Any info?", [MagicMock(pk=1)]))
+
+    assert first == second == [INDEX_BUILDING_MESSAGE]
+    # The lock keeps repeated questions from queueing a build each time.
+    mock_task.delay.assert_called_once()
+
+
+def test_queue_index_build_releases_lock_when_broker_is_down(clear_index_lock):
+    from django.core.cache import cache
+
+    with patch("documents.tasks.llmindex_index") as mock_task:
+        mock_task.delay.side_effect = ConnectionError("broker down")
+        _queue_index_build()
+
+    assert cache.get(INDEX_BUILD_LOCK) is None
+
+
+def _ranked_index(disallowed: int, allowed_ids: list[str]):
+    nodes = [
+        TextNode(text=f"other {i}", metadata={"document_id": f"x{i}", "title": "o"})
+        for i in range(disallowed)
+    ] + [
+        TextNode(text=f"mine {d}", metadata={"document_id": d, "title": f"T{d}"})
+        for d in allowed_ids
+    ]
+    index = MagicMock()
+    index.docstore.docs = {n.node_id: n for n in nodes}
+    seen_k = []
+
+    def as_retriever(similarity_top_k):
+        seen_k.append(similarity_top_k)
+        retriever = MagicMock()
+        retriever.retrieve.return_value = [
+            NodeWithScore(node=n, score=1.0) for n in nodes[:similarity_top_k]
+        ]
+        return retriever
+
+    index.as_retriever.side_effect = as_retriever
+    return index, seen_k
+
+
+def test_multi_document_search_uses_stored_vectors_and_widens_until_found():
+    index, seen_k = _ranked_index(disallowed=60, allowed_ids=["1", "2"])
+
+    with (
+        patch("paperless_ai.chat.AIClient") as mock_client_cls,
+        patch("paperless_ai.chat.load_or_build_index", return_value=index),
+        patch("paperless_ai.chat.LOCAL_RETRIEVAL_MAX_NODES", 1),
+        patch("paperless_ai.chat.VectorStoreIndex") as mock_local_index,
+    ):
+        mock_client_cls.return_value.stream_chat.return_value = iter(["ok"])
+        output = list(
+            stream_chat_with_documents(
+                "question",
+                [MagicMock(pk=1), MagicMock(pk=2)],
+            ),
+        )
+        prompt = mock_client_cls.return_value.stream_chat.call_args.args[0][1].content
+
+    assert output == ["ok"]
+    # Nothing was re-embedded, and the search widened once (50 -> all 62).
+    mock_local_index.assert_not_called()
+    assert seen_k == [50, 62]
+    assert "mine 1" in prompt
+    assert "mine 2" in prompt
+    assert "other" not in prompt

@@ -144,3 +144,16 @@ def test_stream_chat_yields_only_non_empty_deltas(mock_ai_config, mock_ollama_ll
 
     assert list(client.stream_chat(messages)) == ["Hel", "lo"]
     mock_llm_instance.stream_chat.assert_called_once_with(messages)
+
+
+def test_get_llm_ollama_passes_cpu_thread_count(mock_ai_config, mock_ollama_llm, settings):
+    mock_ai_config.llm_backend = "ollama"
+    mock_ai_config.llm_model = "test_model"
+    mock_ai_config.llm_endpoint = "http://test-url"
+    settings.LLM_MAX_OUTPUT_TOKENS = 512
+    settings.LLM_NUM_THREAD = 8
+
+    AIClient()
+
+    kwargs = mock_ollama_llm.call_args.kwargs
+    assert kwargs["additional_kwargs"] == {"num_predict": 512, "num_thread": 8}

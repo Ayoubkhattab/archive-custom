@@ -51,11 +51,11 @@ python manage.py setup_document_structure
 echo "Collecting static files..."
 python manage.py collectstatic --noinput --clear
 
-# Start production server (4 workers, no reload)
+# Start production server (GRANIAN_WORKERS workers, default 4; no reload)
 echo "Starting Granian ASGI server..."
 exec granian \
   --interface asgi \
   --host 0.0.0.0 \
   --port 8000 \
-  --workers 4 \
+  --workers "${GRANIAN_WORKERS:-4}" \
   paperless.asgi:application

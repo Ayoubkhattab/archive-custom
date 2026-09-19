@@ -1477,6 +1477,8 @@ LLM_ENDPOINT = os.getenv("PAPERLESS_AI_LLM_ENDPOINT")
 LLM_REQUEST_TIMEOUT = float(os.getenv("PAPERLESS_AI_LLM_TIMEOUT", "300"))
 LLM_CONTEXT_WINDOW = int(os.getenv("PAPERLESS_AI_LLM_CONTEXT_WINDOW", "8192"))
 LLM_MAX_OUTPUT_TOKENS = int(os.getenv("PAPERLESS_AI_LLM_MAX_TOKENS", "1024"))
+# CPU threads Ollama uses for inference; 0 lets Ollama decide.
+LLM_NUM_THREAD = int(os.getenv("PAPERLESS_AI_LLM_NUM_THREAD", "0"))
 # "-1" keeps the model loaded in memory; Ollama's default unloads it after 5m.
 LLM_KEEP_ALIVE = os.getenv("PAPERLESS_AI_LLM_KEEP_ALIVE", "-1")
 LLM_THINKING = __get_boolean("PAPERLESS_AI_LLM_THINKING", "false")
