@@ -84,7 +84,7 @@ class UserSerializer(PasswordValidationMixin, serializers.ModelSerializer):
         mfa_adapter = get_mfa_adapter()
         return mfa_adapter.is_mfa_enabled(user)
 
-    def get_created_by_id(self, obj):
+    def get_created_by_id(self, obj) -> int | None:
         try:
             return obj.ownership.created_by_id
         except Exception:
@@ -171,7 +171,7 @@ class GroupSerializer(serializers.ModelSerializer):
     )
     created_by_id = serializers.SerializerMethodField(read_only=True)
 
-    def get_created_by_id(self, obj):
+    def get_created_by_id(self, obj) -> int | None:
         try:
             return obj.ownership.created_by_id
         except Exception:

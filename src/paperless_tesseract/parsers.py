@@ -221,7 +221,7 @@ class RasterisedDocumentParser(DocumentParser):
         if TYPE_CHECKING:
             assert isinstance(self.settings, OcrConfig)
         ocrmypdf_args = {
-            "input_file_or_options": input_file,
+            "input_file": input_file,
             "output_file": output_file,
             # need to use threads, since this will be run in daemonized
             # processes via the task library.
@@ -285,7 +285,7 @@ class RasterisedDocumentParser(DocumentParser):
                     "for compatibility with img2pdf",
                 )
                 # Replace the input file with the non-alpha
-                ocrmypdf_args["input_file_or_options"] = self.remove_alpha(input_file)
+                ocrmypdf_args["input_file"] = self.remove_alpha(input_file)
 
             if dpi:
                 self.log.debug(f"Detected DPI for image {input_file}: {dpi}")
@@ -381,7 +381,8 @@ class RasterisedDocumentParser(DocumentParser):
 
         try:
             self.log.debug(f"Calling OCRmyPDF with args: {args}")
-            ocrmypdf.ocr(**args)
+            # Positional: ocrmypdf 17 renamed this parameter to input_file_or_options.
+            ocrmypdf.ocr(args.pop("input_file"), **args)
 
             if self.settings.skip_archive_file != ArchiveFileChoices.ALWAYS:
                 self.archive_path = archive_path
@@ -428,7 +429,7 @@ class RasterisedDocumentParser(DocumentParser):
 
             try:
                 self.log.debug(f"Fallback: Calling OCRmyPDF with args: {args}")
-                ocrmypdf.ocr(**args)
+                ocrmypdf.ocr(args.pop("input_file"), **args)
 
                 # Don't return the archived file here, since this file
                 # is bigger and blurry due to --force-ocr.

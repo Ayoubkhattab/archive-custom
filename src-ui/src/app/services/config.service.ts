@@ -23,7 +23,9 @@ export class ConfigService {
     // dont pass string
     if (typeof config.app_logo === 'string') delete config.app_logo
     return this.http
-      .patch<PaperlessConfig>(`${this.baseUrl}${config.id}/`, config)
+      // There is a single configuration; the server ignores the id, so a
+      // missing one must not turn into ".../null/".
+      .patch<PaperlessConfig>(`${this.baseUrl}${config.id ?? 'current'}/`, config)
       .pipe(first())
   }
 
@@ -35,7 +37,7 @@ export class ConfigService {
     let formData = new FormData()
     formData.append(configKey, file, file.name)
     return this.http
-      .patch<PaperlessConfig>(`${this.baseUrl}${configID}/`, formData)
+      .patch<PaperlessConfig>(`${this.baseUrl}${configID ?? 'current'}/`, formData)
       .pipe(first())
   }
 }

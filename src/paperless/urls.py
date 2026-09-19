@@ -90,6 +90,11 @@ api_router.register(r"config", ApplicationConfigurationViewSet)
 api_router.register(r"processed_mail", ProcessedMailViewSet)
 
 
+# Django's admin has its own login form, which would let a user with 2FA
+# enabled in with only a password. Route it through the allauth login so the
+# MFA step cannot be skipped.
+admin.site.login = login_required(admin.site.login)
+
 urlpatterns = [
     re_path(
         r"^api/",
@@ -253,9 +258,9 @@ urlpatterns = [
             ],
         ),
     ),
-    re_path(r"share/(?P<slug>\w+)/?$", SharedLinkView.as_view()),
+    re_path(r"^share/(?P<slug>\w+)/?$", SharedLinkView.as_view()),
     re_path(r"^favicon.ico$", FaviconView.as_view(), name="favicon"),
-    re_path(r"admin/", admin.site.urls),
+    re_path(r"^admin/", admin.site.urls),
     re_path(
         r"^fetch/",
         include(

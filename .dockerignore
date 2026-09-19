@@ -28,3 +28,14 @@
 ./resources
 # Other stuff
 **/*.drawio.png
+# Frontend caches (the Angular cache alone is >1GB and made every build slow)
+./src-ui/.angular
+./src-ui/.pnpm-store
+./src-ui/e2e
+# Local compose runtime data and secrets: never part of the image
+./docker/compose/.env*
+./docker/compose/data
+./docker/compose/media
+./docker/compose/consume
+./docker/compose/export
+./static

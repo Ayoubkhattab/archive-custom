@@ -39,6 +39,9 @@ class AngularApiAuthenticationOverride(authentication.BaseAuthentication):
             settings.DEBUG
             and "Referer" in request.headers
             and request.headers["Referer"].startswith("http://localhost:4200/")
+            # Belt and braces: the header is trivially forged, so only honour it
+            # for connections that come from this machine.
+            and request.META.get("REMOTE_ADDR") in ("127.0.0.1", "::1")
         ):
             user = User.objects.filter(is_staff=True).first()
             logger.debug(f"Auto-Login with user {user}")

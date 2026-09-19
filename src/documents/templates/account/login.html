@@ -2,12 +2,13 @@
 {% load i18n %}
 
 {% block head_title %}
-    {% trans "أرشيف المعلومات sign in" %}
+    {% translate "Sign in" %} - أرشيف المعلومات
 {% endblock head_title %}
 
 {% block form_top_content %}
-    <p>
-      {% translate "Please sign in." %}
+    <h2 class="auth-title">{% translate "Sign in" %}</h2>
+    <p class="auth-lead">
+      مرحباً بك، أدخل بيانات حسابك للوصول إلى الأرشيف.
       {% if ACCOUNT_ALLOW_SIGNUPS %}
           <br/>{% blocktrans %}Don't have an account yet? <a href="{{ signup_url }}">Sign up</a>{% endblocktrans %}
       {% endif %}
@@ -15,31 +16,81 @@
 {% endblock form_top_content %}
 
 {% block form_content %}
-		{% if FIRST_INSTALL %}
-			<script type="text/javascript">
-				// forward to the signup page if no users exist
-				window.location.href = "{{ signup_url }}";
-			</script>
-		{% endif %}
+    {% if FIRST_INSTALL %}
+        <script type="text/javascript">
+            // forward to the signup page if no users exist
+            window.location.href = "{{ signup_url }}";
+        </script>
+    {% endif %}
     {% if not DISABLE_REGULAR_LOGIN %}
         {% translate "Username" as i18n_username %}
         {% translate "Password" as i18n_password %}
-        <div class="form-floating form-stacked-top">
-            <input type="text" name="login" id="inputUsername" placeholder="{{ i18n_username }}" class="form-control" autocorrect="off" autocapitalize="none" required autofocus>
+        <div class="auth-field">
             <label for="inputUsername">{{ i18n_username }}</label>
+            <input type="text" name="login" id="inputUsername" class="auth-input" dir="ltr"
+                   autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
+                   required autofocus{% if form.login.value %} value="{{ form.login.value }}"{% endif %}{% if form.errors %} aria-invalid="true"{% endif %}>
         </div>
-        <div class="form-floating form-stacked-bottom">
-            <input type="password" name="password" id="inputPassword" placeholder="{{ i18n_password }}" class="form-control" required>
+        <div class="auth-field">
             <label for="inputPassword">{{ i18n_password }}</label>
-        </div>
-        <div class="d-grid mt-3">
-            <button class="btn btn-lg btn-primary" type="submit">{% translate "Sign in" %}</button>
-        </div>
-        {% if EMAIL_ENABLED %}
-            <div class="d-grid mt-3">
-              <a class="btn btn-link" href="{% url 'account_reset_password' %}">{% translate "Forgot your password?" %}</a>
+            <div class="auth-password">
+                <input type="password" name="password" id="inputPassword" class="auth-input" dir="ltr"
+                       autocomplete="current-password" required{% if form.errors %} aria-invalid="true"{% endif %}>
+                <button type="button" class="auth-toggle" id="togglePassword"
+                        aria-controls="inputPassword" aria-pressed="false">إظهار</button>
             </div>
+            <p class="auth-hint" id="capsHint" role="status" hidden>مفتاح Caps Lock مفعّل، قد تُكتب الأحرف الكبيرة.</p>
+        </div>
+        <button class="auth-submit" type="submit" id="submitButton">
+            <span class="auth-submit-label">{% translate "Sign in" %}</span>
+            <span class="auth-spinner" aria-hidden="true"></span>
+        </button>
+        {% if EMAIL_ENABLED %}
+            <p class="auth-secondary">
+              <a href="{% url 'account_reset_password' %}">{% translate "Forgot your password?" %}</a>
+            </p>
         {% endif %}
+        <script type="text/javascript">
+            (function () {
+                var form = document.getElementById('form-account');
+                var user = document.getElementById('inputUsername');
+                var pass = document.getElementById('inputPassword');
+                var toggle = document.getElementById('togglePassword');
+                var caps = document.getElementById('capsHint');
+                var submit = document.getElementById('submitButton');
+
+                // After a failed attempt the username is kept, so continue at the password.
+                if (user.value) { pass.focus(); }
+
+                toggle.addEventListener('click', function () {
+                    var show = pass.type === 'password';
+                    pass.type = show ? 'text' : 'password';
+                    toggle.textContent = show ? 'إخفاء' : 'إظهار';
+                    toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+                    pass.focus();
+                });
+
+                function checkCaps(e) {
+                    caps.hidden = !(e.getModifierState && e.getModifierState('CapsLock'));
+                }
+                pass.addEventListener('keydown', checkCaps);
+                pass.addEventListener('keyup', checkCaps);
+                pass.addEventListener('blur', function () { caps.hidden = true; });
+
+                function reset() {
+                    submit.disabled = false;
+                    submit.classList.remove('is-loading');
+                }
+                // Stop repeated clicks from sending the form twice while it is in flight.
+                form.addEventListener('submit', function () {
+                    if (!form.checkValidity()) { return; }
+                    submit.classList.add('is-loading');
+                    window.setTimeout(function () { submit.disabled = true; }, 0);
+                });
+                // Coming back with the browser's back button restores the page as it was left.
+                window.addEventListener('pageshow', reset);
+            })();
+        </script>
     {% endif %}
 {% endblock form_content %}
 
@@ -48,21 +99,21 @@
     {% get_providers as socialaccount_providers %}
     {% if socialaccount_providers %}
         {% if not DISABLE_REGULAR_LOGIN %}
-            <p class="mt-3">{% translate "or sign in via" %}</p>
+            <p class="auth-divider"><span>{% translate "or sign in via" %}</span></p>
         {% endif %}
-        <ul class="m-0 p-0">
+        <ul class="auth-social">
             {% for provider in socialaccount_providers %}
                 {% if provider.id == "openid" %}
                     {% for brand in provider.get_brands %}
                         {% provider_login_url provider openid=brand.openid_url process=process as href %}
-                    <li class="d-grid mt-3"><a class="btn btn-secondary oidc-url" href="{{ href }}">{{ brand.name }}</a></li>
+                    <li><a class="auth-social-button oidc-url" href="{{ href }}">{{ brand.name }}</a></li>
                     {% endfor %}
                 {% else %}
                     {% provider_login_url provider process=process scope=scope auth_params=auth_params as href %}
-                        <li class="d-grid mt-3">
-                            <form id="social-login" class="d-grid" method="POST" action="{{ href }}">
+                        <li>
+                            <form id="social-login" method="POST" action="{{ href }}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-secondary">{{ provider.name }}</button>
+                                <button type="submit" class="auth-social-button">{{ provider.name }}</button>
                             </form>
                         </li>
                     {% if REDIRECT_LOGIN_TO_SSO and forloop.counter0 == 0 and request.GET.loggedout != '1' %}

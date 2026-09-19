@@ -7,6 +7,7 @@ from allauth.mfa.totp.internal import auth as totp_auth
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from guardian.shortcuts import assign_perm
 from guardian.shortcuts import get_perms
 from guardian.shortcuts import get_users_with_perms
@@ -23,6 +24,11 @@ from documents.tests.utils import DirectoriesMixin
 
 
 class TestApiAuth(DirectoriesMixin, APITestCase):
+    def setUp(self):
+        super().setUp()
+        # The token endpoint is rate limited per client IP.
+        cache.clear()
+
     def test_auth_required(self):
         d = Document.objects.create(title="Test")
 

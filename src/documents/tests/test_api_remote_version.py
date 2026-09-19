@@ -1,3 +1,5 @@
+import pytest
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from pytest_httpx import HTTPXMock
 from rest_framework import status
@@ -11,6 +13,11 @@ class TestApiRemoteVersion:
 
     def setup_method(self):
         cache.clear()
+
+    @pytest.fixture(autouse=True)
+    def _signed_in(self, rest_api_client: APIClient):
+        # The endpoint makes an outbound request, so it is not anonymous.
+        rest_api_client.force_authenticate(User(username="reader"))
 
     def test_remote_version_enabled_no_update_prefix(
         self,

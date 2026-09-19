@@ -1,27 +1,23 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Paperless Celery Beat..."
+echo "Starting Paperless Celery Beat..."
 
-# Change to source directory
 cd /usr/src/paperless/src
 
-# Wait for database
-echo "⏳ Waiting for database..."
-until pg_isready -h postgres -U paperless -p 5432 > /dev/null 2>&1; do
-  echo "Database not ready yet, waiting..."
+echo "Waiting for database..."
+until pg_isready -h "${PAPERLESS_DBHOST:-postgres}" -p "${PAPERLESS_DBPORT:-5432}" -U "${PAPERLESS_DBUSER:-paperless}" > /dev/null 2>&1; do
   sleep 1
 done
-echo "✅ Database is ready!"
+echo "Database is ready."
 
-# Wait for Redis
-echo "⏳ Waiting for Redis..."
-until python -c "import redis; r=redis.Redis(host='broker', port=6379); r.ping()" 2>/dev/null; do
-  echo "Redis not ready yet, waiting..."
+echo "Waiting for Redis..."
+until python -c "
+import os, redis
+redis.Redis.from_url(os.environ.get('PAPERLESS_REDIS', 'redis://broker:6379/0')).ping()
+" 2>/dev/null; do
   sleep 1
 done
-echo "✅ Redis is ready!"
+echo "Redis is ready."
 
-# Start Celery beat
-echo "🔥 Starting Celery beat..."
 exec celery -A paperless beat --loglevel=info

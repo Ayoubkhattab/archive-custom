@@ -98,6 +98,12 @@ services:
       - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-gemma4:e4b}
       - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
       - PAPERLESS_AI_LLM_EMBEDDING_BACKEND=${AI_EMBEDDING_BACKEND:-huggingface}
+      # Empty = app default (all-MiniLM-L6-v2, English). For Arabic use
+      # sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (baked into
+      # the image), then: manage.py document_llmindex rebuild
+      - PAPERLESS_AI_LLM_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
+      # Models are baked into the image; set to 0 to allow downloading others.
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
       # Ollama tuning. These must be identical for every service that calls
       # Ollama: a different context size makes Ollama reload the model.
       - PAPERLESS_AI_LLM_TIMEOUT=${AI_TIMEOUT:-300}
@@ -112,8 +118,15 @@ services:
       - DEBUG=false
       - PAPERLESS_DEBUG=false
       - PAPERLESS_LOGGING_LEVEL=${LOG_LEVEL:-WARNING}
+      # Login sessions last one day by default (Django's own default is 3 weeks).
+      - PAPERLESS_SESSION_COOKIE_AGE=${SESSION_COOKIE_AGE:-86400}
+      # Behind a TLS-terminating reverse proxy set NUM_PROXIES=1 (so throttling
+      # sees real client addresses) and PROXY_SSL_HEADER='["HTTP_X_FORWARDED_PROTO", "https"]'.
+      - PAPERLESS_NUM_PROXIES=${NUM_PROXIES:-0}
+      - PAPERLESS_PROXY_SSL_HEADER=${PROXY_SSL_HEADER:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      # "/" redirects to the login page; /api/ answers 401 without credentials.
+      test: ["CMD", "curl", "-fsL", "--max-time", "5", "-o", "/dev/null", "http://localhost:8000/"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -171,6 +184,12 @@ services:
       - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-gemma4:e4b}
       - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
       - PAPERLESS_AI_LLM_EMBEDDING_BACKEND=${AI_EMBEDDING_BACKEND:-huggingface}
+      # Empty = app default (all-MiniLM-L6-v2, English). For Arabic use
+      # sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (baked into
+      # the image), then: manage.py document_llmindex rebuild
+      - PAPERLESS_AI_LLM_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
+      # Models are baked into the image; set to 0 to allow downloading others.
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
       # Ollama tuning. These must be identical for every service that calls
       # Ollama: a different context size makes Ollama reload the model.
       - PAPERLESS_AI_LLM_TIMEOUT=${AI_TIMEOUT:-300}
@@ -179,6 +198,9 @@ services:
       - PAPERLESS_AI_LLM_KEEP_ALIVE=${AI_KEEP_ALIVE:--1}
       - PAPERLESS_AI_LLM_THINKING=${AI_THINKING:-false}
       - PAPERLESS_AI_LLM_NUM_THREAD=${AI_NUM_THREAD:-0}
+      # Documents processed in parallel (upstream default is 1). Each OCR job
+      # uses PAPERLESS_THREADS_PER_WORKER cores, derived from this if unset.
+      - PAPERLESS_TASK_WORKERS=${TASK_WORKERS:-2}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
     # The image's built-in healthcheck curls the web port, which this container

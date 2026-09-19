@@ -151,7 +151,7 @@ step "7/7  Health check"
 info "Waiting for webserver (up to 2 minutes)..."
 for i in $(seq 1 24); do
   if docker compose -f docker-compose.prod.yml --env-file .env.prod \
-       exec -T webserver curl -sf http://localhost:8000/api/ &>/dev/null; then
+       exec -T webserver curl -sfL -o /dev/null http://localhost:8000/ &>/dev/null; then
     success "Paperless-ngx is responding!"
     break
   fi

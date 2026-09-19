@@ -47,14 +47,22 @@ PYEOF
 echo "Setting up document structure..."
 python manage.py setup_document_structure
 
-# Collect static files
-echo "Collecting static files..."
-python manage.py collectstatic --noinput --clear
+# Static files are collected and compressed at image build time. Only redo it
+# if PAPERLESS_STATICDIR points somewhere empty.
+if [ ! -f "${PAPERLESS_STATICDIR:-/usr/src/paperless/static}/frontend/en-US/index.html" ]; then
+  echo "Collecting static files..."
+  python manage.py collectstatic --noinput
+fi
 
-# Start production server (GRANIAN_WORKERS workers, default 4; no reload)
+# Start production server (GRANIAN_WORKERS workers, default 4; no reload).
+# asginl: Django has no ASGI lifespan support, so "asgi" logs a lifespan error
+# on every worker start. Same flags as the upstream image's s6 service.
 echo "Starting Granian ASGI server..."
 exec granian \
-  --interface asgi \
+  --interface asginl \
+  --ws \
+  --loop uvloop \
+  --respawn-failed-workers \
   --host 0.0.0.0 \
   --port 8000 \
   --workers "${GRANIAN_WORKERS:-4}" \

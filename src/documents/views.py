@@ -214,6 +214,7 @@ from paperless_ai.matching import match_correspondents_by_name
 from paperless_ai.matching import match_document_types_by_name
 from paperless_ai.matching import match_storage_paths_by_name
 from paperless_ai.matching import match_tags_by_name
+from paperless_ai.ratelimit import allow_request
 from paperless_ai.streaming import stream_from_sync
 from paperless_mail.models import MailAccount
 from paperless_mail.models import MailRule
@@ -1457,9 +1458,18 @@ class ChatStreamingView(GenericAPIView):
         if not ai_config.ai_enabled:
             return HttpResponseBadRequest("AI is required for this feature")
 
+        if not request.user.has_perm("documents.view_document"):
+            return HttpResponseForbidden("Insufficient permissions")
+
+        if not allow_request(request.user.pk):
+            return HttpResponse("Too many requests", status=429)
+
         try:
             question = request.data["q"]
         except KeyError:
+            return HttpResponseBadRequest("Invalid request")
+
+        if not isinstance(question, str) or len(question) > 4000:
             return HttpResponseBadRequest("Invalid request")
 
         doc_id = request.data.get("document_id")
@@ -1547,8 +1557,22 @@ class ChatStreamingView(GenericAPIView):
                     return
                 yield from stream_chat_with_documents(question, documents)
 
+        def _stream_chat_safely():
+            # Once streaming has started, an exception can no longer become a
+            # proper error response: the server answers a bare "Internal server
+            # error" and nothing is logged. Log it and tell the user instead.
+            try:
+                yield from _stream_chat()
+            except Exception:
+                logger.exception("AI chat failed")
+                yield (
+                    "\n\n⚠️ تعذّر الحصول على رد من نموذج الذكاء الاصطناعي، "
+                    "يرجى المحاولة مجدداً.\n"
+                    "The AI model could not answer. Please try again."
+                )
+
         response = StreamingHttpResponse(
-            stream_from_sync(_stream_chat),
+            stream_from_sync(_stream_chat_safely),
             content_type="text/plain; charset=utf-8",
         )
         # Compressing a stream buffers it; "identity" makes the compression
@@ -2668,6 +2692,9 @@ class CorrespondenceAnalyticsView(GenericAPIView):
     MONTHLY_TREND_MONTHS = 12
 
     def get(self, request, format=None):
+        if not request.user.has_perm("documents.view_document"):
+            return HttpResponseForbidden("Insufficient permissions")
+
         try:
             date_from, date_to, date_field = self._parse_period(request)
         except ValidationError as e:
@@ -3124,6 +3151,9 @@ class UiSettingsView(GenericAPIView):
     ),
 )
 class RemoteVersionView(GenericAPIView):
+    # Each uncached call makes an outbound request to GitHub, so it must not be
+    # reachable anonymously.
+    permission_classes = (IsAuthenticated,)
     cache_key = "remote_version_view_latest_release"
 
     def get(self, request, format=None):

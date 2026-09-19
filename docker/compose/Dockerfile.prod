@@ -1,6 +1,13 @@
-# ─── Stage 1: Build Angular Frontend ───────────────────────────────────────────
+# syntax=docker/dockerfile:1
 # Build context must be the project root:
 #   docker compose -f docker/compose/docker-compose.prod.yml build
+
+# Pinned to the upstream release this fork is based on (pyproject.toml version).
+# ":latest" drifts: it has already shipped a different ocrmypdf/torch/transformers
+# than the ones our code and uv.lock were tested with.
+ARG PAPERLESS_BASE=ghcr.io/paperless-ngx/paperless-ngx:2.20.5
+
+# ─── Stage 1: Build Angular Frontend ───────────────────────────────────────────
 FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /app
@@ -20,44 +27,58 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
 COPY src-ui/ .
-RUN npx ng build --output-path /frontend-build/ --configuration production
+RUN pnpm exec ng build --output-path /frontend-build/ --configuration production
 
 # ─── Stage 2: Production Image ─────────────────────────────────────────────────
-FROM ghcr.io/paperless-ngx/paperless-ngx:latest
+FROM ${PAPERLESS_BASE}
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Install Arabic OCR language pack
 RUN apt-get update && \
     apt-get install -y --no-install-recommends tesseract-ocr-ara && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# The default PyPI torch wheel is built for CUDA and drags in ~9GB of nvidia-*
-# libraries. The server has no GPU, so install the CPU build first; the
-# packages below then see torch as already satisfied.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+# Python dependencies: install exactly what uv.lock pins (the same versions the
+# test suite runs against), the way the upstream Dockerfile does. Most of them
+# already match the base image, so this only adds/changes the difference.
+# torch comes from the CPU index: the default PyPI wheel is built for CUDA and
+# drags in ~9GB of nvidia-* libraries the GPU-less server can't use.
+COPY pyproject.toml uv.lock /tmp/pydeps/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    cd /tmp/pydeps && \
+    uv export --frozen --quiet --no-dev --all-extras --format requirements-txt \
+      --output-file requirements.txt && \
+    uv pip install --system --no-python-downloads --python-preference system \
+      --index https://pypi.org/simple \
+      --index https://download.pytorch.org/whl/cpu \
+      --index-strategy unsafe-best-match \
+      --requirements requirements.txt && \
+    rm -rf /tmp/pydeps
 
-# Install custom Python packages
-# whoosh-reloaded is pinned explicitly: it's a core paperless-ngx dependency
-# (used for search indexing) but the upstream base image's ":latest" tag has
-# been observed missing it depending on when/where it was pulled.
-RUN pip install --no-cache-dir \
-    llama-index-core \
-    llama-index-llms-ollama \
-    llama-index-embeddings-huggingface \
-    llama-index-embeddings-openai \
-    llama-index-vector-stores-faiss \
-    faiss-cpu \
-    granian \
-    "whoosh-reloaded>=2.7.5" \
-    django-celery-results
-
-# Bake the default embedding model into the image so the first chat question
-# doesn't download it (and so it works without outbound access to Hugging Face).
+# Bake the embedding models into the image so the first chat question doesn't
+# download them, and so they work without outbound access to Hugging Face.
+# all-MiniLM-L6-v2 is the app default (English only); the multilingual one
+# understands Arabic — switch to it with AI_EMBEDDING_MODEL in .env.prod, then
+# rebuild the index (manage.py document_llmindex rebuild).
+# HF_HUB_OFFLINE stops every model load from making network calls to the Hub.
 # Threads are capped so torch doesn't fight Ollama for the same CPU cores.
+ARG EMBEDDING_MODELS="sentence-transformers/all-MiniLM-L6-v2 sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 ENV HF_HOME=/opt/hf-cache \
     TOKENIZERS_PARALLELISM=false \
     OMP_NUM_THREADS=2
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')" && \
+RUN for model in ${EMBEDDING_MODELS}; do \
+      python -c "import sys; from sentence_transformers import SentenceTransformer; SentenceTransformer(sys.argv[1])" "$model" || exit 1; \
+    done && \
     chmod -R a+rX /opt/hf-cache
+ENV HF_HUB_OFFLINE=1
+
+# Precompile site-packages. The base image sets PYTHONDONTWRITEBYTECODE, so
+# without this every process (each Granian worker, each Celery child) recompiles
+# torch/transformers/llama-index on import. Some vendored test files don't
+# compile under Python 3, hence "|| true".
+RUN python -m compileall -q -j 0 \
+      "$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" || true
 
 # Wipe the base image's source tree before copying ours in. COPY only adds
 # or overwrites files by name — it never deletes files the base image has
@@ -70,22 +91,30 @@ RUN rm -rf /usr/src/paperless/src
 # Copy custom source code (overrides official paperless code)
 COPY src/ /usr/src/paperless/src/
 
-# Remove any bytecode cache left over from the base image's build of these
-# same modules — without this, a stale .pyc for an overwritten .py file can
-# get picked up and cause phantom "attribute doesn't exist" errors at runtime.
-RUN find /usr/src/paperless/src -name "__pycache__" -type d -prune -exec rm -rf {} +
-
 # Copy pre-built Angular frontend (en-US + ar-AR)
 COPY --from=frontend-builder /frontend-build/ /usr/src/paperless/src/documents/static/frontend/
 
+# Build-time steps that the entrypoint used to repeat on every start:
+# - drop any __pycache__ that came along, then precompile our own code;
+# - compilemessages: .mo files are git-ignored, so without this Django's own
+#   Arabic strings (emails, validation errors, admin) fall back to English;
+# - collectstatic: gzip/brotli-compressing the two frontend builds takes a
+#   while, so do it once here instead of on every webserver start.
+WORKDIR /usr/src/paperless/src
+RUN find . -name "__pycache__" -type d -prune -exec rm -rf {} + && \
+    python -m compileall -q -j 0 . && \
+    python manage.py compilemessages --ignore "*/site-packages/*" && \
+    python manage.py collectstatic --noinput --clear && \
+    chown -R paperless:paperless /usr/src/paperless/static
+
 # Copy production entrypoints
-COPY docker/compose/entrypoint-prod.sh    /usr/local/bin/entrypoint-prod.sh
-COPY docker/compose/entrypoint-celery.sh      /usr/local/bin/entrypoint-celery.sh
-COPY docker/compose/entrypoint-celery-beat.sh /usr/local/bin/entrypoint-celery-beat.sh
-RUN chmod +x \
-    /usr/local/bin/entrypoint-prod.sh \
-    /usr/local/bin/entrypoint-celery.sh \
-    /usr/local/bin/entrypoint-celery-beat.sh
+COPY --chmod=0755 docker/compose/entrypoint-prod.sh        /usr/local/bin/entrypoint-prod.sh
+COPY --chmod=0755 docker/compose/entrypoint-celery.sh      /usr/local/bin/entrypoint-celery.sh
+COPY --chmod=0755 docker/compose/entrypoint-celery-beat.sh /usr/local/bin/entrypoint-celery-beat.sh
+
+# Fail the build (instead of the first request) if an import is broken.
+RUN python -c "import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'paperless.settings'); django.setup(); import paperless.asgi, paperless_ai.embedding, paperless_tesseract.parsers, ocrmypdf, granian, faiss" && \
+    tesseract --list-langs | grep -qx ara
 
 WORKDIR /usr/src/paperless
 ENTRYPOINT ["/usr/local/bin/entrypoint-prod.sh"]

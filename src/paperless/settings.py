@@ -360,6 +360,19 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # Deny by default: a view that forgets to declare permissions must not be
+    # reachable anonymously. Views that are public on purpose say so explicitly.
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_THROTTLE_RATES": {
+        # Brute-force protection for the token endpoint (per client IP).
+        "token": os.getenv("PAPERLESS_TOKEN_RATE_LIMIT", "10/min"),
+        # LLM calls are expensive; limit each user so one cannot starve the rest.
+        "ai": os.getenv("PAPERLESS_AI_RATE_LIMIT", "30/min"),
+    },
+    # Number of reverse proxies in front of the app. With 0, DRF trusts only the
+    # socket address, so a client cannot dodge throttling by forging
+    # X-Forwarded-For. Set to 1 when behind a single trusted proxy.
+    "NUM_PROXIES": int(os.getenv("PAPERLESS_NUM_PROXIES", "0")),
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.AcceptHeaderVersioning",
     "DEFAULT_VERSION": "9",  # match src-ui/src/environments/environment.prod.ts
     # Make sure these are ordered and that the most recent version appears
@@ -376,10 +389,12 @@ if DEBUG:
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "paperless.middleware.SecurityHeadersMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.locale.LocaleMiddleware",
+    "paperless.middleware.ArabicAccountPagesMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "paperless.middleware.ApiVersionMiddleware",
@@ -431,6 +446,8 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "OpenAPI Spec for Paperless-ngx",
     "VERSION": "6.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # The schema documents every endpoint, so it is not public.
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     "SWAGGER_UI_DIST": "SIDECAR",
     "COMPONENT_SPLIT_REQUEST": True,
     "EXTERNAL_DOCS": {
@@ -650,14 +667,32 @@ def _parse_paperless_url():
 
 PAPERLESS_URL = _parse_paperless_url()
 
+# Transport security follows PAPERLESS_URL: over https the session and CSRF
+# cookies are marked Secure and HSTS is sent; over plain http they cannot be,
+# because browsers would then refuse to store them and nobody could log in.
+_SERVED_OVER_HTTPS = (PAPERLESS_URL or "").lower().startswith("https://")
+_https_default = "true" if _SERVED_OVER_HTTPS else "false"
+SESSION_COOKIE_SECURE = __get_boolean("PAPERLESS_COOKIE_SECURE", _https_default)
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_HSTS_SECONDS = __get_int(
+    "PAPERLESS_HSTS_SECONDS",
+    60 * 60 * 24 * 365 if _SERVED_OVER_HTTPS else 0,
+)
+SECURE_REFERRER_POLICY = "same-origin"
+
 # For use with trusted proxies
 TRUSTED_PROXIES = __get_list("PAPERLESS_TRUSTED_PROXIES")
 
 USE_X_FORWARDED_HOST = __get_boolean("PAPERLESS_USE_X_FORWARD_HOST", "false")
 USE_X_FORWARDED_PORT = __get_boolean("PAPERLESS_USE_X_FORWARD_PORT", "false")
+# e.g. PAPERLESS_PROXY_SSL_HEADER='["HTTP_X_FORWARDED_PROTO", "https"]' behind a
+# TLS-terminating proxy. An empty value means "no proxy header".
 SECURE_PROXY_SSL_HEADER = (
     tuple(json.loads(os.environ["PAPERLESS_PROXY_SSL_HEADER"]))
-    if "PAPERLESS_PROXY_SSL_HEADER" in os.environ
+    if os.environ.get("PAPERLESS_PROXY_SSL_HEADER")
     else None
 )
 

@@ -33,6 +33,7 @@ from rest_framework.permissions import SAFE_METHODS
 from rest_framework.permissions import DjangoModelPermissions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.viewsets import ModelViewSet
 
 from documents.index import DelayedQuery
@@ -52,6 +53,9 @@ from paperless.models import ApplicationConfiguration, UserOwnership, GroupOwner
 
 class PaperlessObtainAuthTokenView(ObtainAuthToken):
     serializer_class = PaperlessAuthTokenSerializer
+    # Public by nature (it is the login), so guard it against password guessing.
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = "token"
 
 
 class StandardPagination(PageNumberPagination):
@@ -645,6 +649,21 @@ class ApplicationConfigurationViewSet(ModelViewSet):
         if self.request.method in SAFE_METHODS:
             return [IsAuthenticated()]
         return [IsAuthenticated(), DjangoModelPermissions()]
+
+    def get_queryset(self):
+        # There is exactly one configuration row. The initial migration creates
+        # it, but recreate it rather than leave the settings page unusable if it
+        # was ever removed.
+        if not ApplicationConfiguration.objects.exists():
+            ApplicationConfiguration.objects.create()
+        return ApplicationConfiguration.objects.all()
+
+    def get_object(self):
+        # A singleton has no meaningful id in the URL. Ignoring it means a
+        # client that lost the id (e.g. PATCH /api/config/null/) still saves.
+        instance = self.get_queryset().first()
+        self.check_object_permissions(self.request, instance)
+        return instance
 
     @extend_schema(exclude=True)
     def create(self, request, *args, **kwargs):
