@@ -64,13 +64,17 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # HF_HUB_OFFLINE stops every model load from making network calls to the Hub.
 # Threads are capped so torch doesn't fight Ollama for the same CPU cores.
 ARG EMBEDDING_MODELS="sentence-transformers/all-MiniLM-L6-v2 sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# llama-index's HuggingFaceEmbedding ignores HF_HOME and loads models from its
+# own cache_folder (LLAMA_INDEX_CACHE_DIR), so bake them into that folder —
+# otherwise every container start downloads the model again.
 ENV HF_HOME=/opt/hf-cache \
+    LLAMA_INDEX_CACHE_DIR=/opt/hf-cache/llama_index \
     TOKENIZERS_PARALLELISM=false \
     OMP_NUM_THREADS=2
 RUN for model in ${EMBEDDING_MODELS}; do \
-      python -c "import sys; from sentence_transformers import SentenceTransformer; SentenceTransformer(sys.argv[1])" "$model" || exit 1; \
+      python -c "import os, sys; from sentence_transformers import SentenceTransformer; SentenceTransformer(sys.argv[1], cache_folder=os.environ['LLAMA_INDEX_CACHE_DIR'])" "$model" || exit 1; \
     done && \
-    chmod -R a+rX /opt/hf-cache
+    chmod -R a+rwX /opt/hf-cache
 ENV HF_HUB_OFFLINE=1
 
 # Precompile site-packages. The base image sets PYTHONDONTWRITEBYTECODE, so
@@ -114,7 +118,8 @@ COPY --chmod=0755 docker/compose/entrypoint-celery-beat.sh /usr/local/bin/entryp
 
 # Fail the build (instead of the first request) if an import is broken.
 RUN python -c "import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'paperless.settings'); django.setup(); import paperless.asgi, paperless_ai.embedding, paperless_tesseract.parsers, ocrmypdf, granian, faiss" && \
-    tesseract --list-langs | grep -qx ara
+    tesseract --list-langs | grep -qx ara && \
+    python -c "from llama_index.embeddings.huggingface import HuggingFaceEmbedding as E; assert len(E(model_name='sentence-transformers/all-MiniLM-L6-v2').get_text_embedding('test')) == 384"
 
 WORKDIR /usr/src/paperless
 ENTRYPOINT ["/usr/local/bin/entrypoint-prod.sh"]
