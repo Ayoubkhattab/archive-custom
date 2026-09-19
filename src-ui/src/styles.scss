@@ -66,43 +66,43 @@ $grid-breakpoints: (
 // أرشيف المعلومات styles
 
 @font-face {
-  font-family: "IBM Plex Sans Arabic";
+  font-family: "ITF Qomra Arabic";
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: url("assets/fonts/ibm-plex-sans-arabic-300.ttf") format("truetype");
+  src: url("assets/fonts/itfQomraArabic-Light.ttf") format("truetype");
 }
 @font-face {
-  font-family: "IBM Plex Sans Arabic";
+  font-family: "ITF Qomra Arabic";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("assets/fonts/ibm-plex-sans-arabic-400.ttf") format("truetype");
+  src: url("assets/fonts/itfQomraArabic-Regular.ttf") format("truetype");
 }
 @font-face {
-  font-family: "IBM Plex Sans Arabic";
+  font-family: "ITF Qomra Arabic";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url("assets/fonts/ibm-plex-sans-arabic-500.ttf") format("truetype");
+  src: url("assets/fonts/itfQomraArabic-Medium.ttf") format("truetype");
 }
 @font-face {
-  font-family: "IBM Plex Sans Arabic";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("assets/fonts/ibm-plex-sans-arabic-600.ttf") format("truetype");
-}
-@font-face {
-  font-family: "IBM Plex Sans Arabic";
+  font-family: "ITF Qomra Arabic";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("assets/fonts/ibm-plex-sans-arabic-700.ttf") format("truetype");
+  src: url("assets/fonts/itfQomraArabic-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "ITF Qomra Arabic";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("assets/fonts/itfQomraArabic-Black.ttf") format("truetype");
 }
 
 :root {
-  --pngx-font-family: "IBM Plex Sans Arabic", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --pngx-font-family: "ITF Qomra Arabic", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 html, body {

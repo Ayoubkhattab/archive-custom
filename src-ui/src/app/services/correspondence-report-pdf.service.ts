@@ -59,7 +59,7 @@ const COLOR_RULE = '#dee2e6'
 const COLOR_ZEBRA = '#f5f7f6'
 
 const FONT_STACK =
-  '"IBM Plex Sans Arabic", "Segoe UI", "Noto Naskh Arabic", system-ui, sans-serif'
+  '"ITF Qomra Arabic", "Segoe UI", "Noto Naskh Arabic", system-ui, sans-serif'
 
 @Injectable({
   providedIn: 'root',

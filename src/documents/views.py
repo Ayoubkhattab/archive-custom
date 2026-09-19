@@ -214,6 +214,7 @@ from paperless_ai.matching import match_correspondents_by_name
 from paperless_ai.matching import match_document_types_by_name
 from paperless_ai.matching import match_storage_paths_by_name
 from paperless_ai.matching import match_tags_by_name
+from paperless_ai.streaming import stream_from_sync
 from paperless_mail.models import MailAccount
 from paperless_mail.models import MailRule
 from paperless_mail.oauth import PaperlessMailOAuth2Manager
@@ -1491,7 +1492,7 @@ class ChatStreamingView(GenericAPIView):
                 "This document has no extracted text yet. Run OCR/processing first.",
             )
 
-        max_chars = 12000
+        max_chars = settings.LLM_CHAT_MAX_CONTEXT_CHARS
         if document:
             if len(document_text) <= max_chars:
                 trimmed_document_text = document_text
@@ -1530,21 +1531,12 @@ class ChatStreamingView(GenericAPIView):
                     f"Document text excerpts:\n{trimmed_document_text}\n\n"
                     f"User question: {question}"
                 )
-                result = client.run_chat(
+                yield from client.stream_chat(
                     [
                         ChatMessage(role="system", content=system),
                         ChatMessage(role="user", content=user),
                     ],
                 )
-                if hasattr(result, "message") and hasattr(result.message, "content"):
-                    text = result.message.content
-                elif isinstance(result, str):
-                    text = result
-                else:
-                    text = str(result)
-
-                for i in range(0, len(text), 20):
-                    yield text[i : i + 20]
             else:
                 # No document scoped: answer strictly from the user's own
                 # documents via retrieval (RAG) instead of unscoped free chat,
@@ -1556,9 +1548,14 @@ class ChatStreamingView(GenericAPIView):
                 yield from stream_chat_with_documents(question, documents)
 
         response = StreamingHttpResponse(
-            _stream_chat(),
-            content_type="text/plain",
+            stream_from_sync(_stream_chat),
+            content_type="text/plain; charset=utf-8",
         )
+        # Compressing a stream buffers it; "identity" makes the compression
+        # middleware skip this response. X-Accel-Buffering does the same for
+        # nginx if a reverse proxy sits in front.
+        response["Content-Encoding"] = "identity"
+        response["X-Accel-Buffering"] = "no"
         return response
 
 

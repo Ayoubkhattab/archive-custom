@@ -30,6 +30,11 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends tesseract-ocr-ara && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# The default PyPI torch wheel is built for CUDA and drags in ~9GB of nvidia-*
+# libraries. The server has no GPU, so install the CPU build first; the
+# packages below then see torch as already satisfied.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
 # Install custom Python packages
 # whoosh-reloaded is pinned explicitly: it's a core paperless-ngx dependency
 # (used for search indexing) but the upstream base image's ":latest" tag has
@@ -44,6 +49,15 @@ RUN pip install --no-cache-dir \
     granian \
     "whoosh-reloaded>=2.7.5" \
     django-celery-results
+
+# Bake the default embedding model into the image so the first chat question
+# doesn't download it (and so it works without outbound access to Hugging Face).
+# Threads are capped so torch doesn't fight Ollama for the same CPU cores.
+ENV HF_HOME=/opt/hf-cache \
+    TOKENIZERS_PARALLELISM=false \
+    OMP_NUM_THREADS=2
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')" && \
+    chmod -R a+rX /opt/hf-cache
 
 # Wipe the base image's source tree before copying ours in. COPY only adds
 # or overwrites files by name — it never deletes files the base image has

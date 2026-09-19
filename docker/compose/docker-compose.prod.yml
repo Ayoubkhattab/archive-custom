@@ -95,9 +95,18 @@ services:
       - PAPERLESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env.prod}
       - PAPERLESS_AI_ENABLED=${AI_ENABLED:-yes}
       - PAPERLESS_AI_LLM_BACKEND=${AI_BACKEND:-ollama}
-      - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-qwen2:0.5b}
+      - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-gemma4:e4b}
       - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
       - PAPERLESS_AI_LLM_EMBEDDING_BACKEND=${AI_EMBEDDING_BACKEND:-huggingface}
+      # Ollama tuning. These must be identical for every service that calls
+      # Ollama: a different context size makes Ollama reload the model.
+      - PAPERLESS_AI_LLM_TIMEOUT=${AI_TIMEOUT:-300}
+      - PAPERLESS_AI_LLM_CONTEXT_WINDOW=${AI_CONTEXT_WINDOW:-8192}
+      - PAPERLESS_AI_LLM_MAX_TOKENS=${AI_MAX_TOKENS:-1024}
+      - PAPERLESS_AI_LLM_KEEP_ALIVE=${AI_KEEP_ALIVE:--1}
+      - PAPERLESS_AI_LLM_THINKING=${AI_THINKING:-false}
+      - PAPERLESS_AI_CHAT_MAX_CHARS=${AI_CHAT_MAX_CHARS:-8000}
+      - PAPERLESS_AI_STREAM_THREADS=${AI_STREAM_THREADS:-4}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
       - PAPERLESS_LOGGING_LEVEL=WARNING
@@ -157,11 +166,25 @@ services:
       - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
       - PAPERLESS_AI_ENABLED=${AI_ENABLED:-yes}
       - PAPERLESS_AI_LLM_BACKEND=${AI_BACKEND:-ollama}
-      - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-qwen2:0.5b}
+      - PAPERLESS_AI_LLM_MODEL=${AI_MODEL:-gemma4:e4b}
       - PAPERLESS_AI_LLM_ENDPOINT=${AI_ENDPOINT:-http://host.docker.internal:11434}
       - PAPERLESS_AI_LLM_EMBEDDING_BACKEND=${AI_EMBEDDING_BACKEND:-huggingface}
+      # Ollama tuning. These must be identical for every service that calls
+      # Ollama: a different context size makes Ollama reload the model.
+      - PAPERLESS_AI_LLM_TIMEOUT=${AI_TIMEOUT:-300}
+      - PAPERLESS_AI_LLM_CONTEXT_WINDOW=${AI_CONTEXT_WINDOW:-8192}
+      - PAPERLESS_AI_LLM_MAX_TOKENS=${AI_MAX_TOKENS:-1024}
+      - PAPERLESS_AI_LLM_KEEP_ALIVE=${AI_KEEP_ALIVE:--1}
+      - PAPERLESS_AI_LLM_THINKING=${AI_THINKING:-false}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
+    # The image's built-in healthcheck curls the web port, which this container
+    # never serves, so it would always report unhealthy.
+    healthcheck:
+      test: ["CMD-SHELL", "grep -qa '[c]elery.*worker' /proc/[0-9]*/cmdline"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     extra_hosts:
       - "host.docker.internal:host-gateway"
     security_opt:
@@ -202,6 +225,11 @@ services:
       - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
       - DEBUG=false
       - PAPERLESS_DEBUG=false
+    healthcheck:
+      test: ["CMD-SHELL", "grep -qa '[c]elery.*beat' /proc/[0-9]*/cmdline"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     security_opt:
       - no-new-privileges:true
 

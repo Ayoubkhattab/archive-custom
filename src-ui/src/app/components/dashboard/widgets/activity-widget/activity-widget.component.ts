@@ -173,7 +173,7 @@ export class ActivityWidgetComponent
         scales: {
           x: {
             grid: { display: false },
-            ticks: { color: textColor, font: { family: 'IBM Plex Sans Arabic' } },
+            ticks: { color: textColor, font: { family: 'ITF Qomra Arabic' } },
           },
           y: {
             beginAtZero: true,
@@ -225,7 +225,7 @@ export class ActivityWidgetComponent
             position: 'bottom',
             labels: {
               color: this.getCssVar('--bs-secondary-color', COLOR_CHARCOAL),
-              font: { family: 'IBM Plex Sans Arabic', size: 11 },
+              font: { family: 'ITF Qomra Arabic', size: 11 },
               boxWidth: 10,
             },
           },
