@@ -5,10 +5,20 @@ if TYPE_CHECKING:
     from llama_index.core.llms import ChatMessage
     from llama_index.llms.openai import OpenAI
 
+from django.conf import settings
+
 from paperless.config import AIConfig
 from paperless_ai.base_model import DocumentClassifierSchema
 
 logger = logging.getLogger("paperless_ai.client")
+
+
+def _parse_keep_alive(value: str) -> float | str:
+    """Ollama takes seconds as a number ("-1" = forever) or a duration string."""
+    try:
+        return float(value)
+    except ValueError:
+        return value
 
 
 class AIClient:
@@ -31,7 +41,11 @@ class AIClient:
             return Ollama(
                 model=self.settings.llm_model or "llama3.1",
                 base_url=self.settings.llm_endpoint or "http://localhost:11434",
-                request_timeout=120,
+                request_timeout=settings.LLM_REQUEST_TIMEOUT,
+                context_window=settings.LLM_CONTEXT_WINDOW,
+                keep_alive=_parse_keep_alive(settings.LLM_KEEP_ALIVE),
+                thinking=settings.LLM_THINKING,
+                additional_kwargs={"num_predict": settings.LLM_MAX_OUTPUT_TOKENS},
             )
         elif self.settings.llm_backend == "openai":
             try:
@@ -82,3 +96,14 @@ class AIClient:
         result = self.llm.chat(messages)
         logger.debug("Chat result: %s", result)
         return result
+
+    def stream_chat(self, messages: list):
+        """Yield the model's answer incrementally as text deltas."""
+        logger.debug(
+            "Streaming chat query against %s with model %s",
+            self.settings.llm_backend,
+            self.settings.llm_model,
+        )
+        for chunk in self.llm.stream_chat(messages):
+            if chunk.delta:
+                yield chunk.delta

@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,24 +16,35 @@ from paperless.config import AIConfig
 from paperless.models import LLMEmbeddingBackend
 
 
-def get_embedding_model() -> BaseEmbedding:
-    config = AIConfig()
-
-    match config.llm_embedding_backend:
+@lru_cache(maxsize=4)
+def _build_embedding_model(
+    backend: str | None,
+    model_name: str | None,
+    api_key: str | None,
+) -> BaseEmbedding:
+    match backend:
         case LLMEmbeddingBackend.OPENAI:
             return OpenAIEmbedding(
-                model=config.llm_embedding_model or "text-embedding-3-small",
-                api_key=config.llm_api_key,
+                model=model_name or "text-embedding-3-small",
+                api_key=api_key,
             )
         case LLMEmbeddingBackend.HUGGINGFACE:
             return HuggingFaceEmbedding(
-                model_name=config.llm_embedding_model
-                or "sentence-transformers/all-MiniLM-L6-v2",
+                model_name=model_name or "sentence-transformers/all-MiniLM-L6-v2",
             )
         case _:
-            raise ValueError(
-                f"Unsupported embedding backend: {config.llm_embedding_backend}",
-            )
+            raise ValueError(f"Unsupported embedding backend: {backend}")
+
+
+def get_embedding_model() -> BaseEmbedding:
+    # Loading a sentence-transformers model takes seconds, so build it once
+    # per process instead of on every chat question.
+    config = AIConfig()
+    return _build_embedding_model(
+        config.llm_embedding_backend,
+        config.llm_embedding_model,
+        config.llm_api_key,
+    )
 
 
 def get_embedding_dim() -> int:

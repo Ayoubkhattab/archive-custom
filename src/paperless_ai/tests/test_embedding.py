@@ -7,9 +7,17 @@ from django.conf import settings
 
 from documents.models import Document
 from paperless.models import LLMEmbeddingBackend
+from paperless_ai.embedding import _build_embedding_model
 from paperless_ai.embedding import build_llm_index_text
 from paperless_ai.embedding import get_embedding_dim
 from paperless_ai.embedding import get_embedding_model
+
+
+@pytest.fixture(autouse=True)
+def clear_embedding_model_cache():
+    _build_embedding_model.cache_clear()
+    yield
+    _build_embedding_model.cache_clear()
 
 
 @pytest.fixture
@@ -167,3 +175,16 @@ def test_build_llm_index_text(mock_document):
         assert "Notes: Note1,Note2" in result
         assert "Content:\n\nThis is the document content." in result
         assert "Custom Field - Field1: Value1\nCustom Field - Field2: Value2" in result
+
+
+def test_get_embedding_model_is_built_once(mock_ai_config):
+    mock_ai_config.return_value.llm_embedding_backend = LLMEmbeddingBackend.HUGGINGFACE
+    mock_ai_config.return_value.llm_embedding_model = "some/model"
+    mock_ai_config.return_value.llm_api_key = None
+
+    with patch("paperless_ai.embedding.HuggingFaceEmbedding") as MockHF:
+        first = get_embedding_model()
+        second = get_embedding_model()
+
+    assert first is second
+    MockHF.assert_called_once_with(model_name="some/model")
