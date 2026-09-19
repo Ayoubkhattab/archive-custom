@@ -1,6 +1,6 @@
 <nav class="navbar navbar-dark fixed-top bg-primary flex-md-nowrap p-0 shadow-sm">
   <button class="navbar-toggler d-md-none collapsed border-0" type="button" data-toggle="collapse"
-    data-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation"
+    data-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation" i18n-aria-label
     (click)="isMenuCollapsed = !isMenuCollapsed">
     <span class="navbar-toggler-icon"></span>
   </button>
@@ -328,8 +328,8 @@
                         <ng-container i18n>أرشيف المعلومات can automatically check for updates</ng-container>
                       </p>
                       <div class="btn-group btn-group-xs flex-fill w-100">
-                        <button class="btn btn-outline-primary" (click)="setUpdateChecking(true)">Enable</button>
-                        <button class="btn btn-outline-secondary" (click)="setUpdateChecking(false)">Disable</button>
+                        <button class="btn btn-outline-primary" (click)="setUpdateChecking(true)" i18n>Enable</button>
+                        <button class="btn btn-outline-secondary" (click)="setUpdateChecking(false)" i18n>Disable</button>
                       </div>
                       <p class="small mb-0 mt-2">
                         <a class="small text-decoration-none fst-italic" routerLink="/settings" fragment="update-checking" i18n>

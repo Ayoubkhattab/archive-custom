@@ -113,7 +113,7 @@ export class SystemStatusDialogComponent implements OnInit, OnDestroy {
 
   public runTask(taskName: PaperlessTaskName) {
     this.runningTasks.add(taskName)
-    this.toastService.showInfo(`Task ${taskName} started`)
+    this.toastService.showInfo($localize`Task ${taskName} started`)
     this.tasksService.run(taskName).subscribe({
       next: () => {
         this.runningTasks.delete(taskName)

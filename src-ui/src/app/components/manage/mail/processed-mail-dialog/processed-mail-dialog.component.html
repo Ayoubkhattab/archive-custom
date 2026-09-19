@@ -6,7 +6,7 @@
   <ng-template #infoPopover>
      <i-bs class="ms-1" width=".8em" height=".8em" name="box-arrow-up-right"></i-bs>
   </ng-template>
-  <button type="button" class="btn-close" aria-label="Close" (click)="close()"></button>
+  <button type="button" class="btn-close" aria-label="Close" i18n-aria-label (click)="close()"></button>
 </div>
 <div class="modal-body">
   @if (loading) {
@@ -55,10 +55,10 @@
               <td>
                 @switch (mail.status) {
                   @case ('SUCCESS') {
-                    <i-bs name="check-circle" title="SUCCESS" class="text-success" [ngbTooltip]="statusTooltip"></i-bs>
+                    <i-bs name="check-circle" title="SUCCESS" i18n-title class="text-success" [ngbTooltip]="statusTooltip"></i-bs>
                   }
                   @case ('FAILED') {
-                    <i-bs name="exclamation-triangle" title="FAILED" class="text-danger" [ngbTooltip]="statusTooltip"></i-bs>
+                    <i-bs name="exclamation-triangle" title="FAILED" i18n-title class="text-danger" [ngbTooltip]="statusTooltip"></i-bs>
                   }
                   @default {
                     <i-bs name="slash-circle" title="{{ mail.status }}" class="text-muted" [ngbTooltip]="statusTooltip"></i-bs>

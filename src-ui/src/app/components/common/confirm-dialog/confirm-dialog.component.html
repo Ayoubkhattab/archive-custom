@@ -1,6 +1,6 @@
 <div class="modal-header">
   <h4 class="modal-title" id="modal-basic-title">{{title}}</h4>
-  <button type="button" class="btn-close" aria-label="Close" (click)="cancel()">
+  <button type="button" class="btn-close" aria-label="Close" i18n-aria-label (click)="cancel()">
   </button>
 </div>
 <div class="modal-body">
@@ -18,7 +18,7 @@
   <button type="button" class="btn" [class]="btnClass" (click)="confirm()" [disabled]="!confirmButtonEnabled || !buttonsEnabled">
     <span>
       {{btnCaption}}
-      <span class="visually-hidden">{{ seconds | number: '1.0-0' }} seconds</span>
+      <span class="visually-hidden" i18n>{{ seconds | number: '1.0-0' }} seconds</span>
     </span>
     @if (!confirmButtonEnabled) {
       <ngb-progressbar style="height: 1px;" type="dark" [max]="secondsTotal" [value]="seconds"></ngb-progressbar>

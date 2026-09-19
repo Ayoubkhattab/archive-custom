@@ -1,6 +1,6 @@
 <div class="modal-header">
   <h6 class="modal-title" id="modal-basic-title" i18n>System Status</h6>
-  <button type="button" class="btn-close" aria-label="Close" (click)="close()"></button>
+  <button type="button" class="btn-close" aria-label="Close" i18n-aria-label (click)="close()"></button>
 </div>
 <div class="modal-body">
   @if (!status) {
@@ -28,8 +28,8 @@
                     </button>
                 }
                 <ng-template #versionPopover>
-                  Frontend version: {{frontendVersion}}<br>
-                  Backend version: {{status.pngx_version}}
+                  <span i18n>Frontend version: {{frontendVersion}}</span><br>
+                  <span i18n>Backend version: {{status.pngx_version}}</span>
                 </ng-template>
               </dd>
               <dt i18n>Install Type</dt>
@@ -79,7 +79,7 @@
                   @if (status.database.migration_status.unapplied_migrations.length === 0) {
                     <ng-container i18n>Up to date</ng-container><i-bs name="check-circle-fill" class="text-primary ms-2 lh-1"></i-bs>
                   } @else {
-                    <ng-container>{{status.database.migration_status.unapplied_migrations.length}} Pending</ng-container><i-bs name="exclamation-triangle-fill" class="text-warning ms-2 lh-1"></i-bs>
+                    <ng-container i18n>{{status.database.migration_status.unapplied_migrations.length}} Pending</ng-container><i-bs name="exclamation-triangle-fill" class="text-warning ms-2 lh-1"></i-bs>
                   }
                   <ng-template #migrationStatus>
                     <h6><ng-container i18n>Latest Migration</ng-container>:</h6> <span class="font-monospace small">{{status.database.migration_status.latest_migration}}</span>

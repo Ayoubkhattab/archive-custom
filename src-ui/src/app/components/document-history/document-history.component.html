@@ -23,7 +23,7 @@
                         @if (entry.actor) {
                             <span class="ms-3 fst-italic">{{ entry.actor.username }}</span>
                         } @else {
-                            <span class="ms-3 fst-italic">System</span>
+                            <span class="ms-3 fst-italic" i18n>System</span>
                         }
                         <span class="badge bg-secondary ms-auto" [class.bg-primary]="entry.action === AuditLogAction.Create">{{ entry.action | titlecase }}</span>
                     </div>

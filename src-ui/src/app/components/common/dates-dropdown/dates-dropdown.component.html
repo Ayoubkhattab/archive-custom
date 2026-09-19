@@ -2,7 +2,7 @@
   <button class="btn btn-sm" id="dropdown{{title}}" ngbDropdownToggle [ngClass]="createdDateTo || createdDateFrom ? 'btn-primary' : 'btn-outline-primary'" [disabled]="disabled">
     <i-bs width="1em" height="1em" name="calendar-event-fill"></i-bs>
     <div class="d-none d-sm-inline">&nbsp;{{title}}</div>
-    <pngx-clearable-badge [selected]="isActive" (cleared)="reset()"></pngx-clearable-badge><span class="visually-hidden">selected</span>
+    <pngx-clearable-badge [selected]="isActive" (cleared)="reset()"></pngx-clearable-badge><span class="visually-hidden" i18n>selected</span>
   </button>
   <div class="dropdown-menu date-dropdown shadow p-2" ngbDropdownMenu attr.aria-labelledby="dropdown{{title}}">
     <h6 class="dropdown-header border-bottom" i18n>Created</h6>

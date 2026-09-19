@@ -1,6 +1,6 @@
 <div class="modal-header">
   <h4 class="modal-title" id="modal-basic-title">{{title}}</h4>
-  <button type="button" class="btn-close" aria-label="Close" (click)="close()"></button>
+  <button type="button" class="btn-close" aria-label="Close" i18n-aria-label (click)="close()"></button>
 </div>
 <div class="modal-body p-0">
   <ul class="list-group list-group-flush">
@@ -12,7 +12,7 @@
     @for (link of shareLinks; track link) {
       <li class="list-group-item">
         <div class="input-group w-100">
-          <input type="text" class="form-control" aria-label="Share link" [value]="getShareUrl(link)" readonly>
+          <input type="text" class="form-control" aria-label="Share link" i18n-aria-label [value]="getShareUrl(link)" readonly>
           @if (link.expiration) {
             <span class="input-group-text">
               {{ getDaysRemaining(link) }}

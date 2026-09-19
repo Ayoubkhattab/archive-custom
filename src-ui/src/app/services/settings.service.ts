@@ -326,7 +326,7 @@ export class SettingsService {
       first(),
       catchError((error) => {
         setTimeout(() => {
-          this.toastService.showError('Error loading settings', error)
+          this.toastService.showError($localize`Error loading settings`, error)
         }, 500)
         return of({
           settings: {

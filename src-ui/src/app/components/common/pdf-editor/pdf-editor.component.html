@@ -1,7 +1,7 @@
 <pdf-viewer [src]="pdfSrc" [render-text]="false" zoom="0.4" (after-load-complete)="pdfLoaded($event)"></pdf-viewer>
 <div class="modal-header">
   <h4 class="modal-title">{{ title }}</h4>
-  <button type="button" class="btn-close" aria-label="Close" (click)="cancel()"></button>
+  <button type="button" class="btn-close" aria-label="Close" i18n-aria-label (click)="cancel()"></button>
 </div>
 <div class="modal-body">
   <div class="btn-toolbar mb-2">

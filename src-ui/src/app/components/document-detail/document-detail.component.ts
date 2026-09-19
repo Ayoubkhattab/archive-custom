@@ -1683,11 +1683,11 @@ export class DocumentDetailComponent
               'AI Suggestions: ' + JSON.stringify(response.suggestions, null, 2)
             )
           } else {
-            this.toastService.showError('AI Suggest failed: ' + response.error)
+            this.toastService.showError($localize`AI Suggest failed: ${response.error}`)
           }
         },
         error: (error) => {
-          this.toastService.showError('AI Suggest error: ' + error.message)
+          this.toastService.showError($localize`AI Suggest error: ${error.message}`)
         }
       })
   }
@@ -1703,13 +1703,13 @@ export class DocumentDetailComponent
         .subscribe({
           next: (response: any) => {
             if (response.success) {
-              this.toastService.showInfo('AI Response: ' + response.response)
+              this.toastService.showInfo($localize`AI Response: ${response.response}`)
             } else {
-              this.toastService.showError('AI Chat failed: ' + response.error)
+              this.toastService.showError($localize`AI Chat failed: ${response.error}`)
             }
           },
           error: (error) => {
-            this.toastService.showError('AI Chat error: ' + error.message)
+            this.toastService.showError($localize`AI Chat error: ${error.message}`)
           }
         })
     }
@@ -1728,11 +1728,11 @@ export class DocumentDetailComponent
               'AI Classification: ' + JSON.stringify(response.classification, null, 2)
             )
           } else {
-            this.toastService.showError('AI Classify failed: ' + response.error)
+            this.toastService.showError($localize`AI Classify failed: ${response.error}`)
           }
         },
         error: (error) => {
-          this.toastService.showError('AI Classify error: ' + error.message)
+          this.toastService.showError($localize`AI Classify error: ${error.message}`)
         }
       })
   }

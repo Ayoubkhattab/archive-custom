@@ -4,7 +4,7 @@
       <i-bs name="text-indent-left"></i-bs>
       <div class="d-none d-sm-inline">&nbsp;<ng-container i18n>Select</ng-container></div>
       @if (list.selected.size > 0) {
-        <pngx-clearable-badge [selected]="list.selected.size > 0" [number]="list.selected.size" (cleared)="list.selectNone()"></pngx-clearable-badge><span class="visually-hidden">selected</span>
+        <pngx-clearable-badge [selected]="list.selected.size > 0" [number]="list.selected.size" (cleared)="list.selectNone()"></pngx-clearable-badge><span class="visually-hidden" i18n>selected</span>
       }
     </button>
     <div ngbDropdownMenu aria-labelledby="dropdownSelectMobile" class="shadow">
@@ -94,7 +94,7 @@
       <div class="d-none d-sm-inline">&nbsp;<ng-container i18n>Views</ng-container></div>
       @if (savedViewIsModified) {
         <div class="position-absolute top-0 start-100 p-2 translate-middle badge bg-secondary border border-light rounded-circle">
-          <span class="visually-hidden">selected</span>
+          <span class="visually-hidden" i18n>selected</span>
         </div>
       }
     </button>
@@ -156,7 +156,7 @@
       </div>
       @if (list.collectionSize) {
         <ngb-pagination [pageSize]="list.pageSize" [collectionSize]="list.collectionSize" [(page)]="list.currentPage" [maxSize]="5"
-        [rotate]="true" aria-label="Default pagination" size="sm"></ngb-pagination>
+        [rotate]="true" aria-label="Default pagination" i18n-aria-label size="sm"></ngb-pagination>
       }
     </div>
   </ng-template>
