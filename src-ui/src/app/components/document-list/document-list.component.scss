@@ -49,9 +49,11 @@ $paperless-card-breakpoints: (
   }
 }
 
+// Bootstrap 4 name kept for the existing markup; aligns the menu with the
+// trailing edge of its toggle in either direction.
 .dropdown-menu-right {
-  right: 0 !important;
-  left: auto !important;
+  inset-inline-end: 0 !important;
+  inset-inline-start: auto !important;
 }
 
 .sticky-top {
@@ -69,7 +71,7 @@ $paperless-card-breakpoints: (
   margin-bottom: 0;
 
   .form-check-input {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
 }
 

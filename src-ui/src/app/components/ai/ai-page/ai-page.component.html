@@ -1,0 +1,166 @@
+<pngx-page-header title="الذكاء الاصطناعي" subTitle="اسأل عن مستنداتك واحصل على إجابة أو تقرير مفصّل">
+  <div class="btn-group btn-group-sm" ngbDropdown container="body" role="group">
+    <button type="button" class="btn btn-outline-primary" ngbDropdownToggle
+      [disabled]="!canExport || exporting" title="تصدير المحادثة كاملة">
+      @if (exporting) {
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+      } @else {
+        <i-bs width="1em" height="1em" name="download"></i-bs>
+      }
+      <span class="d-none d-sm-inline ms-1">تصدير المحادثة</span>
+    </button>
+    <div ngbDropdownMenu>
+      <button ngbDropdownItem type="button" (click)="exportConversation('pdf')">
+        <i-bs width="1em" height="1em" name="file-pdf" class="me-2"></i-bs>ملف PDF
+      </button>
+      <button ngbDropdownItem type="button" (click)="exportConversation('md')">
+        <i-bs width="1em" height="1em" name="filetype-md" class="me-2"></i-bs>ملف Markdown
+      </button>
+    </div>
+  </div>
+</pngx-page-header>
+
+@if (!aiEnabled) {
+  <div class="alert alert-warning">
+    الذكاء الاصطناعي غير مفعّل. فعّله من الإعدادات ثم أعد المحاولة.
+  </div>
+} @else {
+  <div class="ai-layout">
+
+    <!-- History: a side column on wide screens, a toggled panel on narrow ones -->
+    <aside class="ai-history card" [class.open]="showHistory">
+      <div class="card-header d-flex align-items-center justify-content-between gap-2">
+        <strong>المحادثات</strong>
+        <button type="button" class="btn btn-sm btn-primary" (click)="newConversation()">
+          <i-bs width="1em" height="1em" name="plus"></i-bs>
+          <span class="ms-1">جديدة</span>
+        </button>
+      </div>
+      <div class="ai-history-list list-group list-group-flush">
+        @for (conversation of conversations; track conversation.id) {
+          <div class="list-group-item list-group-item-action ai-history-item"
+            [class.active-conversation]="conversation.id === current.id" role="button" tabindex="0"
+            (click)="openConversation(conversation)" (keydown.enter)="openConversation(conversation)">
+            <div class="ai-history-text">
+              <div class="text-truncate fw-medium" dir="auto">{{ conversation.title || 'محادثة بلا عنوان' }}</div>
+              <small class="text-muted">{{ formatDate(conversation.updatedAt) }}</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-link text-danger p-1" title="حذف المحادثة"
+              (click)="deleteConversation(conversation, $event)">
+              <i-bs width="1em" height="1em" name="trash"></i-bs>
+            </button>
+          </div>
+        } @empty {
+          <div class="p-3 text-muted small text-center">لا توجد محادثات محفوظة بعد.</div>
+        }
+      </div>
+      @if (conversations.length) {
+        <div class="card-footer text-center">
+          <button type="button" class="btn btn-sm btn-link text-danger" (click)="clearHistory()">حذف كل المحادثات</button>
+        </div>
+      }
+    </aside>
+
+    <section class="ai-chat card">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary d-md-none" (click)="showHistory = !showHistory">
+          <i-bs width="1em" height="1em" name="clock-history"></i-bs>
+          <span class="ms-1">المحادثات</span>
+        </button>
+
+        <div class="btn-group btn-group-sm" role="group" aria-label="نمط الإجابة">
+          @for (m of modes; track m.id) {
+            <button type="button" class="btn" [class.btn-primary]="mode === m.id"
+              [class.btn-outline-primary]="mode !== m.id" [title]="m.hint" [disabled]="loading"
+              (click)="setMode(m.id)">
+              <i-bs width="1em" height="1em" [name]="m.id === 'fast' ? 'lightning-charge' : 'lightbulb'"></i-bs>
+              <span class="ms-1">{{ m.label }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="ai-messages">
+        @if (!current.messages.length) {
+          <div class="ai-empty text-center text-muted">
+            <i-bs width="2.5em" height="2.5em" name="chat-square-dots"></i-bs>
+            <p class="mt-3 mb-1">اسأل عن أي شيء في أرشيفك.</p>
+            <small>{{ mode === 'deep' ? 'التفكير العميق يحلّل عدداً أكبر من المستندات ويكتب تقريراً مفصّلاً، وقد يستغرق عدة دقائق.' : 'الإجابة السريعة تعطيك رداً مختصراً ومباشراً.' }}</small>
+          </div>
+        }
+
+        @for (message of current.messages; track message) {
+          <div class="ai-message" [class.from-user]="message.role === 'user'">
+            <div class="ai-bubble" [class.ai-bubble-user]="message.role === 'user'"
+              [class.ai-bubble-assistant]="message.role !== 'user'">
+              @if (message.role === 'user') {
+                <span class="ai-plain" dir="auto">{{ message.content }}</span>
+              } @else if (message.isStreaming) {
+                @if (message.content) {
+                  <span class="ai-plain" dir="auto">{{ message.content }}</span><span class="blinking-cursor">|</span>
+                } @else {
+                  <span class="text-muted">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    {{ message.mode === 'deep' ? 'جارٍ التفكير' : 'جارٍ التحضير' }}… {{ elapsed }} ث
+                  </span>
+                }
+              } @else {
+                <div class="ai-markdown" dir="auto" [innerHTML]="renderMarkdown(message)"></div>
+              }
+            </div>
+
+            @if (message.role !== 'user' && !message.isStreaming && message.content) {
+              <div class="ai-actions text-muted">
+                @if (message.mode) {
+                  <span class="badge text-bg-light border">{{ aiModeLabel(message.mode) }}</span>
+                }
+                @if (message.elapsedMs) {
+                  <small>{{ formatElapsed(message.elapsedMs) }}</small>
+                }
+                <button type="button" class="btn btn-sm btn-link p-0" (click)="copyMessage(message)">
+                  <i-bs width="0.9em" height="0.9em" name="clipboard"></i-bs> نسخ
+                </button>
+                @if (!message.incomplete) {
+                  <span ngbDropdown container="body" class="d-inline-block">
+                    <button type="button" class="btn btn-sm btn-link p-0" ngbDropdownToggle [disabled]="exporting">
+                      <i-bs width="0.9em" height="0.9em" name="download"></i-bs> تصدير
+                    </button>
+                    <div ngbDropdownMenu>
+                      <button ngbDropdownItem type="button" (click)="exportAnswer(message, 'pdf')">
+                        <i-bs width="1em" height="1em" name="file-pdf" class="me-2"></i-bs>ملف PDF
+                      </button>
+                      <button ngbDropdownItem type="button" (click)="exportAnswer(message, 'md')">
+                        <i-bs width="1em" height="1em" name="filetype-md" class="me-2"></i-bs>ملف Markdown
+                      </button>
+                    </div>
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        }
+        <div #scrollAnchor></div>
+      </div>
+
+      @if (!storageOk) {
+        <div class="alert alert-warning small py-1 px-3 mb-0 rounded-0">
+          تعذّر حفظ المحادثة في هذا المتصفح (المساحة ممتلئة أو التخزين معطّل).
+        </div>
+      }
+
+      <form class="ai-composer card-footer" (ngSubmit)="send()">
+        <textarea #composer class="form-control" name="composer" rows="2" dir="auto" maxlength="4000"
+          [(ngModel)]="input" [disabled]="loading" (keydown)="onComposerKeydown($event)"
+          [placeholder]="mode === 'deep' ? 'اطلب تقريراً أو تحليلاً مفصّلاً…' : 'اكتب سؤالك…'"></textarea>
+        @if (loading) {
+          <button type="button" class="btn btn-outline-danger" (click)="stop()">
+            <i-bs width="1em" height="1em" name="stop-fill"></i-bs>
+            <span class="ms-1">إيقاف</span>
+          </button>
+        } @else {
+          <button type="submit" class="btn btn-primary" [disabled]="!input.trim()">إرسال</button>
+        }
+      </form>
+    </section>
+  </div>
+}

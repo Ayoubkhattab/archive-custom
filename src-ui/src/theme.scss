@@ -206,7 +206,7 @@ $text-color-dark-bg-accent: #edebe0;
     transform: translateZ(0); // fix for safari to force hw acceleration
 
     &.border-end {
-      border-right: none !important;
+      border-inline-end: none !important;
     }
   }
 

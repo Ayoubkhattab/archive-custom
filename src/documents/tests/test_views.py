@@ -40,7 +40,8 @@ class TestViews(DirectoriesMixin, TestCase):
         self.assertEqual(response.status_code, status.HTTP_302_FOUND)
         self.assertEqual(response.url, "/accounts/login/?next=/")
 
-    def test_index(self):
+    @patch("documents.views.frontend_bundle_exists", return_value=True)
+    def test_index(self, _bundle_exists):
         self.client.force_login(self.user)
         for language_given, language_actual in [
             ("", "en-US"),
@@ -67,8 +68,17 @@ class TestViews(DirectoriesMixin, TestCase):
                 f"frontend/{language_actual}/manifest.webmanifest",
             )
             self.assertEqual(
+                response.context_data["frontend_language"],
+                language_actual,
+            )
+            self.assertEqual(response.context_data["text_direction"], "ltr")
+            self.assertEqual(
                 response.context_data["styles_css"],
                 f"frontend/{language_actual}/styles.css",
+            )
+            self.assertEqual(
+                response.context_data["rtl_styles_css"],
+                f"frontend/{language_actual}/styles-rtl.css",
             )
             self.assertEqual(
                 response.context_data["runtime_js"],
@@ -82,6 +92,74 @@ class TestViews(DirectoriesMixin, TestCase):
                 response.context_data["main_js"],
                 f"frontend/{language_actual}/main.js",
             )
+
+    @patch("documents.views.frontend_bundle_exists", return_value=True)
+    def test_index_falls_back_to_a_built_frontend_language(self, bundle_exists):
+        """
+        GIVEN:
+            - A display language the frontend was never compiled for
+        WHEN:
+            - The index is rendered
+        THEN:
+            - The bundle of the fallback locale is served, because pointing at
+              a locale that does not exist 404s main.js and leaves the user on
+              the loading screen indefinitely
+        """
+        self.client.force_login(self.user)
+        # Only the fallback locale has a bundle.
+        bundle_exists.side_effect = lambda language: language == "en-US"
+        self.client.cookies.load({settings.LANGUAGE_COOKIE_NAME: "de"})
+
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.context_data["frontend_language"], "en-US")
+        self.assertEqual(response.context_data["main_js"], "frontend/en-US/main.js")
+
+    @patch("documents.views.frontend_bundle_exists", return_value=False)
+    def test_index_keeps_language_when_frontend_is_not_built(self, _bundle_exists):
+        """
+        GIVEN:
+            - No compiled frontend at all, as in a development checkout
+        THEN:
+            - The requested language is reported unchanged, so a missing build
+              is not disguised as a language fallback
+        """
+        self.client.force_login(self.user)
+        self.client.cookies.load({settings.LANGUAGE_COOKIE_NAME: "de"})
+
+        response = self.client.get("/")
+
+        self.assertEqual(response.context_data["frontend_language"], "de-DE")
+
+    @patch("documents.views.frontend_bundle_exists", return_value=True)
+    def test_index_right_to_left_language(self, _bundle_exists):
+        """
+        GIVEN:
+            - A display language that is written right-to-left
+        WHEN:
+            - The index is rendered
+        THEN:
+            - The direction is reported as rtl so the template can render it
+              into <html dir> and link Bootstrap's pre-flipped build
+        """
+        self.client.force_login(self.user)
+        for language_given, language_actual in [
+            ("ar-ar", "ar-AR"),
+            ("fa-ir", "fa-IR"),
+        ]:
+            self.client.cookies.load({settings.LANGUAGE_COOKIE_NAME: language_given})
+
+            response = self.client.get("/")
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(
+                response.context_data["frontend_language"],
+                language_actual,
+            )
+            self.assertEqual(response.context_data["text_direction"], "rtl")
+            self.assertContains(response, 'dir="rtl"')
+            self.assertContains(response, 'id="pngx-rtl-styles"')
 
     @override_settings(BASE_URL="/paperless/")
     def test_index_app_logo_with_base_url(self):

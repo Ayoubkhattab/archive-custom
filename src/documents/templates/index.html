@@ -2,7 +2,7 @@
 
 {% load static i18n %}
 
-<html lang="ar" data-bs-theme="auto">
+<html lang="{{ frontend_language }}" dir="{{ text_direction }}" data-bs-theme="auto">
 <head>
 	<meta charset="utf-8">
 	<title>أرشيف المعلومات</title>
@@ -14,6 +14,9 @@
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
 	<link rel="manifest" href="{% static webmanifest %}">
 	<link rel="stylesheet" href="{% static styles_css %}">
+	{% if text_direction == "rtl" %}{# Bootstrap ships a separate pre-flipped build; the id lets the frontend detect this link instead of adding a second one #}
+	<link id="pngx-rtl-styles" rel="stylesheet" href="{% static rtl_styles_css %}">
+	{% endif %}
 	<link rel="apple-touch-icon" href="{% static apple_touch_icon %}">
 </head>
 <body>
@@ -31,6 +34,35 @@
 			html, body {
 				width: 100%;
 				height: 100%;
+				margin: 0;
+			}
+
+			/*
+			 * The splash is shown before the Angular bundle — and with it
+			 * Bootstrap — has loaded, so it cannot rely on utility classes to
+			 * centre itself. Centring here is symmetric, so it is also correct
+			 * in either writing direction.
+			 */
+			.app-loader-screen {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 100%;
+				height: 100%;
+			}
+
+			.app-loader {
+				text-align: center;
+			}
+
+			.app-loader img.logo {
+				display: block;
+				margin: 0 auto 0.5rem;
+			}
+
+			.app-loader h6 {
+				margin: 0;
+				font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 			}
 
 			@keyframes pulsate {
@@ -55,11 +87,11 @@
 				fill: var(--bs-body-color) !important;
 			}
 		</style>
-		<div class="bg-light w-100 h-100 d-flex align-items-center">
-			<div class="app-loader align-self-center text-center mx-auto">
-				<img src="{% static 'paperless/img/logo.jpg' %}" class="logo mb-2" height="96" alt="أرشيف المعلومات" />
-				<h6 class="m-auto">{% translate "أرشيف المعلومات جاري التحميل..." %}</h6>
- 			</div>
+		<div class="app-loader-screen bg-light">
+			<div class="app-loader">
+				<img src="{% static 'paperless/img/logo.jpg' %}" class="logo" height="96" alt="أرشيف المعلومات" />
+				<h6>{% translate "أرشيف المعلومات جاري التحميل..." %}</h6>
+			</div>
 		</div>
 		<script type="text/javascript">{# Pass Django messages to Angular frontend #}
 			window.DJANGO_MESSAGES = [

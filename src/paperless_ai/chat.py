@@ -37,20 +37,89 @@ ARABIC_ONLY = (
 
 NO_CONTENT_MESSAGE = "عذراً، لم أجد في المستندات ما يمكن أن أجيب به عن سؤالك."
 
-SYSTEM_PROMPT = (
+# Answer modes. FAST is a short, direct reply; DEEP retrieves more context and
+# asks for a structured report, which is slower but far more useful to export.
+MODE_FAST = "fast"
+MODE_DEEP = "deep"
+CHAT_MODES = (MODE_FAST, MODE_DEEP)
+
+
+def normalize_mode(value) -> str:
+    """Fall back to the fast mode for anything unrecognised."""
+    return value if value in CHAT_MODES else MODE_FAST
+
+
+_BASE_SYSTEM_PROMPT = (
     "You are a document assistant. Answer using ONLY the context provided. "
     "If the context does not contain the answer, say (in Arabic) that you don't "
-    "know. " + ARABIC_ONLY
+    "know. "
 )
 
-USER_PROMPT_TMPL = (
+SYSTEM_PROMPT = _BASE_SYSTEM_PROMPT + ARABIC_ONLY
+
+FAST_SYSTEM_PROMPT = (
+    _BASE_SYSTEM_PROMPT
+    + "Answer directly and briefly: a few sentences, or a short list when the "
+    "question asks for several items. Do not add headings or preamble. "
+    + ARABIC_ONLY
+)
+
+DEEP_SYSTEM_PROMPT = (
+    _BASE_SYSTEM_PROMPT
+    + "Produce a thorough, well-organised report rather than a short reply. "
+    "Work through the context carefully before answering, compare what the "
+    "different documents say, and call out any disagreement or missing "
+    "information explicitly. Structure the answer in Markdown with a short "
+    "summary first, then headed sections, and name the document titles you "
+    "relied on. Never invent a fact that is not in the context. "
+    + ARABIC_ONLY
+)
+
+_USER_PROMPT_BODY = (
     "Context information is below.\n"
     "---------------------\n"
     "{context}\n"
     "---------------------\n"
     "Given the context information and not prior knowledge, answer the query.\n"
-    "Query: {query}\n\n" + ARABIC_ONLY
+    "Query: {query}\n\n"
 )
+
+USER_PROMPT_TMPL = _USER_PROMPT_BODY + ARABIC_ONLY
+
+DEEP_USER_PROMPT_TMPL = (
+    _USER_PROMPT_BODY
+    + "اكتب تقريراً مفصّلاً ومنظّماً بعناوين، "
+    "يبدأ بخلاصة موجزة، ويذكر عناوين المستندات التي اعتمدت عليها.\n\n"
+    + ARABIC_ONLY
+)
+
+
+# Per-mode knobs. A deep answer needs a wider view of the archive and room to
+# write the report; the fast one keeps the defaults so it stays quick.
+MODE_SETTINGS = {
+    MODE_FAST: {
+        "system_prompt": FAST_SYSTEM_PROMPT,
+        "user_prompt": USER_PROMPT_TMPL,
+        "top_k_multiplier": 1,
+        "max_output_tokens": None,
+        "thinking": False,
+        "single_document_style": (
+            "Answer directly and briefly, without headings or preamble. "
+        ),
+    },
+    MODE_DEEP: {
+        "system_prompt": DEEP_SYSTEM_PROMPT,
+        "user_prompt": DEEP_USER_PROMPT_TMPL,
+        "top_k_multiplier": 3,
+        "max_output_tokens": settings.LLM_MAX_OUTPUT_TOKENS * 3,
+        "thinking": True,
+        "single_document_style": (
+            "Write a thorough, well-organised report rather than a short reply: "
+            "a brief summary first, then headed Markdown sections, and state "
+            "explicitly anything the document does not cover. "
+        ),
+    },
+}
 
 
 def _queue_index_build() -> None:
@@ -101,9 +170,19 @@ def _format_matches(top_nodes) -> str:
     )
 
 
-def stream_chat_with_documents(query_str: str, documents: list[Document]):
+def stream_chat_with_documents(
+    query_str: str,
+    documents: list[Document],
+    mode: str = MODE_FAST,
+):
     started = time.monotonic()
-    client = AIClient()
+    mode = normalize_mode(mode)
+    mode_settings = MODE_SETTINGS[mode]
+    client = AIClient(
+        max_output_tokens=mode_settings["max_output_tokens"],
+        thinking=mode_settings["thinking"],
+    )
+    top_k = settings.LLM_CHAT_TOP_K * mode_settings["top_k_multiplier"]
     try:
         index = load_or_build_index()
     except ValueError:
@@ -146,7 +225,7 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
                 nodes,
                 allowed_ids,
                 query_str,
-                top_k=min(3, settings.LLM_CHAT_TOP_K),
+                top_k=min(3, top_k),
             )
             if len(top_nodes) > 0:
                 context_body = (
@@ -160,7 +239,7 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
             nodes,
             allowed_ids,
             query_str,
-            top_k=settings.LLM_CHAT_TOP_K,
+            top_k=top_k,
         )
 
         if len(top_nodes) == 0:
@@ -171,10 +250,13 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
         context = _format_matches(top_nodes)
 
     messages = [
-        ChatMessage(role="system", content=SYSTEM_PROMPT),
+        ChatMessage(role="system", content=mode_settings["system_prompt"]),
         ChatMessage(
             role="user",
-            content=USER_PROMPT_TMPL.format(context=context, query=query_str),
+            content=mode_settings["user_prompt"].format(
+                context=context,
+                query=query_str,
+            ),
         ),
     ]
     logger.debug("Document chat messages: %s", messages)
@@ -185,7 +267,8 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
         if not first_token_logged:
             first_token_logged = True
             logger.info(
-                "AI chat: context ready after %.2fs, first token after %.2fs",
+                "AI chat (%s): context ready after %.2fs, first token after %.2fs",
+                mode,
                 prepared - started,
                 time.monotonic() - started,
             )

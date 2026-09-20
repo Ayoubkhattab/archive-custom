@@ -9,7 +9,7 @@
       <input type="file" class="visually-hidden" (change)="onFileSelected($event)" multiple #fileUpload>
     </form>
     @if (getStatus().length > 0) {
-    <div class="fixed-bottom p-2 p-md-4 d-flex justify-content-end pe-none consumer-status-list" [ngClass]="slimSidebarEnabled ? 'col-slim' : 'offset-md-3 offset-lg-2'">
+    <div class="fixed-bottom p-2 p-md-4 d-flex justify-content-end pe-none consumer-status-list sidebar-offset" [class.col-slim]="slimSidebarEnabled">
       <div class="col col-lg-4 col-xl-3 ps-0 pe-0 ps-lg-3 pe-lg-0 pe-auto overflow-y-scroll">
         <div class="card shadow-sm consumer-status-card">
           <div class="card-body">
@@ -56,7 +56,7 @@
           @if (status.documentId) {
             <button class="btn btn-sm btn-outline-primary btn-open" routerLink="/documents/{{status.documentId}}" (click)="dismiss(status)">
               <small i18n>Open document</small>
-              <i-bs name="arrow-right-short"></i-bs>
+              <i-bs class="directional-icon" name="arrow-right-short"></i-bs>
             </button>
           }
         </div>

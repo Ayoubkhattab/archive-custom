@@ -291,6 +291,59 @@ describe('SettingsService', () => {
     ).toEqual('100%')
   })
 
+  it('applies the writing direction of the display language to the document', () => {
+    httpTestingController
+      .expectOne(`${environment.apiBaseUrl}ui_settings/`)
+      .flush(ui_settings)
+
+    settingsService.setLanguage('ar-ar')
+    settingsService.updateTextDirection()
+    expect(settingsService.textDirection).toEqual('rtl')
+    expect(settingsService.isRtl).toBeTruthy()
+    expect(document.documentElement.getAttribute('dir')).toEqual('rtl')
+    expect(document.documentElement.getAttribute('lang')).toEqual('ar-ar')
+
+    settingsService.setLanguage('de-de')
+    settingsService.updateTextDirection()
+    expect(settingsService.textDirection).toEqual('ltr')
+    expect(settingsService.isRtl).toBeFalsy()
+    expect(document.documentElement.getAttribute('dir')).toEqual('ltr')
+    expect(document.documentElement.getAttribute('lang')).toEqual('de-de')
+  })
+
+  it('links the right-to-left stylesheet alongside the main one, and only once', () => {
+    httpTestingController
+      .expectOne(`${environment.apiBaseUrl}ui_settings/`)
+      .flush(ui_settings)
+
+    const mainStylesheet = document.createElement('link')
+    mainStylesheet.rel = 'stylesheet'
+    mainStylesheet.href = '/static/frontend/ar-AR/styles.css'
+    document.head.appendChild(mainStylesheet)
+
+    settingsService.setLanguage('ar-ar')
+    settingsService.updateTextDirection()
+
+    const rtlStylesheet =
+      document.head.querySelector<HTMLLinkElement>('#pngx-rtl-styles')
+    // Derived from the main stylesheet so it works under any deployment path.
+    expect(rtlStylesheet.getAttribute('href')).toEqual(
+      '/static/frontend/ar-AR/styles-rtl.css'
+    )
+
+    // A second pass must not add another link, e.g. when the server already
+    // rendered one.
+    settingsService.updateTextDirection()
+    expect(document.head.querySelectorAll('#pngx-rtl-styles')).toHaveLength(1)
+
+    // Switching back to a left-to-right language removes it again.
+    settingsService.setLanguage('de-de')
+    settingsService.updateTextDirection()
+    expect(document.head.querySelector('#pngx-rtl-styles')).toBeNull()
+
+    mainStylesheet.remove()
+  })
+
   it('migrates settings automatically', () => {
     const oldSettings = Object.assign({}, ui_settings)
     delete oldSettings.settings['documentListSize']

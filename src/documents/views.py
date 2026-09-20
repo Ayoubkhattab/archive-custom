@@ -1,3 +1,4 @@
+import functools
 import itertools
 import logging
 import os
@@ -24,6 +25,7 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.staticfiles import finders
 from django.core.cache import cache
 from django.db import connections
 from django.db.migrations.loader import MigrationLoader
@@ -53,6 +55,7 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.timezone import make_aware
 from django.utils.translation import get_language
+from django.utils.translation import get_language_info
 from django.views import View
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -207,6 +210,9 @@ from paperless.serialisers import GroupSerializer
 from paperless.serialisers import UserSerializer
 from paperless.views import StandardPagination
 from paperless_ai.ai_classifier import get_ai_document_classification
+from paperless_ai.chat import CHAT_MODES
+from paperless_ai.chat import MODE_SETTINGS
+from paperless_ai.chat import normalize_mode
 from paperless_ai.chat import stream_chat_with_documents
 from paperless_ai.client import AIClient
 from paperless_ai.matching import extract_unmatched_names
@@ -228,10 +234,26 @@ if settings.AUDIT_LOG_ENABLED:
 logger = logging.getLogger("paperless.api")
 
 
+@functools.cache
+def frontend_bundle_exists(language: str) -> bool:
+    """Whether the frontend was actually compiled for this locale."""
+    return finders.find(f"frontend/{language}/main.js") is not None
+
+
 class IndexView(TemplateView):
     template_name = "index.html"
 
+    # The locale the frontend is always built for, used when nothing else fits.
+    FALLBACK_FRONTEND_LANGUAGE = "en-US"
+
     def get_frontend_language(self):
+        # Called for every asset URL and for the text direction, so resolve it
+        # once per request; otherwise the fallback warning below repeats too.
+        if not hasattr(self, "_frontend_language"):
+            self._frontend_language = self._resolve_frontend_language()
+        return self._frontend_language
+
+    def _resolve_frontend_language(self):
         if hasattr(
             self.request.user,
             "ui_settings",
@@ -246,16 +268,61 @@ class IndexView(TemplateView):
         if "-" in lang:
             first = lang[: lang.index("-")]
             second = lang[lang.index("-") + 1 :]
-            return f"{first}-{second.upper()}"
-        else:
+            lang = f"{first}-{second.upper()}"
+
+        # The frontend is compiled once per locale listed in the i18n block of
+        # src-ui/angular.json, which is a much shorter list than the languages
+        # Django knows. Pointing the page at a locale that was never built
+        # makes every asset 404, and because that includes main.js the user is
+        # left on the loading screen for ever with nothing to explain it.
+        if frontend_bundle_exists(lang):
             return lang
+
+        # If the fallback is missing too, the frontend has not been built at
+        # all — a development checkout or the test suite. Rewriting the
+        # language there would only hide that, so report what was asked for.
+        if not frontend_bundle_exists(self.FALLBACK_FRONTEND_LANGUAGE):
+            return lang
+
+        logger.warning(
+            "No frontend bundle for language %s, falling back to %s",
+            lang,
+            self.FALLBACK_FRONTEND_LANGUAGE,
+        )
+        return self.FALLBACK_FRONTEND_LANGUAGE
+
+    def get_frontend_text_direction(self):
+        """
+        The writing direction of the frontend language.
+
+        Bootstrap ships separate left-to-right and right-to-left builds instead
+        of using CSS logical properties, so the template has to know the
+        direction to link the matching stylesheet. Rendering it into <html dir>
+        at the same time means the layout is correct on first paint, before
+        Angular boots.
+        """
+        try:
+            # Django falls back from "ar-AR" to the "ar" entry on its own.
+            return (
+                "rtl"
+                if get_language_info(self.get_frontend_language())["bidi"]
+                else "ltr"
+            )
+        except KeyError:
+            # Not a language Django knows; left-to-right is the safe default.
+            return "ltr"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["cookie_prefix"] = settings.COOKIE_PREFIX
+        context["frontend_language"] = self.get_frontend_language()
+        context["text_direction"] = self.get_frontend_text_direction()
         context["username"] = self.request.user.username
         context["full_name"] = self.request.user.get_full_name()
         context["styles_css"] = f"frontend/{self.get_frontend_language()}/styles.css"
+        context["rtl_styles_css"] = (
+            f"frontend/{self.get_frontend_language()}/styles-rtl.css"
+        )
         context["runtime_js"] = f"frontend/{self.get_frontend_language()}/runtime.js"
         context["polyfills_js"] = (
             f"frontend/{self.get_frontend_language()}/polyfills.js"
@@ -1439,6 +1506,11 @@ class DocumentViewSet(
 class ChatStreamingSerializer(serializers.Serializer):
     q = serializers.CharField(required=True)
     document_id = serializers.IntegerField(required=False, allow_null=True)
+    mode = serializers.ChoiceField(
+        choices=CHAT_MODES,
+        required=False,
+        help_text="fast: a short direct answer. deep: a longer, structured report.",
+    )
 
 
 @method_decorator(
@@ -1473,6 +1545,8 @@ class ChatStreamingView(GenericAPIView):
             return HttpResponseBadRequest("Invalid request")
 
         doc_id = request.data.get("document_id")
+        mode = normalize_mode(request.data.get("mode"))
+        mode_settings = MODE_SETTINGS[mode]
 
         if doc_id:
             try:
@@ -1527,14 +1601,18 @@ class ChatStreamingView(GenericAPIView):
         def _stream_chat():
             from llama_index.core.llms import ChatMessage
 
-            client = AIClient()
+            client = AIClient(
+                max_output_tokens=mode_settings["max_output_tokens"],
+                thinking=mode_settings["thinking"],
+            )
             if document:
                 system = (
                     "You are a document assistant. Use ONLY the provided document text. "
                     "Do not invent facts, links, or citations. "
                     "If the document text does not contain the answer, say you don't know. "
                     "When asked to summarize, summarize the document text that is provided. "
-                    "Always answer in Arabic (Modern Standard Arabic) only, even if the "
+                    + mode_settings["single_document_style"]
+                    + "Always answer in Arabic (Modern Standard Arabic) only, even if the "
                     "question or the document is in another language. "
                     "أجب بالعربية الفصحى فقط."
                 )
@@ -1557,7 +1635,7 @@ class ChatStreamingView(GenericAPIView):
                 if not documents:
                     yield "ليس لديك أي مستندات للبحث فيها بعد."
                     return
-                yield from stream_chat_with_documents(question, documents)
+                yield from stream_chat_with_documents(question, documents, mode)
 
         def _stream_chat_safely():
             # Once streaming has started, an exception can no longer become a

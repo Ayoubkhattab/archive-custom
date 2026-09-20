@@ -83,6 +83,7 @@ import { TagService } from 'src/app/services/rest/tag.service'
 import { UserService } from 'src/app/services/rest/user.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
+import { isRtlLanguage } from 'src/app/utils/direction'
 import { getFilenameFromContentDisposition } from 'src/app/utils/http'
 import { ISODateAdapter } from 'src/app/utils/ngb-iso-date-adapter'
 import * as UTIF from 'utif'
@@ -354,11 +355,9 @@ export class DocumentDetailComponent
     return ContentRenderType.Other
   }
 
+  /** Whether the document's own detected language reads right-to-left. */
   get isRTL() {
-    if (!this.metadata || !this.metadata.lang) return false
-    else {
-      return ['ar', 'he', 'fe'].includes(this.metadata.lang)
-    }
+    return isRtlLanguage(this.metadata?.lang)
   }
 
   private mapDocToForm(doc: Document): any {

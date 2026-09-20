@@ -25,11 +25,18 @@ tbody pngx-tag {
   cursor: pointer;
 }
 
+// The row actions sit on the trailing edge and fade the cell content out
+// behind them; `box-shadow` has no logical form, so the offset is mirrored
+// explicitly below.
 tr .btn-group {
-  margin-right: 2px;
+  margin-inline-end: 2px;
   box-shadow: -6px 0px 4px -1px rgba(var(--bs-body-bg-rgb), .5);
   opacity: 0;
   pointer-events: none;
+}
+
+:host-context([dir="rtl"]) tr .btn-group {
+  box-shadow: 6px 0px 4px -1px rgba(var(--bs-body-bg-rgb), .5);
 }
 
 tr:hover .btn-group {

@@ -16,6 +16,7 @@ import {
   estimateBrightnessForColor,
   hexToHsl,
 } from 'src/app/utils/color'
+import { directionForLanguage, TextDirection } from 'src/app/utils/direction'
 import { environment } from 'src/environments/environment'
 import { DEFAULT_DISPLAY_FIELDS, DisplayField } from '../data/document'
 import { SavedView } from '../data/saved-view'
@@ -270,6 +271,9 @@ const LANGUAGE_OPTIONS = [
   },
 ]
 
+/** Id shared with the server template so the link is never added twice. */
+const RTL_STYLESHEET_ID = 'pngx-rtl-styles'
+
 const ISO_LANGUAGE_OPTION: LanguageOption = {
   code: 'iso-8601',
   name: $localize`ISO 8601`,
@@ -436,6 +440,8 @@ export class SettingsService {
     darkModeEnabled ??= this.get(SETTINGS_KEYS.DARK_MODE_ENABLED)
     themeColor ??= this.get(SETTINGS_KEYS.THEME_COLOR)
 
+    this.updateTextDirection()
+
     if (darkModeUseSystem) {
       this._renderer.setAttribute(
         this.document.documentElement,
@@ -480,6 +486,63 @@ export class SettingsService {
       name: 'theme-color',
       content: themeColor?.length ? themeColor : PAPERLESS_GREEN_HEX,
     })
+  }
+
+  /** The writing direction implied by the active display language. */
+  public get textDirection(): TextDirection {
+    return directionForLanguage(this.getLanguage() || this.localeId)
+  }
+
+  public get isRtl(): boolean {
+    return this.textDirection === 'rtl'
+  }
+
+  /**
+   * Mirrors the active language's writing direction onto <html>.
+   *
+   * The server already renders `lang`/`dir` for the language it chose the
+   * frontend bundle for. This re-applies them for the cases it cannot cover:
+   * the dev server always serves the source locale, and a language picked in
+   * this session only reaches the server on the next page load.
+   */
+  public updateTextDirection(): void {
+    const language = this.getLanguage() || this.localeId
+    const direction = directionForLanguage(language)
+    const html = this.document.documentElement
+    this._renderer.setAttribute(html, 'dir', direction)
+    this._renderer.setAttribute(html, 'lang', language.toLowerCase())
+    this.updateDirectionalStylesheet(direction)
+  }
+
+  /**
+   * Bootstrap ships pre-flipped LTR and RTL builds instead of using CSS logical
+   * properties, so switching direction means swapping the whole stylesheet
+   * rather than overriding a few rules. The server links the RTL build when it
+   * knows the language is RTL; this keeps that link in sync when it could not.
+   */
+  private updateDirectionalStylesheet(direction: TextDirection): void {
+    const head = this.document.head
+    const existing = head.querySelector(`#${RTL_STYLESHEET_ID}`)
+
+    if (direction === 'ltr') {
+      existing?.remove()
+      return
+    }
+    if (existing) return
+
+    // Derive the sibling href so this works under any deployment base path.
+    const baseHref = head
+      .querySelector<HTMLLinkElement>(
+        'link[rel="stylesheet"][href*="styles.css"]'
+      )
+      ?.getAttribute('href')
+    if (!baseHref) return
+
+    const link = this.document.createElement('link')
+    link.id = RTL_STYLESHEET_ID
+    link.rel = 'stylesheet'
+    link.href = baseHref.replace(/styles\.css/, 'styles-rtl.css')
+    head.appendChild(link)
   }
 
   getLanguageOptions(): LanguageOption[] {

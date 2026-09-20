@@ -8,13 +8,10 @@
   inset-inline-start: 0;
   z-index: 995; /* Behind the navbar */
   padding: 50px 0 0; /* Height of navbar */
+  // Hairline along the inner edge, which swaps sides with the direction.
   box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
-
-  [dir="rtl"] & {
-    box-shadow: inset 1px 0 0 rgba(0, 0, 0, .1);
-  }
   overflow-y: auto;
-  --pngx-sidebar-width: 100%;
+  width: var(--pngx-sidebar-width);
   max-width: var(--pngx-sidebar-width);
   transition: all .2s ease;
 
@@ -30,19 +27,6 @@
   .nav-group:not(:has(.app-link)) .sidebar-heading {
     display: none !important;
   }
-
-  // These come from the col-* classes for non-slim sidebar, needed for animation
-  @media (min-width: 768px) {
-    --pngx-sidebar-width: 25%;
-  }
-
-  @media (min-width: 992px) {
-    --pngx-sidebar-width: 16.66666667%;
-  }
-
-  @media (min-width: 2400px) {
-    --pngx-sidebar-width: 8.33333333%;
-  }
 }
 @media (max-width: 767.98px) {
   .sidebar {
@@ -53,6 +37,8 @@
 main {
   transition: all .2s ease;
   padding-top: 110px;
+  margin-inline-start: var(--pngx-content-offset);
+  width: calc(100% - var(--pngx-content-offset));
 }
 
 @media (min-width: 768px) {
@@ -63,8 +49,15 @@ main {
 
 .sidebar-slim-toggler {
   display: none; // hide on mobile
+}
 
-  [dir="rtl"] & i-bs {
+:host-context([dir="rtl"]) {
+  .sidebar {
+    box-shadow: inset 1px 0 0 rgba(0, 0, 0, .1);
+  }
+
+  // The collapse chevron points across the sidebar, so it has to be mirrored.
+  .sidebar-slim-toggler i-bs {
     transform: scaleX(-1);
   }
 }
@@ -76,7 +69,7 @@ main {
 
 @media(min-width: 768px) {
   .sidebar.slim {
-    max-width: 50px;
+    --pngx-sidebar-width: var(--pngx-sidebar-slim-width);
 
     li.nav-item span.badge {
       display: inline-block;
@@ -118,13 +111,6 @@ main {
     }
   }
 
-  .sidebar.slim {
-    li.nav-item span.badge {
-      display: inline-block;
-      margin-right: 2px;
-    }
-  }
-
   .sidebar-slim-toggler {
     display: block;
     position: fixed;
@@ -136,9 +122,6 @@ main {
     transition: all .2s ease;
   }
 
-  .sidebar.slim .sidebar-slim-toggler {
-    --pngx-sidebar-width: 50px !important;
-  }
 }
 
 ::ng-deep .popover-slim .popover-body {
@@ -209,7 +192,7 @@ main {
     opacity: 1;
     top: 0;
     padding: .25rem .3rem 0;
-    right: .4rem;
+    inset-inline-end: .4rem;
     width: 1.8rem;
     height: 100%;
 
@@ -224,7 +207,7 @@ main {
 
   .nav-link-additional {
     margin-top: 0.1rem;
-    margin-left: 0.25rem;
+    margin-inline-start: 0.25rem;
     padding-top: 0.5rem;
     text-decoration: none;
 
@@ -258,8 +241,8 @@ main {
 
 @media screen and (min-width: 366px) and (max-width: 768px) {
   .navbar-toggler {
-    // compensate for 2 buttons on the right
-    margin-right: 45px;
+    // compensate for 2 buttons on the trailing side
+    margin-inline-end: 45px;
   }
 }
 
@@ -282,7 +265,7 @@ main {
 }
 
 .dropdown-toggle::after {
-  margin-left: 0.4em;
+  margin-inline-start: 0.4em;
   vertical-align: 0.155em;
 }
 

@@ -36,7 +36,7 @@
                     <span class="parents d-flex align-items-center">
                       @for (p of getParentChain(item.id); track p.id) {
                         <span class="badge me-1" [style.background]="p.color" [style.color]="p.text_color">{{p.name}}</span>
-                        <i-bs name="chevron-right" width=".8em" height=".8em" class="me-1"></i-bs>
+                        <i-bs name="chevron-right" width=".8em" height=".8em" class="me-1 directional-icon"></i-bs>
                       }
                     </span>
                   </span>

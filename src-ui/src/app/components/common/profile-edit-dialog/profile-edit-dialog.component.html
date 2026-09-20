@@ -121,7 +121,7 @@
                       </p>
                       <div class="input-group mb-3">
                         <input type="text" class="form-control" formControlName="totp_code" placeholder="Code" i18n-placeholder>
-                        <button type="button" class="btn btn-primary ml-auto" (click)="activateTotp()" [disabled]="totpLoading">
+                        <button type="button" class="btn btn-primary ms-auto" (click)="activateTotp()" [disabled]="totpLoading">
                           <ng-container i18n>Enable</ng-container>
                           @if (totpLoading) {
                             <div class="spinner-border spinner-border-sm fw-normal ms-2" role="status"></div>

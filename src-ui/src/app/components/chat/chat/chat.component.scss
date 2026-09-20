@@ -27,13 +27,13 @@
 .chat-bubble-user {
   background-color: var(--bs-primary);
   color: var(--pngx-primary-text-contrast);
-  border-bottom-right-radius: 0.2rem;
+  border-end-end-radius: 0.2rem;
 }
 
 .chat-bubble-assistant {
   background-color: var(--pngx-bg-alt);
   color: var(--bs-body-color);
-  border-bottom-left-radius: 0.2rem;
+  border-end-start-radius: 0.2rem;
   max-width: 100%;
 }
 
@@ -106,7 +106,7 @@
 
 @media screen and (max-width: 400px) {
   :host ::ng-deep .dropdown-menu-end {
-    right: -3rem;
+    inset-inline-end: -3rem;
   }
 }
 

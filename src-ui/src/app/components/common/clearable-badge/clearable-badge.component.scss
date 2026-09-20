@@ -23,6 +23,6 @@ button:hover {
         display: inline-block;
         position: absolute;
         top: .4em;
-        left: calc(50% - .4em);
+        inset-inline-start: calc(50% - .4em);
     }
 }

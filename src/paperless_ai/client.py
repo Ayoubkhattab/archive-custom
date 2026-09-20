@@ -26,8 +26,22 @@ class AIClient:
     A client for interacting with an LLM backend.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        max_output_tokens: int | None = None,
+        thinking: bool | None = None,
+    ):
+        """
+        Args:
+            max_output_tokens: Overrides PAPERLESS_AI_LLM_MAX_TOKENS. The deep
+                answer mode needs a longer budget than a quick reply.
+            thinking: Overrides PAPERLESS_AI_LLM_THINKING, so a single request
+                can ask the model to reason before answering.
+        """
         self.settings = AIConfig()
+        self.max_output_tokens = max_output_tokens or settings.LLM_MAX_OUTPUT_TOKENS
+        self.thinking = settings.LLM_THINKING if thinking is None else thinking
         self.llm = self.get_llm()
 
     def get_llm(self):
@@ -38,7 +52,7 @@ class AIClient:
                 raise ModuleNotFoundError(
                     "llama-index-llms-ollama is required for llm_backend=ollama",
                 ) from exc
-            options = {"num_predict": settings.LLM_MAX_OUTPUT_TOKENS}
+            options = {"num_predict": self.max_output_tokens}
             if settings.LLM_NUM_THREAD > 0:
                 # Left unset, Ollama guesses the core count, which is often
                 # wrong on virtual machines.
@@ -49,7 +63,7 @@ class AIClient:
                 request_timeout=settings.LLM_REQUEST_TIMEOUT,
                 context_window=settings.LLM_CONTEXT_WINDOW,
                 keep_alive=_parse_keep_alive(settings.LLM_KEEP_ALIVE),
-                thinking=settings.LLM_THINKING,
+                thinking=self.thinking,
                 additional_kwargs=options,
             )
         elif self.settings.llm_backend == "openai":

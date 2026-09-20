@@ -47,7 +47,12 @@
               }
             ],
             "styles": [
-              "src/styles.scss"
+              "src/styles.scss",
+              {
+                "input": "src/styles-rtl.scss",
+                "bundleName": "styles-rtl",
+                "inject": false
+              }
             ],
             "scripts": [],
             "allowedCommonJsDependencies": [

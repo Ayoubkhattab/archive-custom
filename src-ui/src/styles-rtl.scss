@@ -1,0 +1,5 @@
+// Right-to-left entry point. See `styles.scss` for how the two relate.
+@use "sass:meta";
+
+@import "node_modules/bootstrap/dist/css/bootstrap.rtl.css";
+@include meta.load-css("app-styles");

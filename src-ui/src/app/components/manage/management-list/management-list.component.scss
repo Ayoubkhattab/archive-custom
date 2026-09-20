@@ -12,15 +12,16 @@ tbody tr:last-child td {
 }
 
 td.name-cell {
-    padding-left: calc(calc(var(--depth) - 1) * 1.1rem);
+    padding-inline-start: calc(calc(var(--depth) - 1) * 1.1rem);
 
     .indicator {
         display: inline-block;
         width: .8rem;
         height: .8rem;
-        border-left: 1px solid var(--bs-secondary);
+        // An "L" connector drawn from the leading edge of the cell.
+        border-inline-start: 1px solid var(--bs-secondary);
         border-bottom: 1px solid var(--bs-secondary);
-        margin-right: .25rem;
-        margin-left: .5rem;
+        margin-inline-end: .25rem;
+        margin-inline-start: .5rem;
     }
 }

@@ -20,15 +20,14 @@
 }
 
 .btn-group .dropdown-toggle-split {
-  border-top-right-radius: inherit;
-  border-bottom-right-radius: inherit;
+  border-start-end-radius: inherit;
+  border-end-end-radius: inherit;
 }
 
 .password-prompt {
   position: absolute;
   top: 30%;
-  left: 30%;
-  right: 30%;
+  inset-inline: 30%;
 }
 
 textarea.rtl {
@@ -36,25 +35,27 @@ textarea.rtl {
 }
 
 .form-select {
-  padding-right: 2.5em;
+  padding-inline-end: 2.5em;
 }
 
 .input-group .btn-outline-secondary {
   border-color: var(--bs-border-color);
 }
 
+// `order` is laid out along the flex main axis, which reverses with the writing
+// direction, so the rounded corners have to be logical to stay on the outside.
 .btn-group .btn.order-0 {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-top-left-radius: var(--bs-border-radius-sm);
-  border-bottom-left-radius: var(--bs-border-radius-sm);
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  border-start-start-radius: var(--bs-border-radius-sm);
+  border-end-start-radius: var(--bs-border-radius-sm);
 }
 
 .btn-group .btn.order-3 {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  border-top-right-radius: var(--bs-border-radius-sm);
-  border-bottom-right-radius: var(--bs-border-radius-sm);
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: var(--bs-border-radius-sm);
+  border-end-end-radius: var(--bs-border-radius-sm);
 }
 
 .preview-sticky img {
@@ -66,16 +67,19 @@ textarea.rtl {
 
 .thumb-preview {
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   width: 100%;
   height: calc(100vh - 160px);
   overflow: hidden;
   background-color: gray;
   padding: 10px 8px; // border
-  z-index: 1000;
+  // Above the preview it covers, but below Bootstrap's overlay layers: at 1000
+  // it tied with --bs-dropdown-zindex and, being later in the DOM, won —
+  // painting the preview over any open dropdown in the page header.
+  z-index: 1;
 
   @media screen and (min-width: 768px) {
-    left: calc(.5 * var(--bs-gutter-x));
+    inset-inline-start: calc(.5 * var(--bs-gutter-x));
     width: calc(100% - var(--bs-gutter-x));
   }
 
