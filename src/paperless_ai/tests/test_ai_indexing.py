@@ -161,12 +161,32 @@ def test_update_llm_index_partial_update(
     assert any(temp_llm_index_dir.glob("*.json"))
 
 
-def test_get_or_create_storage_context_raises_exception(
+@pytest.mark.django_db
+def test_get_or_create_storage_context_starts_fresh_when_directory_has_no_index(
     temp_llm_index_dir,
     mock_embed_model,
 ):
-    with pytest.raises(Exception):
-        indexing.get_or_create_storage_context(rebuild=False)
+    # A rebuild in progress leaves the directory behind before the index is saved.
+    assert temp_llm_index_dir.exists()
+    assert not indexing.vector_store_file_exists()
+
+    context = indexing.get_or_create_storage_context(rebuild=False)
+
+    assert context is not None
+
+
+@pytest.mark.django_db
+def test_single_document_update_is_skipped_until_the_index_exists(
+    temp_llm_index_dir,
+    real_document,
+    mock_embed_model,
+):
+    with patch("paperless_ai.indexing.load_or_build_index") as load_index:
+        indexing.llm_index_add_or_update_document(real_document)
+        indexing.llm_index_remove_document(real_document)
+
+    load_index.assert_not_called()
+    assert not indexing.vector_store_file_exists()
 
 
 @override_settings(

@@ -12,8 +12,6 @@ from paperless_ai.indexing import load_or_build_index
 
 logger = logging.getLogger("paperless_ai.chat")
 
-SINGLE_DOC_SNIPPET_CHARS = 800
-
 # At or below this many chunks, embedding them again is cheap. Above it, search
 # the persisted vector index instead of re-embedding on every question.
 LOCAL_RETRIEVAL_MAX_NODES = 40
@@ -86,7 +84,7 @@ def _retrieve(index, nodes, allowed_ids: set[str], query_str: str, top_k: int):
 
 def _format_matches(top_nodes) -> str:
     return "\n\n".join(
-        f"TITLE: {node.metadata.get('title')}\n{node.text[:SINGLE_DOC_SNIPPET_CHARS]}"
+        f"TITLE: {node.metadata.get('title')}\n{node.text[: settings.LLM_CHAT_SNIPPET_CHARS]}"
         for node in top_nodes
     )
 
@@ -131,7 +129,13 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
             )
             context_body = content[:max_chars]
 
-            top_nodes = _retrieve(index, nodes, allowed_ids, query_str, top_k=3)
+            top_nodes = _retrieve(
+                index,
+                nodes,
+                allowed_ids,
+                query_str,
+                top_k=min(3, settings.LLM_CHAT_TOP_K),
+            )
             if len(top_nodes) > 0:
                 context_body = (
                     f"{context_body}\n\nTOP MATCHES:\n{_format_matches(top_nodes)}"
@@ -139,7 +143,13 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
 
         context = f"TITLE: {doc.title or doc.filename}\n{context_body}"
     else:
-        top_nodes = _retrieve(index, nodes, allowed_ids, query_str, top_k=5)
+        top_nodes = _retrieve(
+            index,
+            nodes,
+            allowed_ids,
+            query_str,
+            top_k=settings.LLM_CHAT_TOP_K,
+        )
 
         if len(top_nodes) == 0:
             logger.warning("Retriever returned no nodes for the given documents.")

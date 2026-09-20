@@ -50,7 +50,11 @@ def get_or_create_storage_context(*, rebuild=False):
         shutil.rmtree(settings.LLM_INDEX_DIR, ignore_errors=True)
         settings.LLM_INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
-    if rebuild or not settings.LLM_INDEX_DIR.exists():
+    # Decide by whether a saved index exists, not merely whether the directory
+    # does: a rebuild creates the directory first and only writes the index at
+    # the very end, so an empty directory means "nothing to load yet".
+    if rebuild or not vector_store_file_exists():
+        settings.LLM_INDEX_DIR.mkdir(parents=True, exist_ok=True)
         embedding_dim = get_embedding_dim()
         faiss_index = faiss.IndexFlatL2(embedding_dim)
         vector_store = FaissVectorStore(faiss_index=faiss_index)
@@ -220,6 +224,12 @@ def llm_index_add_or_update_document(document: Document):
     Adds or updates a document in the LLM index.
     If the document already exists, it will be replaced.
     """
+    if not vector_store_file_exists():
+        # The full build indexes every document, this one included. Creating an
+        # index here would leave one holding a single document.
+        logger.info("LLM index not built yet; skipping single-document update.")
+        return
+
     new_nodes = build_document_node(document)
 
     index = load_or_build_index(nodes=new_nodes)
@@ -235,6 +245,10 @@ def llm_index_remove_document(document: Document):
     """
     Removes a document from the LLM index.
     """
+    if not vector_store_file_exists():
+        logger.info("LLM index not built yet; nothing to remove the document from.")
+        return
+
     index = load_or_build_index()
 
     remove_document_docstore_nodes(document, index)

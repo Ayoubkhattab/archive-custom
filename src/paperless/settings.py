@@ -1522,3 +1522,8 @@ LLM_THINKING = __get_boolean("PAPERLESS_AI_LLM_THINKING", "false")
 LLM_CHAT_MAX_CONTEXT_CHARS = int(os.getenv("PAPERLESS_AI_CHAT_MAX_CHARS", "8000"))
 # Concurrent chat streams served per web worker process.
 LLM_STREAM_THREADS = int(os.getenv("PAPERLESS_AI_STREAM_THREADS", "4"))
+# Documents and characters per document placed in the prompt when a question is
+# answered from several documents. Prompt length is what makes the first word of
+# the answer slow on a CPU, so keep these small.
+LLM_CHAT_TOP_K = int(os.getenv("PAPERLESS_AI_CHAT_TOP_K", "3"))
+LLM_CHAT_SNIPPET_CHARS = int(os.getenv("PAPERLESS_AI_CHAT_SNIPPET_CHARS", "600"))
