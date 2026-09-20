@@ -73,14 +73,31 @@ describe('ChatComponent', () => {
     expect(component.loading).toBe(true)
 
     mockStream$.next('Hi')
-    expect(component.messages[1].content).toBe('H')
+    // text is revealed on animation frames
+    jest.advanceTimersByTime(50)
+    expect(component.messages[1].content).toBe('Hi')
     mockStream$.next('Hi there')
-    // advance time to process the typewriter effect
-    jest.advanceTimersByTime(1000)
+    jest.advanceTimersByTime(200)
     expect(component.messages[1].content).toBe('Hi there')
 
     mockStream$.complete()
     expect(component.loading).toBe(false)
+    jest.advanceTimersByTime(50)
+    expect(component.messages[1].isStreaming).toBe(false)
+  })
+
+  it('should keep the streaming state until all received text is shown', () => {
+    component.input = 'Hello'
+    component.sendMessage()
+
+    mockStream$.next('x'.repeat(400))
+    mockStream$.complete()
+
+    expect(component.loading).toBe(false)
+    expect(component.messages[1].isStreaming).toBe(true)
+
+    jest.advanceTimersByTime(1000)
+    expect(component.messages[1].content).toBe('x'.repeat(400))
     expect(component.messages[1].isStreaming).toBe(false)
   })
 
@@ -99,7 +116,32 @@ describe('ChatComponent', () => {
     const message = { content: '', role: 'assistant', isStreaming: true }
     component.enqueueTypewriter(null, message as any) // coverage for null
     component.enqueueTypewriter('Hello', message as any)
-    expect(component['typewriterBuffer'].length).toBe(4)
+    expect(component['typewriterBuffer']).toBe('Hello')
+  })
+
+  it('should not scroll once per character', () => {
+    const scroll = jest.fn()
+    component.scrollAnchor.nativeElement.scrollIntoView = scroll
+    const message = { content: '', role: 'assistant', isStreaming: true }
+    component['streamDone'] = true
+
+    component.enqueueTypewriter('x'.repeat(600), message as any)
+    jest.advanceTimersByTime(2000)
+
+    expect(message.content.length).toBe(600)
+    // about one scroll per animation frame, not one per character (600)
+    expect(scroll.mock.calls.length).toBeLessThan(120)
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'auto' })
+  })
+
+  it('should not render the markdown again for unchanged text', () => {
+    const message = { role: 'assistant', content: '**hello**' } as any
+
+    const first = component.renderMarkdown(message)
+    expect(component.renderMarkdown(message)).toBe(first)
+
+    message.content = '**changed**'
+    expect(component.renderMarkdown(message)).not.toBe(first)
   })
 
   it('should scroll to bottom after sending a message', () => {

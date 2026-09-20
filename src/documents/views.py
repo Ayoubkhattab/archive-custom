@@ -1534,7 +1534,9 @@ class ChatStreamingView(GenericAPIView):
                     "Do not invent facts, links, or citations. "
                     "If the document text does not contain the answer, say you don't know. "
                     "When asked to summarize, summarize the document text that is provided. "
-                    "Respond in the same language as the user's question."
+                    "Always answer in Arabic (Modern Standard Arabic) only, even if the "
+                    "question or the document is in another language. "
+                    "أجب بالعربية الفصحى فقط."
                 )
                 user = (
                     f"Document title: {document.title or ''}\n\n"
@@ -1553,7 +1555,7 @@ class ChatStreamingView(GenericAPIView):
                 # so responses are grounded in what's actually stored, not
                 # the model's general knowledge.
                 if not documents:
-                    yield "You don't have any documents to search yet."
+                    yield "ليس لديك أي مستندات للبحث فيها بعد."
                     return
                 yield from stream_chat_with_documents(question, documents)
 

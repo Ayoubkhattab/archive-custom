@@ -8,6 +8,7 @@ from llama_index.core.schema import TextNode
 
 from paperless_ai.chat import INDEX_BUILD_LOCK
 from paperless_ai.chat import INDEX_BUILDING_MESSAGE
+from paperless_ai.chat import NO_CONTENT_MESSAGE
 from paperless_ai.chat import _queue_index_build
 from paperless_ai.chat import stream_chat_with_documents
 
@@ -146,7 +147,7 @@ def test_stream_chat_no_matching_nodes():
 
         output = list(stream_chat_with_documents("Any info?", [MagicMock(pk=1)]))
 
-        assert output == ["Sorry, I couldn't find any content to answer your question."]
+        assert output == [NO_CONTENT_MESSAGE]
 
 
 @pytest.fixture
@@ -232,4 +233,5 @@ def test_multi_document_search_uses_stored_vectors_and_widens_until_found():
     assert seen_k == [50, 62]
     assert "mine 1" in prompt
     assert "mine 2" in prompt
-    assert "other" not in prompt
+    assert "other 0" not in prompt
+    assert "other 59" not in prompt

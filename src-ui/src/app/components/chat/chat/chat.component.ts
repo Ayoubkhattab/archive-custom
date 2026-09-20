@@ -1,7 +1,9 @@
 import {
+  ChangeDetectorRef,
   Component,
   ElementRef,
   inject,
+  NgZone,
   OnInit,
   SecurityContext,
   ViewChild,
@@ -37,6 +39,8 @@ export class ChatComponent implements OnInit {
   private router: Router = inject(Router)
   private sanitizer: DomSanitizer = inject(DomSanitizer)
   private toastService: ToastService = inject(ToastService)
+  private zone: NgZone = inject(NgZone)
+  private cdr: ChangeDetectorRef = inject(ChangeDetectorRef)
 
   @ViewChild('scrollAnchor') scrollAnchor!: ElementRef<HTMLDivElement>
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>
@@ -46,8 +50,17 @@ export class ChatComponent implements OnInit {
     this.dropdown?.open()
   }
 
-  private typewriterBuffer: string[] = []
+  // Text received but not yet shown. It is revealed a few characters per
+  // animation frame: one timer tick and one page-wide change detection per
+  // character froze the whole dashboard while an answer was arriving.
+  private typewriterBuffer = ''
   private typewriterActive = false
+  private streamDone = false
+  private scrollPending = false
+  private markdownCache = new WeakMap<
+    ChatMessage,
+    { content: string; html: SafeHtml }
+  >()
 
   public get placeholder(): string {
     return this.documentId
@@ -88,6 +101,7 @@ export class ChatComponent implements OnInit {
     this.loading = true
 
     let lastPartialLength = 0
+    this.streamDone = false
 
     this.chatService.streamChat(this.documentId, this.input).subscribe({
       next: (chunk) => {
@@ -96,14 +110,16 @@ export class ChatComponent implements OnInit {
         this.enqueueTypewriter(delta, assistantMessage)
       },
       error: () => {
+        this.typewriterBuffer = ''
         assistantMessage.content += '\n\n⚠️ Error receiving response.'
         assistantMessage.isStreaming = false
         this.loading = false
+        this.render()
       },
       complete: () => {
-        assistantMessage.isStreaming = false
+        this.streamDone = true
         this.loading = false
-        this.scrollToBottom()
+        this.finishIfDrained(assistantMessage)
       },
     })
 
@@ -113,31 +129,59 @@ export class ChatComponent implements OnInit {
   enqueueTypewriter(chunk: string, message: ChatMessage): void {
     if (!chunk) return
 
-    this.typewriterBuffer.push(...chunk.split(''))
+    this.typewriterBuffer += chunk
 
     if (!this.typewriterActive) {
       this.typewriterActive = true
-      this.playTypewriter(message)
+      this.zone.runOutsideAngular(() =>
+        requestAnimationFrame(() => this.playTypewriter(message))
+      )
     }
   }
 
   playTypewriter(message: ChatMessage): void {
     if (this.typewriterBuffer.length === 0) {
       this.typewriterActive = false
+      this.finishIfDrained(message)
       return
     }
 
-    const nextChar = this.typewriterBuffer.shift()
-    message.content += nextChar
-    this.scrollToBottom()
+    // A few characters per frame, more when far behind so long answers finish
+    // revealing shortly after the last chunk arrives.
+    const count = Math.max(3, Math.ceil(this.typewriterBuffer.length / 20))
+    message.content += this.typewriterBuffer.slice(0, count)
+    this.typewriterBuffer = this.typewriterBuffer.slice(count)
+    this.render()
 
-    setTimeout(() => this.playTypewriter(message), 10) // 10ms per character
+    requestAnimationFrame(() => this.playTypewriter(message))
   }
 
+  private finishIfDrained(message: ChatMessage): void {
+    if (!this.streamDone || this.typewriterActive || this.typewriterBuffer) {
+      return
+    }
+    message.isStreaming = false
+    this.render()
+  }
+
+  // Refresh only this component (not the whole application) and follow the
+  // newest text.
+  private render(): void {
+    this.cdr.detectChanges()
+    this.scrollToBottom()
+  }
+
+  // At most one scroll per frame, and not an animated one: a smooth scroll
+  // started for every character kept restarting itself.
   private scrollToBottom(): void {
-    setTimeout(() => {
-      this.scrollAnchor?.nativeElement?.scrollIntoView({ behavior: 'smooth' })
-    }, 50)
+    if (this.scrollPending) return
+    this.scrollPending = true
+    this.zone.runOutsideAngular(() =>
+      requestAnimationFrame(() => {
+        this.scrollPending = false
+        this.scrollAnchor?.nativeElement?.scrollIntoView({ behavior: 'auto' })
+      })
+    )
   }
 
   public onOpenChange(open: boolean): void {
@@ -155,10 +199,21 @@ export class ChatComponent implements OnInit {
     }
   }
 
-  public renderMarkdown(content: string): SafeHtml {
-    const html = marked.parse(content ?? '', { async: false, breaks: true }) as string
+  // Called from the template on every change detection pass. Returning the
+  // same object for unchanged text keeps Angular from re-parsing the markdown
+  // and rebuilding the DOM each time.
+  public renderMarkdown(message: ChatMessage): SafeHtml {
+    const cached = this.markdownCache.get(message)
+    if (cached && cached.content === message.content) return cached.html
+
+    const html = marked.parse(message.content ?? '', {
+      async: false,
+      breaks: true,
+    }) as string
     const sanitized = this.sanitizer.sanitize(SecurityContext.HTML, html) ?? ''
-    return this.sanitizer.bypassSecurityTrustHtml(sanitized)
+    const safe = this.sanitizer.bypassSecurityTrustHtml(sanitized)
+    this.markdownCache.set(message, { content: message.content, html: safe })
+    return safe
   }
 
   public copyMessage(message: ChatMessage): void {

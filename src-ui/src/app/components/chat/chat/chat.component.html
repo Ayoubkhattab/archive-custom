@@ -16,7 +16,7 @@
             @if (message.role === 'user' || message.isStreaming) {
               <span class="chat-plain">{{ message.content }}</span>
             } @else {
-              <div class="chat-markdown" [innerHTML]="renderMarkdown(message.content)"></div>
+              <div class="chat-markdown" [innerHTML]="renderMarkdown(message)"></div>
             }
             @if (message.isStreaming) { <span class="blinking-cursor">|</span> }
           </div>

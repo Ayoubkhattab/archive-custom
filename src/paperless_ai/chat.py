@@ -25,10 +25,22 @@ INDEX_BUILDING_MESSAGE = (
     "Please try again in a few minutes."
 )
 
+# Answers are always Arabic, whatever language the question or the documents are
+# in. A small model follows the instruction that comes last, so it is repeated
+# at the end of the user message too.
+ARABIC_ONLY = (
+    "Always answer in Arabic (Modern Standard Arabic) only, even if the question "
+    "or the documents are in another language. Use another language only for "
+    "proper names and technical terms that have no Arabic equivalent. "
+    "أجب بالعربية الفصحى فقط."
+)
+
+NO_CONTENT_MESSAGE = "عذراً، لم أجد في المستندات ما يمكن أن أجيب به عن سؤالك."
+
 SYSTEM_PROMPT = (
     "You are a document assistant. Answer using ONLY the context provided. "
-    "If the context does not contain the answer, say you don't know. "
-    "Respond in the same language as the user's question."
+    "If the context does not contain the answer, say (in Arabic) that you don't "
+    "know. " + ARABIC_ONLY
 )
 
 USER_PROMPT_TMPL = (
@@ -37,7 +49,7 @@ USER_PROMPT_TMPL = (
     "{context}\n"
     "---------------------\n"
     "Given the context information and not prior knowledge, answer the query.\n"
-    "Query: {query}"
+    "Query: {query}\n\n" + ARABIC_ONLY
 )
 
 
@@ -111,7 +123,7 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
 
     if len(nodes) == 0:
         logger.warning("No nodes found for the given documents.")
-        yield "Sorry, I couldn't find any content to answer your question."
+        yield NO_CONTENT_MESSAGE
         return
 
     if len(documents) == 1:
@@ -153,7 +165,7 @@ def stream_chat_with_documents(query_str: str, documents: list[Document]):
 
         if len(top_nodes) == 0:
             logger.warning("Retriever returned no nodes for the given documents.")
-            yield "Sorry, I couldn't find any content to answer your question."
+            yield NO_CONTENT_MESSAGE
             return
 
         context = _format_matches(top_nodes)
