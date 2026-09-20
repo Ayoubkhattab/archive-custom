@@ -272,7 +272,7 @@ services:
       - no-new-privileges:true
 
   tika:
-    image: docker.io/apache/tika:3.2.2.0
+    image: docker.io/apache/tika:4.0.0-1
     restart: always
     security_opt:
       - no-new-privileges:true
