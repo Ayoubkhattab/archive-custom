@@ -1,7 +1,11 @@
 import { Injectable } from '@angular/core'
 import { jsPDF } from 'jspdf'
 import { marked } from 'marked'
-import { AiConversation, AiMode, aiModeLabel } from 'src/app/data/ai-conversation'
+import {
+  AiConversation,
+  AiMode,
+  aiModeLabel,
+} from 'src/app/data/ai-conversation'
 
 /**
  * Exports an AI answer or a whole conversation as a report.
@@ -454,7 +458,11 @@ class PageRenderer {
     const ctx = this.ctx
     const rtl = isRtlText(block.text)
     const indent =
-      block.kind === 'li' ? 18 + (block.depth ?? 0) * 18 : block.kind === 'quote' ? 14 : 0
+      block.kind === 'li'
+        ? 18 + (block.depth ?? 0) * 18
+        : block.kind === 'quote'
+          ? 14
+          : 0
     const width = CONTENT_WIDTH - indent - (block.kind === 'code' ? 16 : 0)
 
     ctx.font = style.font
@@ -469,7 +477,8 @@ class PageRenderer {
       // Keep a heading with the line that follows it, and never leave a
       // label alone at the bottom of a page.
       const needed =
-        style.lineHeight + (index === 0 && /^(label|h1|h2|h3)$/.test(block.kind) ? 40 : 0)
+        style.lineHeight +
+        (index === 0 && /^(label|h1|h2|h3)$/.test(block.kind) ? 40 : 0)
       this.ensureSpace(needed)
       // A page break resets the context state.
       ctx.font = style.font
@@ -532,7 +541,12 @@ class PageRenderer {
   }
 
   /** Draws at the block's own start edge, `inset` pixels in. */
-  private fillText(text: string, rtl: boolean, inset: number, y = this.y): void {
+  private fillText(
+    text: string,
+    rtl: boolean,
+    inset: number,
+    y = this.y
+  ): void {
     const x = rtl ? PAGE_WIDTH - MARGIN - inset : MARGIN + inset
     this.ctx.fillText(text, x, y)
   }
@@ -562,7 +576,10 @@ class PageRenderer {
         // A single word wider than the column (a long URL) is cut by character.
         while (this.ctx.measureText(line).width > maxWidth && line.length > 1) {
           let cut = line.length - 1
-          while (cut > 1 && this.ctx.measureText(line.slice(0, cut)).width > maxWidth) {
+          while (
+            cut > 1 &&
+            this.ctx.measureText(line.slice(0, cut)).width > maxWidth
+          ) {
             cut--
           }
           lines.push(line.slice(0, cut))

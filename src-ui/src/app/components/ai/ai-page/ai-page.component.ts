@@ -128,7 +128,7 @@ export class AiPageComponent implements OnInit, OnDestroy {
   openConversation(conversation: AiConversation): void {
     if (this.loading) this.stop()
     // A copy, so editing the open one does not alter the list until saved.
-    this.current = structuredClone(conversation)
+    this.current = JSON.parse(JSON.stringify(conversation))
     this.showHistory = false
     this.scrollToBottom()
   }
@@ -255,7 +255,11 @@ export class AiPageComponent implements OnInit, OnDestroy {
         title: question?.content.slice(0, 60) || this.current.title,
         generatedAt: Date.now(),
         entries: [
-          { question: question?.content, answer: message.content, mode: message.mode },
+          {
+            question: question?.content,
+            answer: message.content,
+            mode: message.mode,
+          },
         ],
       },
       format

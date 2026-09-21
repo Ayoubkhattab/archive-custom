@@ -55,4 +55,18 @@ describe('ChatService', () => {
       partialText: mockResponse,
     } as any)
   })
+
+  it('should send the answer mode only when one is given', () => {
+    const apiUrl = `${environment.apiBaseUrl}documents/chat/`
+
+    service.streamChat(undefined, 'q', 'deep').subscribe()
+    expect(httpMock.expectOne(apiUrl).request.body).toEqual({
+      document_id: undefined,
+      q: 'q',
+      mode: 'deep',
+    })
+
+    service.streamChat(undefined, 'q').subscribe()
+    expect(httpMock.expectOne(apiUrl).request.body).not.toHaveProperty('mode')
+  })
 })

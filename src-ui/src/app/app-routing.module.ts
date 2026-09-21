@@ -7,6 +7,7 @@ import { TasksComponent } from './components/admin/tasks/tasks.component'
 import { TrashComponent } from './components/admin/trash/trash.component'
 import { UsersAndGroupsComponent } from './components/admin/users-groups/users-groups.component'
 import { AppFrameComponent } from './components/app-frame/app-frame.component'
+import { AiPageComponent } from './components/ai/ai-page/ai-page.component'
 import { DashboardComponent } from './components/dashboard/dashboard.component'
 import { DocumentAsnComponent } from './components/document-asn/document-asn.component'
 import { DocumentDetailComponent } from './components/document-detail/document-detail.component'
@@ -41,6 +42,18 @@ export const routes: Routes = [
         component: DashboardComponent,
         data: {
           componentName: 'AppFrameComponent',
+        },
+      },
+      {
+        path: 'ai',
+        component: AiPageComponent,
+        canActivate: [PermissionsGuard],
+        data: {
+          requiredPermission: {
+            action: PermissionAction.View,
+            type: PermissionType.Document,
+          },
+          componentName: 'AiPageComponent',
         },
       },
       {
