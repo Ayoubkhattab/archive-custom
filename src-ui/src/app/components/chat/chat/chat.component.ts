@@ -17,6 +17,7 @@ import { NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { filter, map } from 'rxjs'
 import { ToastService } from 'src/app/services/toast.service'
 import { ChatMessage, ChatService } from 'src/app/services/chat.service'
+import { stripHeartbeats } from 'src/app/utils/stream-errors'
 
 @Component({
   selector: 'pngx-chat',
@@ -105,7 +106,9 @@ export class ChatComponent implements OnInit {
 
     this.chatService.streamChat(this.documentId, this.input).subscribe({
       next: (chunk) => {
-        const delta = chunk.substring(lastPartialLength)
+        // Invisible keep-alive characters the server sends while the model is
+        // still thinking are not part of the answer.
+        const delta = stripHeartbeats(chunk.substring(lastPartialLength))
         lastPartialLength = chunk.length
         this.enqueueTypewriter(delta, assistantMessage)
       },

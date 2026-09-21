@@ -9,6 +9,10 @@ from llama_index.core.llms import ChatMessage
 from documents.models import Document
 from paperless_ai.client import AIClient
 from paperless_ai.indexing import load_or_build_index
+from paperless_ai.ocr_search import format_matches as format_ocr_matches
+from paperless_ai.ocr_search import overview as archive_overview
+from paperless_ai.ocr_search import query_terms
+from paperless_ai.ocr_search import search_documents
 
 logger = logging.getLogger("paperless_ai.chat")
 
@@ -26,13 +30,16 @@ INDEX_BUILDING_MESSAGE = (
 )
 
 # Answers are always Arabic, whatever language the question or the documents are
-# in. A small model follows the instruction that comes last, so it is repeated
-# at the end of the user message too.
+# in. Small models tend to answer in the language the instructions are written
+# in and to follow whatever comes last, so the instruction is in Arabic and is
+# repeated at the very end of the user message, ending on the words the answer
+# should start after.
 ARABIC_ONLY = (
-    "Always answer in Arabic (Modern Standard Arabic) only, even if the question "
-    "or the documents are in another language. Use another language only for "
-    "proper names and technical terms that have no Arabic equivalent. "
-    "أجب بالعربية الفصحى فقط."
+    "اكتب الإجابة كاملة باللغة العربية الفصحى فقط، حتى لو كان السؤال أو "
+    "المستندات بلغة أخرى، ولا تستعمل لغة أخرى إلا لأسماء العلم والمصطلحات "
+    "التي ليس لها مقابل عربي.\n"
+    "Answer in Arabic (Modern Standard Arabic) only.\n"
+    "الإجابة بالعربية:"
 )
 
 NO_CONTENT_MESSAGE = "عذراً، لم أجد في المستندات ما يمكن أن أجيب به عن سؤالك."
@@ -50,37 +57,37 @@ def normalize_mode(value) -> str:
 
 
 _BASE_SYSTEM_PROMPT = (
-    "You are a document assistant. Answer using ONLY the context provided. "
-    "If the context does not contain the answer, say (in Arabic) that you don't "
-    "know. "
+    "أنت مساعد يجيب عن أسئلة المستخدم اعتماداً على مقتطفات من مستنداته فقط. "
+    "إذا لم تجد الجواب فيها فقل ذلك صراحةً، ولا تخمّن ولا تختلق معلومات.\n"
+    "You are a document assistant. Answer using ONLY the context provided; if "
+    "it does not contain the answer, say so.\n"
 )
 
 SYSTEM_PROMPT = _BASE_SYSTEM_PROMPT + ARABIC_ONLY
 
 FAST_SYSTEM_PROMPT = (
     _BASE_SYSTEM_PROMPT
-    + "Answer directly and briefly: a few sentences, or a short list when the "
-    "question asks for several items. Do not add headings or preamble. "
+    + "أجب باختصار ومباشرة: بضع جمل، أو قائمة قصيرة إن طلب السؤال عدة عناصر، "
+    "دون عناوين أو مقدمات.\n"
     + ARABIC_ONLY
 )
 
 DEEP_SYSTEM_PROMPT = (
     _BASE_SYSTEM_PROMPT
-    + "Produce a thorough, well-organised report rather than a short reply. "
-    "Work through the context carefully before answering, compare what the "
-    "different documents say, and call out any disagreement or missing "
-    "information explicitly. Structure the answer in Markdown with a short "
-    "summary first, then headed sections, and name the document titles you "
-    "relied on. Never invent a fact that is not in the context. "
+    + "اكتب تقريراً مفصّلاً ومنظّماً بدل رد قصير. تأمّل المقتطفات بعناية "
+    "وقارن ما تقوله المستندات المختلفة، وبيّن صراحةً أي تعارض أو معلومة ناقصة. "
+    "رتّب الإجابة بتنسيق Markdown: خلاصة موجزة أولاً ثم أقسام بعناوين، واذكر "
+    "عناوين المستندات التي اعتمدت عليها. لا تذكر أي معلومة غير موجودة في "
+    "المقتطفات.\n"
     + ARABIC_ONLY
 )
 
 _USER_PROMPT_BODY = (
-    "Context information is below.\n"
+    "المقتطفات من المستندات (نصها كما استُخرج بالتعرف الضوئي على النصوص):\n"
     "---------------------\n"
     "{context}\n"
     "---------------------\n"
-    "Given the context information and not prior knowledge, answer the query.\n"
+    "اعتمد على المقتطفات أعلاه وحدها، ولا تستعمل معلومات من خارجها.\n"
     "Query: {query}\n\n"
 )
 
@@ -103,9 +110,13 @@ MODE_SETTINGS = {
         "top_k_multiplier": 1,
         "max_output_tokens": None,
         "thinking": False,
-        "single_document_style": (
-            "Answer directly and briefly, without headings or preamble. "
-        ),
+        "single_document_style": "أجب باختصار ومباشرة دون عناوين أو مقدمات. ",
+        # How much of the OCR text is put in front of the model. Kept small so
+        # the prompt is processed quickly on a CPU.
+        "ocr_documents": 3,
+        "ocr_passages": 2,
+        "ocr_passage_chars": 500,
+        "ocr_budget_chars": 3000,
     },
     MODE_DEEP: {
         "system_prompt": DEEP_SYSTEM_PROMPT,
@@ -114,10 +125,14 @@ MODE_SETTINGS = {
         "max_output_tokens": settings.LLM_MAX_OUTPUT_TOKENS * 3,
         "thinking": True,
         "single_document_style": (
-            "Write a thorough, well-organised report rather than a short reply: "
-            "a brief summary first, then headed Markdown sections, and state "
-            "explicitly anything the document does not cover. "
+            "اكتب تقريراً مفصّلاً ومنظّماً بدل رد قصير: خلاصة موجزة أولاً ثم "
+            "أقساماً بعناوين بتنسيق Markdown، وبيّن صراحةً ما لا يغطيه المستند. "
         ),
+        "ocr_documents": 6,
+        "ocr_passages": 3,
+        "ocr_passage_chars": 800,
+        # Limited by LLM_CHAT_MAX_CONTEXT_CHARS in practice.
+        "ocr_budget_chars": 100_000,
     },
 }
 
@@ -194,26 +209,49 @@ def _format_matches(top_nodes) -> str:
     )
 
 
-def stream_chat_with_documents(
-    query_str: str,
-    documents: list[Document],
-    mode: str = MODE_FAST,
-):
-    started = time.monotonic()
-    mode = normalize_mode(mode)
-    mode_settings = MODE_SETTINGS[mode]
-    client = AIClient(
-        max_output_tokens=mode_settings["max_output_tokens"],
-        thinking=mode_settings["thinking"],
-    )
-    top_k = settings.LLM_CHAT_TOP_K * mode_settings["top_k_multiplier"]
+def _ocr_context(query_str: str, documents: list[Document], mode_settings: dict):
+    """
+    The part of the archive that answers the question, from the OCR text the
+    documents already carry. No embedding model or index is involved, so this
+    takes milliseconds where the vector route takes seconds.
+
+    None when nothing in the archive contains the question's words, so the
+    caller can fall back to the semantic search, which can match a paraphrase.
+    """
+    budget = min(settings.LLM_CHAT_MAX_CONTEXT_CHARS, mode_settings["ocr_budget_chars"])
+    try:
+        matches = search_documents(
+            query_str,
+            documents,
+            max_documents=mode_settings["ocr_documents"],
+            passages_per_document=mode_settings["ocr_passages"],
+            passage_chars=mode_settings["ocr_passage_chars"],
+        )
+        if matches:
+            return format_ocr_matches(matches, budget_chars=budget)
+        if not query_terms(query_str):
+            # "How many documents do I have?", "summarise what I have": nothing
+            # to search for, so describe the archive itself.
+            return archive_overview(documents, budget_chars=budget)
+    except Exception:
+        # A problem here must not take the chat down; the index route remains.
+        logger.warning("Searching the OCR text failed", exc_info=True)
+    return None
+
+
+def _index_context(query_str: str, documents: list[Document], top_k: int):
+    """
+    The context from the vector index, as a generator so it can answer on the
+    spot (index still building, nothing found). Returns the context, or None
+    once a message has already been yielded in its place.
+    """
     try:
         index = load_or_build_index()
     except ValueError:
         logger.info("No LLM index found; queueing a background build.")
         _queue_index_build()
         yield INDEX_BUILDING_MESSAGE
-        return
+        return None
 
     allowed_ids = {str(doc.pk) for doc in documents}
 
@@ -227,7 +265,7 @@ def stream_chat_with_documents(
     if len(nodes) == 0:
         logger.warning("No nodes found for the given documents.")
         yield NO_CONTENT_MESSAGE
-        return
+        return None
 
     if len(documents) == 1:
         # Just one doc — provide its content directly
@@ -262,26 +300,52 @@ def stream_chat_with_documents(
                     f"{context_body}\n\nTOP MATCHES:\n{_format_matches(top_nodes)}"
                 )
 
-        context = f"TITLE: {doc.title or doc.filename}\n{context_body}"
-    else:
-        try:
-            top_nodes = _retrieve(
-                index,
-                nodes,
-                allowed_ids,
-                query_str,
-                top_k=top_k,
-            )
-        except Exception as exc:
-            yield _index_search_failure(exc)
-            return
+        return f"TITLE: {doc.title or doc.filename}\n{context_body}"
 
-        if len(top_nodes) == 0:
-            logger.warning("Retriever returned no nodes for the given documents.")
-            yield NO_CONTENT_MESSAGE
-            return
+    try:
+        top_nodes = _retrieve(
+            index,
+            nodes,
+            allowed_ids,
+            query_str,
+            top_k=top_k,
+        )
+    except Exception as exc:
+        yield _index_search_failure(exc)
+        return None
 
-        context = _format_matches(top_nodes)
+    if len(top_nodes) == 0:
+        logger.warning("Retriever returned no nodes for the given documents.")
+        yield NO_CONTENT_MESSAGE
+        return None
+
+    return _format_matches(top_nodes)
+
+
+def stream_chat_with_documents(
+    query_str: str,
+    documents: list[Document],
+    mode: str = MODE_FAST,
+):
+    started = time.monotonic()
+    mode = normalize_mode(mode)
+    mode_settings = MODE_SETTINGS[mode]
+    client = AIClient(
+        max_output_tokens=mode_settings["max_output_tokens"],
+        thinking=mode_settings["thinking"],
+    )
+    top_k = settings.LLM_CHAT_TOP_K * mode_settings["top_k_multiplier"]
+
+    context = None
+    source = "ocr"
+    if len(documents) > 1:
+        # A single document is answered from its own text below.
+        context = _ocr_context(query_str, documents, mode_settings)
+    if context is None:
+        source = "index"
+        context = yield from _index_context(query_str, documents, top_k)
+        if context is None:
+            return
 
     messages = [
         ChatMessage(role="system", content=mode_settings["system_prompt"]),
@@ -301,8 +365,11 @@ def stream_chat_with_documents(
         if not first_token_logged:
             first_token_logged = True
             logger.info(
-                "AI chat (%s): context ready after %.2fs, first token after %.2fs",
+                "AI chat (%s, %s context, %d chars): context ready after %.2fs, "
+                "first token after %.2fs",
                 mode,
+                source,
+                len(context),
                 prepared - started,
                 time.monotonic() - started,
             )

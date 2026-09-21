@@ -210,6 +210,7 @@ from paperless.serialisers import GroupSerializer
 from paperless.serialisers import UserSerializer
 from paperless.views import StandardPagination
 from paperless_ai.ai_classifier import get_ai_document_classification
+from paperless_ai.chat import ARABIC_ONLY
 from paperless_ai.chat import CHAT_MODES
 from paperless_ai.chat import MODE_SETTINGS
 from paperless_ai.chat import normalize_mode
@@ -224,6 +225,7 @@ from paperless_ai.matching import match_document_types_by_name
 from paperless_ai.matching import match_storage_paths_by_name
 from paperless_ai.matching import match_tags_by_name
 from paperless_ai.ratelimit import allow_request
+from paperless_ai.streaming import STREAM_HEARTBEAT
 from paperless_ai.streaming import stream_from_sync
 from paperless_mail.models import MailAccount
 from paperless_mail.models import MailRule
@@ -1610,19 +1612,21 @@ class ChatStreamingView(GenericAPIView):
             )
             if document:
                 system = (
-                    "You are a document assistant. Use ONLY the provided document text. "
-                    "Do not invent facts, links, or citations. "
-                    "If the document text does not contain the answer, say you don't know. "
-                    "When asked to summarize, summarize the document text that is provided. "
+                    "أنت مساعد يجيب عن الأسئلة اعتماداً على نص المستند المرفق فقط. "
+                    "لا تختلق معلومات أو روابط أو مراجع، وإذا لم تجد الجواب في "
+                    "النص فقل ذلك صراحةً. وإذا طُلب منك التلخيص فلخّص النص المرفق.\n"
+                    "You are a document assistant. Use ONLY the provided document "
+                    "text; if it does not contain the answer, say so.\n"
                     + mode_settings["single_document_style"]
-                    + "Always answer in Arabic (Modern Standard Arabic) only, even if the "
-                    "question or the document is in another language. "
-                    "أجب بالعربية الفصحى فقط."
+                    + "\n"
+                    + ARABIC_ONLY
                 )
                 user = (
-                    f"Document title: {document.title or ''}\n\n"
-                    f"Document text excerpts:\n{trimmed_document_text}\n\n"
-                    f"User question: {question}"
+                    f"عنوان المستند: {document.title or ''}\n\n"
+                    "نص المستند كما استُخرج بالتعرف الضوئي على النصوص:\n"
+                    f"{trimmed_document_text}\n\n"
+                    f"User question: {question}\n\n"
+                    + ARABIC_ONLY
                 )
                 yield from client.stream_chat(
                     [
@@ -1656,7 +1660,7 @@ class ChatStreamingView(GenericAPIView):
                 )
 
         response = StreamingHttpResponse(
-            stream_from_sync(_stream_chat_safely),
+            stream_from_sync(_stream_chat_safely, heartbeat=STREAM_HEARTBEAT),
             content_type="text/plain; charset=utf-8",
         )
         # Compressing a stream buffers it; "identity" makes the compression

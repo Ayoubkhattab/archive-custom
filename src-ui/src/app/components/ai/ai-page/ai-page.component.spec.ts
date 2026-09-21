@@ -143,6 +143,41 @@ describe('AiPageComponent', () => {
     expect(component.canExport).toBeFalsy()
   })
 
+  it('should ignore the keep-alive characters the server sends while thinking', () => {
+    component.input = 'q'
+    component.send()
+    stream.next('​')
+    stream.next('​​')
+    const answer = component.current.messages[1]
+    // Nothing real has arrived yet, so the "thinking" indicator must stay.
+    expect(answer.content).toEqual('')
+
+    stream.next('​​جواب')
+    expect(answer.content).toEqual('جواب')
+  })
+
+  it('should never show a proxy error page as if it were an answer', () => {
+    component.input = 'q'
+    component.send()
+    stream.next(
+      '{"type":"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-524/","status":524}'
+    )
+    const answer = component.current.messages[1]
+    expect(answer.content).toEqual('')
+  })
+
+  it('should explain a timeout reported by the proxy in plain Arabic', () => {
+    component.input = 'q'
+    component.send()
+    stream.error({ status: 524 })
+
+    const answer = component.current.messages[1]
+    expect(answer.content).toContain('مهلة')
+    expect(answer.content.startsWith('⚠️')).toBeTruthy()
+    expect(answer.incomplete).toBeTruthy()
+    expect(component.canExport).toBeFalsy()
+  })
+
   it('should keep a normal answer exportable', () => {
     component.input = 'q'
     component.send()

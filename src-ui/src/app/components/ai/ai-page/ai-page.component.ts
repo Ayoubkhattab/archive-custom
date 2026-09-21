@@ -35,6 +35,11 @@ import {
 import { ChatService } from 'src/app/services/chat.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
+import {
+  describeHttpFailure,
+  isProxyErrorBody,
+  stripHeartbeats,
+} from 'src/app/utils/stream-errors'
 import { PageHeaderComponent } from '../../common/page-header/page-header.component'
 
 @Component({
@@ -185,15 +190,21 @@ export class AiPageComponent implements OnInit, OnDestroy {
       .subscribe({
         // Each event carries the whole text received so far.
         next: (text) => {
-          answer.content = text
+          // The server sends invisible keep-alive characters while the model is
+          // still thinking; they are not part of the answer.
+          const received = stripHeartbeats(text)
+          // A proxy that cut the request writes its own error page as the body.
+          // That is a failure, not an answer, and `error` below reports it.
+          if (isProxyErrorBody(received)) return
+          answer.content = received
           this.scrollToBottom()
         },
-        error: () => {
+        error: (error) => {
           answer.isStreaming = false
           answer.incomplete = true
           answer.content = answer.content
             ? `${answer.content}\n\n⚠️ انقطع الاتصال قبل اكتمال الإجابة.`
-            : '⚠️ تعذّر الحصول على رد من نموذج الذكاء الاصطناعي، يرجى المحاولة مجدداً.'
+            : `⚠️ ${describeHttpFailure(error?.status)}`
           this.finish(answer)
         },
         complete: () => {
