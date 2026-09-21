@@ -198,6 +198,11 @@ export class AiPageComponent implements OnInit, OnDestroy {
         },
         complete: () => {
           answer.isStreaming = false
+          // A failure on the server arrives as the text of a normal answer,
+          // which must not be offered for export as a report.
+          if (answer.content.trimStart().startsWith('⚠️')) {
+            answer.incomplete = true
+          }
           this.finish(answer)
         },
       })

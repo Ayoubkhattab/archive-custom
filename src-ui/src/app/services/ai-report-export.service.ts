@@ -185,7 +185,7 @@ export function buildReportBlocks(report: AiReport): ReportBlock[] {
   return blocks
 }
 
-/** Pairs each question with the answer that follows it. */
+/** Pairs each question with the answer that follows it, finished answers only. */
 export function conversationToReport(
   conversation: AiConversation,
   generatedAt = Date.now()
@@ -195,7 +195,12 @@ export function conversationToReport(
   for (const message of conversation.messages) {
     if (message.role === 'user') {
       pendingQuestion = message.content
-    } else if (message.content.trim() && !message.isStreaming) {
+    } else if (
+      message.content.trim() &&
+      !message.isStreaming &&
+      // A stopped or failed answer is not a report worth exporting.
+      !message.incomplete
+    ) {
       entries.push({
         question: pendingQuestion,
         answer: message.content,

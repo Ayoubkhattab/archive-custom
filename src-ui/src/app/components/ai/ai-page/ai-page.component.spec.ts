@@ -129,6 +129,28 @@ describe('AiPageComponent', () => {
     expect(component.loading).toBeFalsy()
   })
 
+  it('should not treat a failure reported by the server as an exportable answer', () => {
+    component.input = 'q'
+    component.send()
+    // The server writes the reason into the stream as ordinary text.
+    stream.next('\n\n⚠️ تعذّر الاتصال بخادم النموذج.\nCould not reach it.')
+    stream.complete()
+
+    const answer = component.current.messages[1]
+    expect(answer.incomplete).toBeTruthy()
+    expect(answer.content).toContain('تعذّر الاتصال')
+    // Nothing worth exporting: the only answer is a failure notice.
+    expect(component.canExport).toBeFalsy()
+  })
+
+  it('should keep a normal answer exportable', () => {
+    component.input = 'q'
+    component.send()
+    stream.next('جواب عادي')
+    stream.complete()
+    expect(component.current.messages[1].incomplete).toBeFalsy()
+  })
+
   it('should reject a question over the length limit', () => {
     component.input = 'x'.repeat(4001)
     component.send()

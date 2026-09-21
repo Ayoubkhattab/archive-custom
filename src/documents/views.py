@@ -214,7 +214,10 @@ from paperless_ai.chat import CHAT_MODES
 from paperless_ai.chat import MODE_SETTINGS
 from paperless_ai.chat import normalize_mode
 from paperless_ai.chat import stream_chat_with_documents
+from paperless_ai.client import DEFAULT_OLLAMA_ENDPOINT
+from paperless_ai.client import DEFAULT_OLLAMA_MODEL
 from paperless_ai.client import AIClient
+from paperless_ai.llm_errors import describe_llm_error
 from paperless_ai.matching import extract_unmatched_names
 from paperless_ai.matching import match_correspondents_by_name
 from paperless_ai.matching import match_document_types_by_name
@@ -1643,12 +1646,13 @@ class ChatStreamingView(GenericAPIView):
             # error" and nothing is logged. Log it and tell the user instead.
             try:
                 yield from _stream_chat()
-            except Exception:
+            except Exception as exc:
                 logger.exception("AI chat failed")
-                yield (
-                    "\n\n⚠️ تعذّر الحصول على رد من نموذج الذكاء الاصطناعي، "
-                    "يرجى المحاولة مجدداً.\n"
-                    "The AI model could not answer. Please try again."
+                yield "\n\n" + describe_llm_error(
+                    exc,
+                    endpoint=ai_config.llm_endpoint or DEFAULT_OLLAMA_ENDPOINT,
+                    model=ai_config.llm_model or DEFAULT_OLLAMA_MODEL,
+                    timeout=settings.LLM_REQUEST_TIMEOUT,
                 )
 
         response = StreamingHttpResponse(

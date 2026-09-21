@@ -157,3 +157,138 @@ def test_get_llm_ollama_passes_cpu_thread_count(mock_ai_config, mock_ollama_llm,
 
     kwargs = mock_ollama_llm.call_args.kwargs
     assert kwargs["additional_kwargs"] == {"num_predict": 512, "num_thread": 8}
+
+
+def _configure_ollama(mock_ai_config):
+    mock_ai_config.llm_backend = "ollama"
+    mock_ai_config.llm_model = "test_model"
+    mock_ai_config.llm_endpoint = "http://test-url"
+
+
+def test_thinking_is_dropped_when_the_model_cannot_think(
+    mock_ai_config,
+    mock_ollama_llm,
+):
+    # Ollama rejects `think` for a model without the capability, which would
+    # fail the whole answer instead of just skipping the reasoning step.
+    _configure_ollama(mock_ai_config)
+
+    with patch(
+        "paperless_ai.client.model_supports_thinking",
+        return_value=False,
+    ) as supports:
+        client = AIClient(thinking=True)
+
+    supports.assert_called_once_with("http://test-url", "test_model")
+    assert client.thinking is False
+    assert mock_ollama_llm.call_args.kwargs["thinking"] is False
+
+
+def test_thinking_is_kept_when_the_model_can_think(mock_ai_config, mock_ollama_llm):
+    _configure_ollama(mock_ai_config)
+
+    with patch("paperless_ai.client.model_supports_thinking", return_value=True):
+        client = AIClient(thinking=True)
+
+    assert client.thinking is True
+    assert mock_ollama_llm.call_args.kwargs["thinking"] is True
+
+
+def test_capabilities_are_not_looked_up_unless_thinking_is_requested(
+    mock_ai_config,
+    mock_ollama_llm,
+    settings,
+):
+    _configure_ollama(mock_ai_config)
+    settings.LLM_THINKING = False
+
+    with patch("paperless_ai.client.model_supports_thinking") as supports:
+        AIClient()
+        AIClient(thinking=False)
+
+    supports.assert_not_called()
+
+
+def test_capabilities_are_not_looked_up_for_other_backends(
+    mock_ai_config,
+    mock_openai_llm,
+):
+    mock_ai_config.llm_backend = "openai"
+    mock_ai_config.llm_model = "gpt"
+    mock_ai_config.llm_endpoint = None
+
+    with patch("paperless_ai.client.model_supports_thinking") as supports:
+        AIClient(thinking=True)
+
+    supports.assert_not_called()
+
+
+def test_stream_chat_retries_once_when_the_server_cannot_be_reached(
+    mock_ai_config,
+    mock_ollama_llm,
+):
+    _configure_ollama(mock_ai_config)
+    llm = mock_ollama_llm.return_value
+    llm.stream_chat.side_effect = [
+        ConnectionError("Failed to connect to Ollama."),
+        iter([MagicMock(delta="ok")]),
+    ]
+    client = AIClient()
+
+    with patch("paperless_ai.client.time.sleep") as sleep:
+        result = list(client.stream_chat([ChatMessage(role="user", content="hi")]))
+
+    assert result == ["ok"]
+    assert llm.stream_chat.call_count == 2
+    sleep.assert_called_once()
+
+
+def test_stream_chat_gives_up_after_the_retry(mock_ai_config, mock_ollama_llm):
+    _configure_ollama(mock_ai_config)
+    llm = mock_ollama_llm.return_value
+    llm.stream_chat.side_effect = ConnectionError("Failed to connect to Ollama.")
+    client = AIClient()
+
+    with (
+        patch("paperless_ai.client.time.sleep"),
+        pytest.raises(ConnectionError),
+    ):
+        list(client.stream_chat([ChatMessage(role="user", content="hi")]))
+
+    assert llm.stream_chat.call_count == 2
+
+
+def test_stream_chat_does_not_restart_an_answer_already_under_way(
+    mock_ai_config,
+    mock_ollama_llm,
+):
+    # Starting over would repeat text the caller has already received.
+    _configure_ollama(mock_ai_config)
+    llm = mock_ollama_llm.return_value
+
+    def broken_stream():
+        yield MagicMock(delta="par")
+        raise ConnectionError("Failed to connect to Ollama.")
+
+    llm.stream_chat.return_value = broken_stream()
+    client = AIClient()
+    received = []
+
+    with pytest.raises(ConnectionError):
+        for delta in client.stream_chat([ChatMessage(role="user", content="hi")]):
+            received.append(delta)
+
+    assert received == ["par"]
+    assert llm.stream_chat.call_count == 1
+
+
+def test_stream_chat_does_not_retry_other_errors(mock_ai_config, mock_ollama_llm):
+    _configure_ollama(mock_ai_config)
+    llm = mock_ollama_llm.return_value
+    llm.stream_chat.side_effect = ValueError("bad request")
+    client = AIClient()
+
+    with pytest.raises(ValueError, match="bad request"):
+        list(client.stream_chat([ChatMessage(role="user", content="hi")]))
+
+    assert llm.stream_chat.call_count == 1

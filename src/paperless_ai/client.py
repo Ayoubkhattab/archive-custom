@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -9,8 +10,19 @@ from django.conf import settings
 
 from paperless.config import AIConfig
 from paperless_ai.base_model import DocumentClassifierSchema
+from paperless_ai.llm_errors import is_transient_connection_error
+from paperless_ai.ollama_info import model_supports_thinking
 
 logger = logging.getLogger("paperless_ai.client")
+
+DEFAULT_OLLAMA_ENDPOINT = "http://localhost:11434"
+DEFAULT_OLLAMA_MODEL = "llama3.1"
+
+# One more try when the model server cannot be reached at all, e.g. while
+# Ollama restarts after being stopped. Anything slower would leave the person
+# waiting on a server that is not coming back.
+CONNECT_RETRIES = 1
+CONNECT_RETRY_DELAY_SECONDS = 2.0
 
 
 def _parse_keep_alive(value: str) -> float | str:
@@ -42,7 +54,24 @@ class AIClient:
         self.settings = AIConfig()
         self.max_output_tokens = max_output_tokens or settings.LLM_MAX_OUTPUT_TOKENS
         self.thinking = settings.LLM_THINKING if thinking is None else thinking
+        if self.thinking and self.settings.llm_backend == "ollama":
+            self.thinking = self._model_can_think()
         self.llm = self.get_llm()
+
+    def _model_can_think(self) -> bool:
+        """
+        Ollama rejects `think` for a model without the capability, which would
+        fail the whole answer, so the request is downgraded to a normal one.
+        """
+        endpoint = self.settings.llm_endpoint or DEFAULT_OLLAMA_ENDPOINT
+        model = self.settings.llm_model or DEFAULT_OLLAMA_MODEL
+        if model_supports_thinking(endpoint, model):
+            return True
+        logger.info(
+            "Model %s does not report the thinking capability; answering without it.",
+            model,
+        )
+        return False
 
     def get_llm(self):
         if self.settings.llm_backend == "ollama":
@@ -123,6 +152,26 @@ class AIClient:
             self.settings.llm_backend,
             self.settings.llm_model,
         )
-        for chunk in self.llm.stream_chat(messages):
-            if chunk.delta:
-                yield chunk.delta
+        for attempt in range(CONNECT_RETRIES + 1):
+            received = False
+            try:
+                for chunk in self.llm.stream_chat(messages):
+                    if chunk.delta:
+                        received = True
+                        yield chunk.delta
+                return
+            except Exception as exc:
+                # Only when nothing has been sent yet: after that, starting over
+                # would repeat text the caller already has.
+                if (
+                    received
+                    or attempt >= CONNECT_RETRIES
+                    or not is_transient_connection_error(exc)
+                ):
+                    raise
+                logger.warning(
+                    "Model server unreachable, retrying in %.0fs: %s",
+                    CONNECT_RETRY_DELAY_SECONDS,
+                    exc,
+                )
+                time.sleep(CONNECT_RETRY_DELAY_SECONDS)

@@ -87,10 +87,17 @@ describe('AI report export', () => {
       },
       { role: 'user', content: 'سؤال ثالث', createdAt: 3 },
       { role: 'assistant', content: 'جواب ثالث', mode: 'deep', createdAt: 3 },
+      { role: 'user', content: 'سؤال رابع', createdAt: 4 },
+      {
+        role: 'assistant',
+        content: '⚠️ تعذّر الاتصال',
+        createdAt: 4,
+        incomplete: true,
+      },
     ],
   } as AiConversation
 
-  it('should pair questions with answers and skip unfinished ones', () => {
+  it('should pair questions with answers and skip unfinished or failed ones', () => {
     const report = conversationToReport(conversation, 5)
     expect(report.entries.map((e) => [e.question, e.answer])).toEqual([
       ['سؤال أول', 'جواب أول'],
