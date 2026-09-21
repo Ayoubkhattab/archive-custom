@@ -209,15 +209,15 @@ export function conversationToReport(
 
 export function reportToMarkdown(report: AiReport): string {
   const date = new Date(report.generatedAt).toLocaleString('ar')
-  const parts = [`# ${report.title}`, `*${date}*`]
-  for (const entry of report.entries) {
-    if (entry.question) {
-      parts.push(`## السؤال\n\n${entry.question}`)
-    }
+  // The title and date stay together; rules only separate the entries.
+  const sections = report.entries.map((entry) => {
     const mode = entry.mode ? ` (${aiModeLabel(entry.mode)})` : ''
-    parts.push(`## الإجابة${mode}\n\n${entry.answer}`)
-  }
-  return parts.join('\n\n---\n\n') + '\n'
+    const question = entry.question ? `## السؤال\n\n${entry.question}\n\n` : ''
+    return `${question}## الإجابة${mode}\n\n${entry.answer}`
+  })
+  return (
+    [`# ${report.title}\n\n*${date}*`, ...sections].join('\n\n---\n\n') + '\n'
+  )
 }
 
 /** A file name safe on every platform, keeping Arabic letters intact. */
@@ -509,9 +509,11 @@ class PageRenderer {
   /** Stamped last, because "page 2 of 3" needs the final page count. */
   private stampFooters(): void {
     this.pages.forEach((page, index) => {
+      // getContext returns the context startPage already scaled by SCALE.
+      // Scaling again would draw the footer four times too far down, which is
+      // off the page.
       const ctx = page.getContext('2d')!
       ctx.save()
-      ctx.scale(SCALE, SCALE)
       const top = PAGE_HEIGHT - MARGIN - FOOTER_HEIGHT + 8
       ctx.strokeStyle = COLOR_RULE
       ctx.lineWidth = 1

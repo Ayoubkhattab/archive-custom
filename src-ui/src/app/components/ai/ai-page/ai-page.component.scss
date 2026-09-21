@@ -1,6 +1,8 @@
-// Every horizontal measure here is logical (flex order, inline margins,
-// `align-self: flex-end`), so the page mirrors with the writing direction and
-// needs no per-direction rules.
+// Layout measures are logical (flex order, inline margins and borders), so the
+// page mirrors with the writing direction. The one deliberate exception is which
+// side the conversation sits on: the user's own messages stay on the right and
+// the assistant's on the left in both directions, as in Arabic and Latin chat
+// apps alike, so those few rules are written per direction below.
 
 $history-width: 280px;
 
@@ -74,8 +76,18 @@ $history-width: 280px;
   align-items: flex-start;
   gap: 0.25rem;
 
+  // Right edge. In a column flex container `flex-end` follows the writing
+  // direction, so it is the left edge under rtl (overridden below).
   &.from-user {
     align-items: flex-end;
+  }
+}
+
+:host-context([dir='rtl']) .ai-message {
+  align-items: flex-end;
+
+  &.from-user {
+    align-items: flex-start;
   }
 }
 
@@ -91,6 +103,7 @@ $history-width: 280px;
   white-space: pre-wrap;
 }
 
+// The tail corner sits on the side the bubble is anchored to.
 .ai-bubble-user {
   background-color: var(--bs-primary);
   color: var(--pngx-primary-text-contrast);
@@ -101,6 +114,18 @@ $history-width: 280px;
   background-color: var(--pngx-bg-alt);
   color: var(--bs-body-color);
   border-end-start-radius: 0.25rem;
+}
+
+:host-context([dir='rtl']) {
+  .ai-bubble-user {
+    border-end-end-radius: 0.9rem;
+    border-end-start-radius: 0.25rem;
+  }
+
+  .ai-bubble-assistant {
+    border-end-start-radius: 0.9rem;
+    border-end-end-radius: 0.25rem;
+  }
 }
 
 .ai-actions {

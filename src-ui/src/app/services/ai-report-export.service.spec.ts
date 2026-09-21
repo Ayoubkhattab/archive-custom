@@ -112,6 +112,9 @@ describe('AI report export', () => {
     expect(md).toContain('## السؤال\n\nسؤال أول')
     expect(md).toContain('## الإجابة (تفكير عميق)\n\nجواب ثالث')
     expect(md.endsWith('\n')).toBeTruthy()
+    // Title and date stay together; rules only separate the entries.
+    expect(md).toMatch(/^# تقرير\n\n\*[^\n]+\*\n\n---\n\n## السؤال/)
+    expect(md.match(/\n---\n/g)).toHaveLength(2)
   })
 
   it('should build safe file names that keep Arabic letters', () => {
