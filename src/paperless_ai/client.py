@@ -10,6 +10,7 @@ from django.conf import settings
 
 from paperless.config import AIConfig
 from paperless_ai.base_model import DocumentClassifierSchema
+from paperless_ai.llm_errors import EmptyAnswerError
 from paperless_ai.llm_errors import is_transient_connection_error
 from paperless_ai.ollama_info import model_supports_thinking
 
@@ -159,6 +160,8 @@ class AIClient:
                     if chunk.delta:
                         received = True
                         yield chunk.delta
+                if not received:
+                    raise EmptyAnswerError
                 return
             except Exception as exc:
                 # Only when nothing has been sent yet: after that, starting over

@@ -7,6 +7,7 @@ from llama_index.core.llms.llm import ToolSelection
 
 from paperless_ai.client import AIClient
 from paperless_ai.client import _parse_keep_alive
+from paperless_ai.llm_errors import EmptyAnswerError
 
 
 @pytest.fixture
@@ -291,4 +292,19 @@ def test_stream_chat_does_not_retry_other_errors(mock_ai_config, mock_ollama_llm
     with pytest.raises(ValueError, match="bad request"):
         list(client.stream_chat([ChatMessage(role="user", content="hi")]))
 
+    assert llm.stream_chat.call_count == 1
+
+
+def test_stream_chat_reports_an_answer_with_no_text(mock_ai_config, mock_ollama_llm):
+    # A model that reasons first can spend its whole output limit thinking and
+    # finish with nothing to show, which must not look like a blank success.
+    _configure_ollama(mock_ai_config)
+    llm = mock_ollama_llm.return_value
+    llm.stream_chat.return_value = iter([MagicMock(delta=""), MagicMock(delta="")])
+    client = AIClient()
+
+    with pytest.raises(EmptyAnswerError):
+        list(client.stream_chat([ChatMessage(role="user", content="hi")]))
+
+    # Nothing to gain from asking again.
     assert llm.stream_chat.call_count == 1

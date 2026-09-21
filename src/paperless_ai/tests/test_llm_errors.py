@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from paperless_ai.llm_errors import GENERIC_ERROR
+from paperless_ai.llm_errors import EmptyAnswerError
 from paperless_ai.llm_errors import describe_llm_error
 from paperless_ai.llm_errors import is_connection_error
 from paperless_ai.llm_errors import is_timeout_error
@@ -119,6 +120,16 @@ class TestDescribe:
         message = describe(httpx.RemoteProtocolError(detail))
         assert "انقطع" in message
 
+    def test_an_empty_answer_points_at_the_output_limit_and_the_fast_mode(self):
+        message = describe(EmptyAnswerError())
+        assert "أي إجابة" in message
+        assert "الإجابة السريعة" in message
+
+    def test_an_empty_answer_is_not_mistaken_for_a_connection_problem(self):
+        exc = EmptyAnswerError()
+        assert not is_connection_error(exc)
+        assert not is_transient_connection_error(exc)
+
     def test_unknown_error_falls_back_to_the_generic_message(self):
         assert describe(ValueError("something else")) == GENERIC_ERROR
 
@@ -127,6 +138,7 @@ class TestDescribe:
             ConnectionError("Failed to connect to Ollama."),
             FakeResponseError("model 'x' not found", 404),
             httpx.ReadTimeout("slow"),
+            EmptyAnswerError(),
             ValueError("x"),
         ):
             message = describe(exc)

@@ -19,6 +19,11 @@ GENERIC_ERROR = (
     "The AI model could not answer. Please try again."
 )
 
+
+class EmptyAnswerError(Exception):
+    """The model finished without writing a single character of answer."""
+
+
 _MEMORY_MARKERS = (
     "requires more system memory",
     "out of memory",
@@ -96,6 +101,16 @@ def describe_llm_error(
     """A message, Arabic first and English second, for the person using the chat."""
     text = _text(exc)
     status = _status(exc)
+
+    if any(isinstance(e, EmptyAnswerError) for e in _chain(exc)):
+        # Typical of a model that reasons before answering: the thinking counts
+        # against the output limit and can use all of it.
+        return (
+            "⚠️ أنهى النموذج عمله دون أن يكتب أي إجابة. غالباً استهلك حدّ الرموز "
+            "في التفكير، فجرّب نمط الإجابة السريعة أو سؤالاً أقصر.\n"
+            "The model finished without writing an answer, most likely because "
+            "reasoning used up its output limit. Try the fast mode."
+        )
 
     if is_connection_error(exc):
         return (
