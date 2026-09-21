@@ -235,3 +235,60 @@ def test_multi_document_search_uses_stored_vectors_and_widens_until_found():
     assert "mine 2" in prompt
     assert "other 0" not in prompt
     assert "other 59" not in prompt
+
+
+def test_a_failed_index_search_is_reported_as_such_and_not_as_a_model_error():
+    # The persisted index and its document store can disagree, e.g. after
+    # documents were deleted. That used to surface as "the model could not
+    # answer" although the model was never called.
+    with (
+        patch("paperless_ai.chat.AIClient") as mock_client_cls,
+        patch("paperless_ai.chat.load_or_build_index") as mock_load_index,
+        patch("paperless_ai.chat._retrieve", side_effect=KeyError("7")),
+    ):
+        node = TextNode(
+            text="Content.",
+            metadata={"document_id": "1", "title": "Document 1"},
+        )
+        mock_client = _prepare(mock_client_cls, mock_load_index, [node, node])
+
+        output = list(
+            stream_chat_with_documents(
+                "What's up?",
+                [MagicMock(pk=1), MagicMock(pk=2)],
+            ),
+        )
+
+    assert len(output) == 1
+    assert "ليس خطأً في النموذج" in output[0]
+    assert "document_llmindex rebuild" in output[0]
+    # The exception is named so the cause can be told apart without the logs.
+    assert "KeyError" in output[0]
+    mock_client.stream_chat.assert_not_called()
+
+
+def test_a_long_document_is_still_answered_when_the_index_search_fails(
+    mock_document,
+    settings,
+):
+    # The matches only add to a document that is already in the prompt.
+    settings.LLM_CHAT_MAX_CONTEXT_CHARS = 10
+    mock_document.content = "0123456789" + "x" * 50
+
+    with (
+        patch("paperless_ai.chat.AIClient") as mock_client_cls,
+        patch("paperless_ai.chat.load_or_build_index") as mock_load_index,
+        patch("paperless_ai.chat._retrieve", side_effect=KeyError("7")),
+    ):
+        node = TextNode(
+            text="Relevant snippet.",
+            metadata={"document_id": "1", "title": "Test Document"},
+        )
+        mock_client = _prepare(mock_client_cls, mock_load_index, [node])
+
+        output = list(stream_chat_with_documents("Find it", [mock_document]))
+
+    assert output == ["chunk1", "chunk2"]
+    prompt = _user_prompt(mock_client)
+    assert "0123456789" in prompt
+    assert "TOP MATCHES" not in prompt

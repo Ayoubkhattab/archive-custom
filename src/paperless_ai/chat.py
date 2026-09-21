@@ -143,6 +143,30 @@ def _queue_index_build() -> None:
         logger.warning("Could not queue the LLM index build", exc_info=True)
 
 
+INDEX_SEARCH_FAILED_MESSAGE = (
+    "⚠️ تعذّر البحث في فهرس المستندات، وهذا ليس خطأً في النموذج. غالباً الفهرس "
+    "غير متزامن مع المستندات (بعد حذف بعضها أو تعديله) ويحتاج إعادة بناء: "
+    "python manage.py document_llmindex rebuild\n"
+    "Searching the document index failed; this is not a model error. The index "
+    "is probably out of sync with the documents and needs rebuilding.\n"
+    "التفاصيل / Details: {detail}"
+)
+
+
+def _index_search_failure(exc: Exception) -> str:
+    """
+    Log a failed index search and word it for the chat.
+
+    The exception type and message are included because this is the failure the
+    generic "the model could not answer" used to hide, and they are what is
+    needed to tell an index that is out of sync from, say, an embedding model
+    that could not be loaded.
+    """
+    logger.error("Searching the LLM index failed", exc_info=exc)
+    detail = f"{type(exc).__name__}: {exc}"[:200]
+    return INDEX_SEARCH_FAILED_MESSAGE.format(detail=detail)
+
+
 def _retrieve(index, nodes, allowed_ids: set[str], query_str: str, top_k: int):
     if len(nodes) <= LOCAL_RETRIEVAL_MAX_NODES:
         return (
@@ -220,13 +244,19 @@ def stream_chat_with_documents(
             )
             context_body = content[:max_chars]
 
-            top_nodes = _retrieve(
-                index,
-                nodes,
-                allowed_ids,
-                query_str,
-                top_k=min(3, top_k),
-            )
+            # The matches only add to a document already in the prompt, so a
+            # broken index is logged and skipped instead of failing the answer.
+            try:
+                top_nodes = _retrieve(
+                    index,
+                    nodes,
+                    allowed_ids,
+                    query_str,
+                    top_k=min(3, top_k),
+                )
+            except Exception as exc:
+                _index_search_failure(exc)
+                top_nodes = []
             if len(top_nodes) > 0:
                 context_body = (
                     f"{context_body}\n\nTOP MATCHES:\n{_format_matches(top_nodes)}"
@@ -234,13 +264,17 @@ def stream_chat_with_documents(
 
         context = f"TITLE: {doc.title or doc.filename}\n{context_body}"
     else:
-        top_nodes = _retrieve(
-            index,
-            nodes,
-            allowed_ids,
-            query_str,
-            top_k=top_k,
-        )
+        try:
+            top_nodes = _retrieve(
+                index,
+                nodes,
+                allowed_ids,
+                query_str,
+                top_k=top_k,
+            )
+        except Exception as exc:
+            yield _index_search_failure(exc)
+            return
 
         if len(top_nodes) == 0:
             logger.warning("Retriever returned no nodes for the given documents.")
