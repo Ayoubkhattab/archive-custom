@@ -39,6 +39,41 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends tesseract-ocr-ara && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Upgrade Arabic, English and orientation/script detection to Tesseract's own
+# LSTM "best"-accuracy models. The Debian packages above install the "fast"
+# (8-bit) models, tuned for throughput; the float "best" models from the
+# tesseract project's own tessdata_best repo score meaningfully higher, and
+# the gap matters more for Arabic than for Latin script because of its
+# cursive joining and diacritics. OSD (orientation/script detection) backs
+# PAPERLESS_OCR_ROTATE_PAGES, so it is upgraded too.
+#
+# This trades OCR speed for accuracy at ingestion time: the "best" network is
+# several times larger and slower to run than "fast". It has no effect on
+# chat/search speed, which reads text already extracted and stored in the
+# database. Pinned to one commit and checked against a hash computed from
+# that exact commit, so what ends up in the image never silently changes
+# and a corrupted or substituted download fails the build instead of being
+# baked in silently.
+#
+# Applies only to documents OCR'd from here on; documents already ingested
+# keep the text their original OCR pass produced until they are reprocessed
+# (per-document "Reprocess", or the bulk "Redo OCR" action).
+ARG TESSDATA_BEST_COMMIT=e12c65a915945e4c28e237a9b52bc4a8f39a0cec
+RUN set -eu; \
+    tessdata_dir=$(dirname "$(find / -xdev -name eng.traineddata 2>/dev/null | head -n1)"); \
+    test -n "$tessdata_dir" && test -f "$tessdata_dir/ara.traineddata"; \
+    for entry in \
+      "ara 1463e300ed98d7be3bb87607ed131b28de8abeb6e2a0249724cea97567c51e0a" \
+      "eng 834c0f2fdda1f47e8d6339686629a993595b5dfbbf0dfb29271caca3169aeea1" \
+      "osd 79d328257adbdd7802928cad79a52c28c64ec507626bcbaf928f983c14b9e459" \
+    ; do \
+      set -- $entry; lang=$1; sha=$2; \
+      curl -fsSL -o "/tmp/${lang}.traineddata" \
+        "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/${TESSDATA_BEST_COMMIT}/${lang}.traineddata"; \
+      echo "${sha}  /tmp/${lang}.traineddata" | sha256sum -c -; \
+      mv "/tmp/${lang}.traineddata" "${tessdata_dir}/${lang}.traineddata"; \
+    done
+
 # Python dependencies: install exactly what uv.lock pins (the same versions the
 # test suite runs against), the way the upstream Dockerfile does. Most of them
 # already match the base image, so this only adds/changes the difference.
