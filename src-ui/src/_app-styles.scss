@@ -133,10 +133,40 @@ textarea {
   border-radius: var(--bs-border-radius, #{$border-radius});
 }
 
+// Elevation scale: three consistent shadow steps instead of ad-hoc
+// `shadow-sm`/inline box-shadow values scattered per component. `-raised` is
+// the resting state for anything meant to read as reachable/interactive
+// (dashboard widgets, document cards); components opt into it with
+// `.pngx-elevate-hover` below rather than hand-rolling their own hover shadow.
+:root {
+  --pngx-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --pngx-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.05), 0 8px 20px rgba(0, 0, 0, 0.07);
+  --pngx-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.06), 0 16px 32px rgba(0, 0, 0, 0.09);
+}
+
 .card,
 .modal-content {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--pngx-shadow-sm);
   border: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08));
+}
+
+// Opt-in lift for cards that represent a clickable/navigable unit (widgets,
+// document cards). Kept separate from `.card` itself since plenty of cards
+// (modals, static panels) aren't interactive and shouldn't lift on hover.
+.pngx-elevate-hover {
+  &:hover, &:focus-within {
+    box-shadow: var(--pngx-shadow-md);
+    transform: translateY(-2px);
+  }
+
+  // A device with no hover capability has no way to leave the lifted state,
+  // so it would otherwise get stuck there after a tap.
+  @media (hover: none) {
+    &:hover {
+      box-shadow: var(--pngx-shadow-sm);
+      transform: none;
+    }
+  }
 }
 
 .btn {
@@ -949,6 +979,15 @@ code {
     transition: opacity .2s ease;
   }
   &:hover {
+    button {
+      opacity: 1;
+      pointer-events: initial;
+    }
+  }
+
+  // Hover has no touch equivalent, so touch/coarse-pointer devices always
+  // show the action instead of hiding it behind an unreachable :hover state.
+  @media (hover: none) {
     button {
       opacity: 1;
       pointer-events: initial;

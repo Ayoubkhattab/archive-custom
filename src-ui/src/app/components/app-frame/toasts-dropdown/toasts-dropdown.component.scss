@@ -11,6 +11,16 @@
   display: none;
 }
 
+@media (max-width: 767.98px) {
+  #notificationsDropdown {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 .dropdown-item {
   white-space: initial;
 }

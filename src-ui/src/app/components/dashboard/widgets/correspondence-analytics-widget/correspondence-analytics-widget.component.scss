@@ -2,6 +2,13 @@
   position: relative;
   height: 260px;
   width: 100%;
+
+  // Charts stack to a single column below xl (see the col-12 col-xl-6
+  // wrapper in the template); a shorter canvas keeps four stacked charts
+  // from turning the widget into a very long scroll on narrow screens.
+  @media (max-width: 1199.98px) {
+    height: 220px;
+  }
 }
 
 .report-controls {
@@ -15,7 +22,7 @@
   padding: 0.75rem 0.9rem;
   border-radius: 0.5rem;
   background-color: var(--bs-tertiary-bg);
-  border-inline-end: 3px solid var(--pngx-primary, #428177);
+  border-inline-end: 3px solid var(--bs-primary, #428177);
 
   .stat-label {
     font-size: 0.75rem;

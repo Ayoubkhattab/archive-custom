@@ -1,3 +1,5 @@
+@use "src/mixins" as pngx;
+
 ::ng-deep app-document-list app-page-header > div.mb-3 {
   margin-bottom: 0 !important;
 }
@@ -22,31 +24,11 @@ $paperless-card-breakpoints: (
 );
 
 .row-cols-paperless-cards {
-  // xs, we dont want in .col-slim block
-  > * {
-    flex: 0 0 auto;
-    width: calc(100% / 2);
-  }
-
-  @each $width, $n_cols in $paperless-card-breakpoints {
-    @media(min-width: $width) {
-      > * {
-        flex: 0 0 auto;
-        width: calc(100% / $n-cols);
-      }
-    }
-  }
+  @include pngx.pngx-card-grid($paperless-card-breakpoints);
 }
 
 ::ng-deep .col-slim .row-cols-paperless-cards {
-  @each $width, $n_cols in $paperless-card-breakpoints {
-    @media(min-width: $width) {
-      > * {
-        flex: 0 0 auto;
-        width: calc(100% / ($n-cols + 1)) !important;
-      }
-    }
-  }
+  @include pngx.pngx-card-grid-slim($paperless-card-breakpoints);
 }
 
 // Bootstrap 4 name kept for the existing markup; aligns the menu with the

@@ -1,6 +1,13 @@
 form {
   position: relative;
 
+  // The search box sits on the navbar's primary-colour background, where its
+  // own focus treatment (background/border lightening on :focus-within,
+  // below) already signals focus; the default ring is disabled only here so
+  // it doesn't also hide the ring on the results dropdown, which sits on a
+  // plain surface and has no other focus indicator.
+  --pngx-focus-alpha: 0;
+
   > i-bs[name="search"] {
     position: absolute;
     inset-inline-start: 0.6rem;
@@ -62,12 +69,17 @@ form {
 
 }
 
-* {
-  --pngx-focus-alpha: 0;
-}
-
 .mh-75 {
   max-height: 75vh;
+}
+
+// Results dropdown: full width of its anchor on narrow screens (the anchor
+// itself already shrinks to fit), capped on wider ones so it doesn't stretch
+// edge-to-edge next to a wide navbar.
+@media (min-width: 768px) {
+  .dropdown-menu {
+    max-width: min(90vw, 32rem);
+  }
 }
 
 .dropdown-item {

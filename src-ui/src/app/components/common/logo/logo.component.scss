@@ -1,0 +1,9 @@
+// The text fallback (no uploaded custom logo) is an <h6>, which otherwise
+// carries Bootstrap's block heading margin and would misalign inside the
+// flex navbar-brand / dashboard header that hosts it.
+.logo {
+  margin: 0;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}

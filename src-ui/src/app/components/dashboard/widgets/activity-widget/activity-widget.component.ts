@@ -15,6 +15,7 @@ import {
   registerables,
 } from 'chart.js'
 import { first, Subject, Subscription, takeUntil } from 'rxjs'
+import { EmptyStateComponent } from 'src/app/components/common/empty-state/empty-state.component'
 import { ComponentWithPermissions } from 'src/app/components/with-permissions/with-permissions.component'
 import { WebsocketStatusService } from 'src/app/services/websocket-status.service'
 import { environment } from 'src/environments/environment'
@@ -60,7 +61,7 @@ const TASK_STATUS_LABELS: Record<string, string> = {
   selector: 'pngx-activity-widget',
   templateUrl: './activity-widget.component.html',
   styleUrls: ['./activity-widget.component.scss'],
-  imports: [WidgetFrameComponent],
+  imports: [WidgetFrameComponent, EmptyStateComponent],
 })
 export class ActivityWidgetComponent
   extends ComponentWithPermissions

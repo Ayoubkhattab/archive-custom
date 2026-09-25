@@ -1,0 +1,32 @@
+// Shared responsive card-grid mixin for the custom (non row-cols-*) card grids
+// used by the document grid and the dashboard's saved-view widget. Each caller
+// supplies its own column-count map since the two grids use different counts.
+@mixin pngx-card-grid($breakpoints) {
+  // xs, kept out of the .col-slim block below
+  > * {
+    flex: 0 0 auto;
+    width: calc(100% / 2);
+  }
+
+  @each $width, $n-cols in $breakpoints {
+    @media (min-width: $width) {
+      > * {
+        flex: 0 0 auto;
+        width: calc(100% / $n-cols);
+      }
+    }
+  }
+}
+
+// Same map, one extra column, for when the sidebar is in its slim state and
+// the grid has more width to work with.
+@mixin pngx-card-grid-slim($breakpoints) {
+  @each $width, $n-cols in $breakpoints {
+    @media (min-width: $width) {
+      > * {
+        flex: 0 0 auto;
+        width: calc(100% / ($n-cols + 1)) !important;
+      }
+    }
+  }
+}

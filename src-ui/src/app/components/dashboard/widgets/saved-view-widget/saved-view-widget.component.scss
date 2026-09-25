@@ -1,3 +1,5 @@
+@use "src/mixins" as pngx;
+
 .wrapper {
   transition: all .3s ease-out;
   overflow: hidden;
@@ -44,6 +46,16 @@ tr:hover .btn-group {
   pointer-events: all;
 }
 
+// Hover has no touch equivalent, so touch/coarse-pointer devices always show
+// the row actions instead of hiding them behind an unreachable :hover state.
+@media (hover: none) {
+  tr .btn-group {
+    opacity: 1;
+    pointer-events: all;
+    box-shadow: none;
+  }
+}
+
 td.py-3 {
   padding-top: 0.75em !important;
   padding-bottom: 0.75em !important;
@@ -60,31 +72,11 @@ $paperless-card-breakpoints: (
 );
 
 .row-cols-paperless-cards {
-  // xs, we dont want in .col-slim block
-  > * {
-    flex: 0 0 auto;
-    width: calc(100% / 2);
-  }
-
-  @each $width, $n_cols in $paperless-card-breakpoints {
-    @media(min-width: $width) {
-      > * {
-        flex: 0 0 auto;
-        width: calc(100% / $n-cols);
-      }
-    }
-  }
+  @include pngx.pngx-card-grid($paperless-card-breakpoints);
 }
 
 ::ng-deep .col-slim .row-cols-paperless-cards {
-  @each $width, $n_cols in $paperless-card-breakpoints {
-    @media(min-width: $width) {
-      > * {
-        flex: 0 0 auto;
-        width: calc(100% / ($n-cols + 1)) !important;
-      }
-    }
-  }
+  @include pngx.pngx-card-grid-slim($paperless-card-breakpoints);
 }
 
 ::ng-deep .document-card-check {

@@ -12,6 +12,7 @@ import {
 import { FormsModule } from '@angular/forms'
 import { Chart, ChartConfiguration, registerables } from 'chart.js'
 import { first, Subject, takeUntil } from 'rxjs'
+import { EmptyStateComponent } from 'src/app/components/common/empty-state/empty-state.component'
 import { ComponentWithPermissions } from 'src/app/components/with-permissions/with-permissions.component'
 import {
   CorrespondenceAnalytics,
@@ -62,7 +63,12 @@ export enum PeriodMode {
   selector: 'pngx-correspondence-analytics-widget',
   templateUrl: './correspondence-analytics-widget.component.html',
   styleUrls: ['./correspondence-analytics-widget.component.scss'],
-  imports: [WidgetFrameComponent, FormsModule, DecimalPipe],
+  imports: [
+    WidgetFrameComponent,
+    EmptyStateComponent,
+    FormsModule,
+    DecimalPipe,
+  ],
 })
 export class CorrespondenceAnalyticsWidgetComponent
   extends ComponentWithPermissions

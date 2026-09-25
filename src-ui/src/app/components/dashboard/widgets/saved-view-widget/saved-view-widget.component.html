@@ -11,7 +11,9 @@
   }
 
   <div content class="wrapper fade" [class.show]="show">
-  @if (displayMode === DisplayMode.TABLE) {
+  @if (!loading && documents.length === 0) {
+    <pngx-empty-state icon="inbox" message="No documents" i18n-message></pngx-empty-state>
+  } @else if (displayMode === DisplayMode.TABLE) {
     <table class="table table-hover mb-0 mt-n2 align-middle">
       <thead>
         <tr>
@@ -145,8 +147,6 @@
         </pngx-document-card-large>
       }
     </div>
-  } @else {
-    <p i18n class="text-center text-muted mb-0 fst-italic">No documents</p>
   }
 
   </div>

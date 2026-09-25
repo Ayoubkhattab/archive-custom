@@ -1,3 +1,14 @@
 i-bs {
     cursor: move;
 }
+
+// Consistent accent across every widget card, tying the dashboard back to the
+// primary identity colour. `border` (not a pseudo-element) so it's clipped by
+// the card's own border-radius automatically.
+.card.bg-light {
+  border-top: 3px solid var(--bs-primary);
+}
+
+.card-header {
+  min-height: 3.25rem;
+}

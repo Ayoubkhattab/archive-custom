@@ -419,6 +419,9 @@
         }
       </div>
     }
+    @if (list.documents && list.documents.length === 0 && !list.isReloading) {
+      <pngx-empty-state icon="folder2-open" message="No documents match the current view or filters." i18n-message></pngx-empty-state>
+    }
     @if (list.documents?.length > 15) {
       <div class="mt-3">
         <ng-container *ngTemplateOutlet="pagination"></ng-container>

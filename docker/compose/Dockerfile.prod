@@ -63,9 +63,9 @@ RUN set -eu; \
     tessdata_dir=$(dirname "$(find / -xdev -name eng.traineddata 2>/dev/null | head -n1)"); \
     test -n "$tessdata_dir" && test -f "$tessdata_dir/ara.traineddata"; \
     for entry in \
-      "ara 1463e300ed98d7be3bb87607ed131b28de8abeb6e2a0249724cea97567c51e0a" \
-      "eng 834c0f2fdda1f47e8d6339686629a993595b5dfbbf0dfb29271caca3169aeea1" \
-      "osd 79d328257adbdd7802928cad79a52c28c64ec507626bcbaf928f983c14b9e459" \
+      "ara ab9d157d8e38ca00e7e39c7d5363a5239e053f5b0dbdb3167dde9d8124335896" \
+      "eng 8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba" \
+      "osd 9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff" \
     ; do \
       set -- $entry; lang=$1; sha=$2; \
       curl -fsSL -o "/tmp/${lang}.traineddata" \

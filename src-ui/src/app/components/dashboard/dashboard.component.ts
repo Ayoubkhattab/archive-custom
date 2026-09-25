@@ -15,6 +15,7 @@ import { SavedViewService } from 'src/app/services/rest/saved-view.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
 import { environment } from 'src/environments/environment'
+import { EmptyStateComponent } from '../common/empty-state/empty-state.component'
 import { LogoComponent } from '../common/logo/logo.component'
 import { PageHeaderComponent } from '../common/page-header/page-header.component'
 import { ComponentWithPermissions } from '../with-permissions/with-permissions.component'
@@ -31,6 +32,7 @@ import { WelcomeWidgetComponent } from './widgets/welcome-widget/welcome-widget.
   styleUrls: ['./dashboard.component.scss'],
   imports: [
     LogoComponent,
+    EmptyStateComponent,
     PageHeaderComponent,
     ActivityWidgetComponent,
     CorrespondenceAnalyticsWidgetComponent,

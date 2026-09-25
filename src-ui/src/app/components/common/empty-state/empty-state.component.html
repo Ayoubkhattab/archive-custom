@@ -1,0 +1,7 @@
+<div class="empty-state text-center text-muted py-3">
+  <i-bs [name]="icon" width="1.6em" height="1.6em" class="empty-state-icon mb-2"></i-bs>
+  @if (message) {
+    <p class="mb-0 small fst-italic">{{ message }}</p>
+  }
+  <ng-content></ng-content>
+</div>

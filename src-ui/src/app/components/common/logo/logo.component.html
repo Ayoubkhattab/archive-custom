@@ -1,5 +1,5 @@
 @if (customLogo) {
     <img src="{{customLogo}}" [class]="getClasses()" [attr.style]="'height:'+height" />
 } @else {
-    <h6>أرشيف المعلومات</h6>
+    <h6 [class]="getClasses()" [attr.style]="'font-size:'+height">أرشيف المعلومات</h6>
 }
