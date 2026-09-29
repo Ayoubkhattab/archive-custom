@@ -15,6 +15,16 @@ from paperless_ai.chat import stream_chat_with_documents
 
 
 @pytest.fixture(autouse=True)
+def fresh_index_cache():
+    # The loaded index is cached per process; each test mocks its own.
+    import paperless_ai.chat as chat
+
+    chat._index_cache = (None, None)
+    yield
+    chat._index_cache = (None, None)
+
+
+@pytest.fixture(autouse=True)
 def patch_embed_model():
     from llama_index.core import settings as llama_settings
     from llama_index.core.embeddings.mock_embed_model import MockEmbedding
@@ -410,3 +420,20 @@ def test_the_deep_mode_reads_more_of_the_ocr_text_than_the_fast_mode():
             sizes[mode] = len(_user_prompt(mock_client))
 
     assert sizes["fast"] < sizes["deep"]
+
+
+def test_loaded_index_is_reused_until_its_files_change(tmp_path, settings):
+    import paperless_ai.chat as chat
+
+    settings.LLM_INDEX_DIR = tmp_path
+    (tmp_path / "default__vector_store.json").write_text("{}")
+
+    with patch("paperless_ai.chat.load_or_build_index") as load:
+        load.side_effect = [object(), object()]
+        first = chat._load_index()
+        assert chat._load_index() is first
+        assert load.call_count == 1
+
+        (tmp_path / "default__vector_store.json").write_text('{"changed": 1}')
+        assert chat._load_index() is not first
+        assert load.call_count == 2

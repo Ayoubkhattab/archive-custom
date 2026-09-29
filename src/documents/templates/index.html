@@ -14,9 +14,9 @@
 	<meta name="author" content="أرشيف المعلومات">
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
 	<link rel="manifest" href="{% static webmanifest %}">
-	<link rel="stylesheet" href="{% static styles_css %}">
+	<link rel="stylesheet" href="{% static styles_css %}?v={{ asset_version }}">
 	{% if text_direction == "rtl" %}{# Bootstrap ships a separate pre-flipped build; the id lets the frontend detect this link instead of adding a second one #}
-	<link id="pngx-rtl-styles" rel="stylesheet" href="{% static rtl_styles_css %}">
+	<link id="pngx-rtl-styles" rel="stylesheet" href="{% static rtl_styles_css %}?v={{ asset_version }}">
 	{% endif %}
 	<link rel="apple-touch-icon" href="{% static apple_touch_icon %}">
 </head>
@@ -102,8 +102,8 @@
 			]
 		</script>
 	</pngx-root>
-	<script src="{% static runtime_js %}" defer></script>
-	<script src="{% static polyfills_js %}" defer></script>
-	<script src="{% static main_js %}" defer></script>
+	<script src="{% static runtime_js %}?v={{ asset_version }}" defer></script>
+	<script src="{% static polyfills_js %}?v={{ asset_version }}" defer></script>
+	<script src="{% static main_js %}?v={{ asset_version }}" defer></script>
 </body>
 </html>

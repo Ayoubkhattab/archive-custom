@@ -110,4 +110,17 @@ export class ChatService {
         filter((chunk) => !!chunk)
       )
   }
+
+  /**
+   * Ask the server to have the model pre-read a document for "ask about this
+   * file", so the first question doesn't wait for it. Fire and forget: it
+   * answers at once and does nothing for documents that are too long.
+   */
+  warmDocument(documentId: number): Observable<unknown> {
+    return this.http.post(
+      `${environment.apiBaseUrl}documents/ask/warm/`,
+      { document_id: documentId },
+      { withCredentials: true }
+    )
+  }
 }

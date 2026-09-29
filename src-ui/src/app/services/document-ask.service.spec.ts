@@ -7,7 +7,7 @@ import { DocumentService } from './rest/document.service'
 
 describe('DocumentAskService', () => {
   let service: DocumentAskService
-  let chat: { askDocument: jest.Mock }
+  let chat: { askDocument: jest.Mock; warmDocument: jest.Mock }
   const doc = {
     id: 5,
     title: 'عقد',
@@ -15,7 +15,7 @@ describe('DocumentAskService', () => {
   } as Document
 
   beforeEach(() => {
-    chat = { askDocument: jest.fn() }
+    chat = { askDocument: jest.fn(), warmDocument: jest.fn(() => of(null)) }
     TestBed.configureTestingModule({
       providers: [
         DocumentAskService,
@@ -101,5 +101,15 @@ describe('DocumentAskService', () => {
     expect(answer.state).toEqual('stopped')
     expect(answer.content).toEqual('جزء من الجواب')
     expect(service.busy).toBe(false)
+  })
+
+  it('pre-reads the document when opened, only before the first question', () => {
+    chat.askDocument.mockReturnValue(of({ text: 'جواب' }))
+    service.open(doc)
+    expect(chat.warmDocument).toHaveBeenCalledWith(5)
+    service.ask('سؤال')
+    service.close()
+    service.open(doc)
+    expect(chat.warmDocument).toHaveBeenCalledTimes(1)
   })
 })

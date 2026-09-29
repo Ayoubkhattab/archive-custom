@@ -83,6 +83,7 @@ export class DocumentAskService {
 
     if (typeof document !== 'number' && document.content != null) {
       this.document.set(document)
+      this.warm(document)
       return
     }
     if (this.document()?.id === id && this.document().content != null) return
@@ -92,6 +93,7 @@ export class DocumentAskService {
       next: (doc) => {
         this.document.set(doc)
         this.loadingDocument.set(false)
+        this.warm(doc)
       },
       error: () => {
         this.loadingDocument.set(false)
@@ -102,6 +104,16 @@ export class DocumentAskService {
 
   close() {
     this.isOpen.set(false)
+  }
+
+  /**
+   * Let the model read the document while the question is being typed. Only
+   * before the first question: after that the document is already read.
+   */
+  private warm(doc: Document) {
+    if (this.conversationFor(doc.id).messages.length) return
+    if ((doc.content ?? '').trim().length < 20) return
+    this.chatService.warmDocument(doc.id).subscribe({ error: () => {} })
   }
 
   toggle(document: Document | number) {

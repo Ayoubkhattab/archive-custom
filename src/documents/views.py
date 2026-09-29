@@ -5,6 +5,8 @@ import os
 import platform
 import re
 import tempfile
+import threading
+import time
 import zipfile
 from collections import defaultdict
 from collections import deque
@@ -76,6 +78,7 @@ from packaging import version as packaging_version
 from redis import Redis
 from rest_framework import parsers
 from rest_framework import serializers
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.exceptions import ValidationError
@@ -218,6 +221,7 @@ from paperless_ai.chat import stream_chat_with_documents
 from paperless_ai.client import DEFAULT_OLLAMA_ENDPOINT
 from paperless_ai.client import DEFAULT_OLLAMA_MODEL
 from paperless_ai.client import AIClient
+from paperless_ai.corpus import corpus_for
 from paperless_ai.document_ask import MAX_QUESTION_CHARS as ASK_MAX_QUESTION_CHARS
 from paperless_ai.document_ask import build_messages as build_ask_messages
 from paperless_ai.document_ask import clean_history as clean_ask_history
@@ -337,6 +341,7 @@ class IndexView(TemplateView):
             f"frontend/{self.get_frontend_language()}/polyfills.js"
         )
         context["main_js"] = f"frontend/{self.get_frontend_language()}/main.js"
+        context["asset_version"] = _frontend_asset_version(context["main_js"])
         context["webmanifest"] = (
             f"frontend/{self.get_frontend_language()}/manifest.webmanifest"
         )
@@ -344,6 +349,23 @@ class IndexView(TemplateView):
             f"frontend/{self.get_frontend_language()}/apple-touch-icon.png"
         )
         return context
+
+
+@functools.lru_cache(maxsize=8)
+def _frontend_asset_version(main_js: str) -> str:
+    """
+    A version for the frontend's asset URLs (?v=…). The Angular build has fixed
+    file names (main.js, styles.css), so after a deploy a browser or Cloudflare
+    could keep serving the previous build; a new build changes this value and
+    with it every URL. Taken from the build's modification time, once per
+    process (a deploy restarts the processes).
+    """
+    from django.contrib.staticfiles.storage import staticfiles_storage
+
+    try:
+        return str(int(Path(staticfiles_storage.path(main_js)).stat().st_mtime))
+    except (NotImplementedError, OSError, ValueError):
+        return "0"
 
 
 class PassUserMixin(GenericAPIView):
@@ -1569,7 +1591,9 @@ class ChatStreamingView(GenericAPIView):
             documents = [document]
             document_text = (document.content or "").strip()
         else:
-            documents = list(
+            # Only ids and modification times come from the database on each
+            # question; the text itself is kept in memory (paperless_ai.corpus).
+            documents = corpus_for(
                 get_objects_for_user_owner_aware(
                     request.user,
                     "view_document",
@@ -1675,6 +1699,104 @@ class ChatStreamingView(GenericAPIView):
         return response
 
 
+ASK_WARM_RUNNING = "running"
+ASK_WARM_DONE = "done"
+ASK_WARM_WAIT_SECONDS = 120
+
+
+def _ask_warm_key(document: Document) -> str:
+    modified = document.modified.timestamp() if document.modified else 0
+    return f"paperless_ai.ask_warm:{document.pk}:{modified}"
+
+
+def _wait_for_ask_warmup(key: str) -> None:
+    """Block (in the streaming thread) while another request pre-reads this document."""
+    deadline = time.monotonic() + ASK_WARM_WAIT_SECONDS
+    while cache.get(key) == ASK_WARM_RUNNING and time.monotonic() < deadline:
+        time.sleep(0.5)
+
+
+def _warm_ask_document(key: str, messages: list[tuple[str, str]]) -> None:
+    """
+    Have the model read the document now, while the question is being typed.
+
+    Ollama keeps the processed prompt and reuses its longest matching prefix,
+    and "ask about this file" puts the whole document first and unchanged in
+    every request. One throwaway request of a single output token therefore
+    leaves the document already read when the real question arrives, which on a
+    CPU turns tens of seconds of "reading" into only the question's own words.
+    """
+    from llama_index.core.llms import ChatMessage
+
+    try:
+        client = AIClient(max_output_tokens=1, thinking=False)
+        for _ in client.stream_chat(
+            [ChatMessage(role=role, content=content) for role, content in messages],
+        ):
+            pass
+        cache.set(key, ASK_WARM_DONE, 1800)
+    except Exception:
+        logger.warning("Pre-reading a document for the AI failed", exc_info=True)
+        cache.delete(key)
+
+
+class DocumentAskWarmView(GenericAPIView):
+    """
+    Pre-read a document for "ask about this file" (see _warm_ask_document).
+    Answers at once; the reading happens in the background. Documents too long
+    to be sent whole are not pre-read, since their excerpts depend on the
+    question.
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        ai_config = AIConfig()
+        if not ai_config.ai_enabled or ai_config.llm_backend != "ollama":
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        if not request.user.has_perm("documents.view_document"):
+            return HttpResponseForbidden("Insufficient permissions")
+        try:
+            document = Document.objects.get(id=int(request.data.get("document_id")))
+        except (TypeError, ValueError):
+            return HttpResponseBadRequest("Invalid request")
+        except Document.DoesNotExist:
+            return HttpResponseBadRequest("Document not found")
+        if not has_perms_owner_aware(request.user, "view_document", document):
+            return HttpResponseForbidden("Insufficient permissions")
+
+        content = (document.content or "").strip()
+        if len(content) < 20:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        context = select_ask_context(
+            document.title,
+            document.content,
+            "",
+            settings.LLM_ASK_MAX_CONTEXT_CHARS,
+        )
+        if not context.complete:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        key = _ask_warm_key(document)
+        # Once per version of the document, and never two at a time.
+        if not cache.add(key, ASK_WARM_RUNNING, ASK_WARM_WAIT_SECONDS + 60):
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        messages = build_ask_messages(
+            title=document.title or document.filename or "",
+            context=context,
+            question=".",
+            closing_instruction=ARABIC_ONLY,
+        )
+        threading.Thread(
+            target=_warm_ask_document,
+            args=(key, messages),
+            name="ai-ask-warmup",
+            daemon=True,
+        ).start()
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+
 class DocumentAskSerializer(serializers.Serializer):
     document_id = serializers.IntegerField(required=True)
     q = serializers.CharField(required=True, max_length=ASK_MAX_QUESTION_CHARS)
@@ -1748,8 +1870,9 @@ class DocumentAskView(GenericAPIView):
             document.title,
             document.content,
             question,
-            settings.LLM_CHAT_MAX_CONTEXT_CHARS,
+            settings.LLM_ASK_MAX_CONTEXT_CHARS,
         )
+        warm_key = _ask_warm_key(document)
         conversation = build_ask_messages(
             title=document.title or document.filename or "",
             context=context,
@@ -1766,6 +1889,11 @@ class DocumentAskView(GenericAPIView):
                 max_output_tokens=mode_settings["max_output_tokens"],
                 thinking=mode_settings["thinking"],
             )
+            if context.complete:
+                # If the document is still being pre-read, let that finish so
+                # this question reuses it instead of reading it a second time
+                # alongside (heartbeats keep the connection open meanwhile).
+                _wait_for_ask_warmup(warm_key)
             yield from client.stream_chat(
                 [
                     ChatMessage(role=role, content=content)

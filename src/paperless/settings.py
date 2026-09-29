@@ -1527,3 +1527,15 @@ LLM_STREAM_THREADS = int(os.getenv("PAPERLESS_AI_STREAM_THREADS", "4"))
 # the answer slow on a CPU, so keep these small.
 LLM_CHAT_TOP_K = int(os.getenv("PAPERLESS_AI_CHAT_TOP_K", "3"))
 LLM_CHAT_SNIPPET_CHARS = int(os.getenv("PAPERLESS_AI_CHAT_SNIPPET_CHARS", "600"))
+# The quick answer mode. On a CPU the model reads the prompt at a few dozen
+# tokens a second, so the context sent with a quick question is what decides how
+# long "preparing…" lasts; the output cap bounds how long the answer can run on.
+LLM_CHAT_FAST_CONTEXT_CHARS = int(
+    os.getenv("PAPERLESS_AI_CHAT_FAST_CONTEXT_CHARS", "2400"),
+)
+LLM_FAST_MAX_OUTPUT_TOKENS = int(os.getenv("PAPERLESS_AI_FAST_MAX_TOKENS", "600"))
+# "Ask about this file": a document up to this size is sent whole (and can be
+# pre-read while the question is typed); a longer one is cut to excerpts.
+LLM_ASK_MAX_CONTEXT_CHARS = int(
+    os.getenv("PAPERLESS_AI_ASK_MAX_CHARS", str(LLM_CHAT_MAX_CONTEXT_CHARS)),
+)

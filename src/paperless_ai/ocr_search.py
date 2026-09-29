@@ -102,12 +102,19 @@ def normalize(text: str | None) -> str:
     )
 
 
-@lru_cache(maxsize=2048)
+# Sized for the whole archive plus its titles: a cache smaller than the archive
+# evicts every entry before it is used again, and each question would
+# normalise all the text anew. paperless_ai.corpus hands the same string
+# objects back on every question, so a hit costs a pointer comparison.
+_TEXT_CACHE_SIZE = 32768
+
+
+@lru_cache(maxsize=_TEXT_CACHE_SIZE)
 def _normalized(text: str) -> str:
     return normalize(text)
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=_TEXT_CACHE_SIZE)
 def _skeleton(text: str) -> str:
     return _normalized(text).translate(_WEAK_LETTERS)
 

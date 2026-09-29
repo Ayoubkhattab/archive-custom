@@ -22,6 +22,7 @@ from documents.views import BulkEditObjectsView
 from documents.views import BulkEditView
 from documents.views import ChatStreamingView
 from documents.views import DocumentAskView
+from documents.views import DocumentAskWarmView
 from documents.views import CorrespondentViewSet
 from documents.views import CorrespondenceAnalyticsView
 from documents.views import CustomFieldViewSet
@@ -153,6 +154,11 @@ urlpatterns = [
                                 "^ask/$",
                                 DocumentAskView.as_view(),
                                 name="document_ask",
+                            ),
+                            re_path(
+                                "^ask/warm/$",
+                                DocumentAskWarmView.as_view(),
+                                name="document_ask_warm",
                             ),
                             re_path(
                                 "^bulk_edit/",

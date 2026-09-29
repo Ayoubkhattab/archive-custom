@@ -28,6 +28,11 @@ Environment="OLLAMA_NUM_PARALLEL=2"
 Environment="OLLAMA_FLASH_ATTENTION=1"
 Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
 Environment="OLLAMA_CONTEXT_LENGTH=${CTX}"
+# CPU priority over the containers (each Docker container gets the default
+# weight of 100): while documents are being OCR'd, the model still gets most of
+# the cores, so answers stay fast. Idle cores remain available to everyone.
+CPUWeight=1000
+IOWeight=1000
 EOF
 
 systemctl daemon-reload

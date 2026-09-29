@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 from django.conf import settings
@@ -108,7 +109,13 @@ MODE_SETTINGS = {
         "system_prompt": FAST_SYSTEM_PROMPT,
         "user_prompt": USER_PROMPT_TMPL,
         "top_k_multiplier": 1,
-        "max_output_tokens": None,
+        # A quick answer is a few sentences. On a CPU every output token costs
+        # roughly 0.1 s, so an unbounded ramble is what makes "quick" slow;
+        # this cap only bites when the model ignores the "be brief" rule.
+        "max_output_tokens": min(
+            settings.LLM_MAX_OUTPUT_TOKENS,
+            settings.LLM_FAST_MAX_OUTPUT_TOKENS,
+        ),
         "thinking": False,
         "single_document_style": "أجب باختصار ومباشرة دون عناوين أو مقدمات. ",
         # How much of the OCR text is put in front of the model. Kept small so
@@ -116,7 +123,7 @@ MODE_SETTINGS = {
         "ocr_documents": 3,
         "ocr_passages": 2,
         "ocr_passage_chars": 500,
-        "ocr_budget_chars": 3000,
+        "ocr_budget_chars": settings.LLM_CHAT_FAST_CONTEXT_CHARS,
     },
     MODE_DEEP: {
         "system_prompt": DEEP_SYSTEM_PROMPT,
@@ -239,6 +246,42 @@ def _ocr_context(query_str: str, documents: list[Document], mode_settings: dict)
     return None
 
 
+_index_lock = threading.Lock()
+_index_cache: tuple[tuple | None, object | None] = (None, None)
+
+
+def _index_signature() -> tuple | None:
+    """Names, sizes and times of the index files: changes whenever it is rewritten."""
+    try:
+        return tuple(
+            sorted(
+                (path.name, path.stat().st_mtime_ns, path.stat().st_size)
+                for path in settings.LLM_INDEX_DIR.iterdir()
+                if path.is_file()
+            ),
+        )
+    except FileNotFoundError:
+        return None
+
+
+def _load_index():
+    """
+    The vector index, loaded from disk once per worker process and reused until
+    its files change (the nightly update or a rebuild rewrites them). Reading the
+    FAISS store and the JSON docstore on every question cost seconds before the
+    model even started.
+    """
+    global _index_cache
+    signature = _index_signature()
+    with _index_lock:
+        cached_signature, index = _index_cache
+        if index is not None and signature is not None and signature == cached_signature:
+            return index
+        index = load_or_build_index()
+        _index_cache = (signature, index)
+        return index
+
+
 def _index_context(query_str: str, documents: list[Document], top_k: int):
     """
     The context from the vector index, as a generator so it can answer on the
@@ -246,7 +289,7 @@ def _index_context(query_str: str, documents: list[Document], top_k: int):
     once a message has already been yielded in its place.
     """
     try:
-        index = load_or_build_index()
+        index = _load_index()
     except ValueError:
         logger.info("No LLM index found; queueing a background build.")
         _queue_index_build()

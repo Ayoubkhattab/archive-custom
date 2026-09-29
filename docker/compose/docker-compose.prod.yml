@@ -116,6 +116,10 @@ services:
       - PAPERLESS_AI_STREAM_THREADS=${AI_STREAM_THREADS:-4}
       - PAPERLESS_AI_CHAT_TOP_K=${AI_CHAT_TOP_K:-3}
       - PAPERLESS_AI_CHAT_SNIPPET_CHARS=${AI_CHAT_SNIPPET_CHARS:-600}
+      # Speed of the quick answers (see .env.prod.example for how to tune).
+      - PAPERLESS_AI_CHAT_FAST_CONTEXT_CHARS=${AI_FAST_CONTEXT_CHARS:-2400}
+      - PAPERLESS_AI_FAST_MAX_TOKENS=${AI_FAST_MAX_TOKENS:-600}
+      - PAPERLESS_AI_ASK_MAX_CHARS=${AI_ASK_MAX_CHARS:-8000}
       - GRANIAN_WORKERS=${GRANIAN_WORKERS:-4}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
@@ -203,6 +207,8 @@ services:
       # Documents processed in parallel (upstream default is 1). Each OCR job
       # uses PAPERLESS_THREADS_PER_WORKER cores, derived from this if unset.
       - PAPERLESS_TASK_WORKERS=${TASK_WORKERS:-2}
+      # CPU priority of OCR relative to the AI model (0 = equal, 19 = lowest).
+      - CELERY_NICE=${CELERY_NICE:-10}
       - DEBUG=false
       - PAPERLESS_DEBUG=false
     # The image's built-in healthcheck curls the web port, which this container
