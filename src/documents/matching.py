@@ -21,6 +21,7 @@ from documents.models import Workflow
 from documents.models import WorkflowTrigger
 from documents.permissions import get_objects_for_user_owner_aware
 from documents.regex import safe_regex_search
+from documents.text_normalization import normalize_for_search
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -161,17 +162,24 @@ def matches(matching_model: MatchingModel, document: Document):
     if not matching_model.match.strip():
         return False
 
-    if matching_model.is_insensitive:
+    fold = matching_model.is_insensitive
+    if fold:
         search_flags = re.IGNORECASE
+        # Arabic has no case: ignore diacritics and hamza, ta marbuta and
+        # alef maqsura variants instead (regular expressions excepted, they
+        # are matched against the content as written).
+        folded_content = normalize_for_search(document_content)
+    else:
+        folded_content = document_content
 
     if matching_model.matching_algorithm == MatchingModel.MATCH_NONE:
         return False
 
     elif matching_model.matching_algorithm == MatchingModel.MATCH_ALL:
-        for word in _split_match(matching_model):
+        for word in _split_match(matching_model, fold=fold):
             search_result = re.search(
                 rf"\b{word}\b",
-                document_content,
+                folded_content,
                 flags=search_flags,
             )
             if not search_result:
@@ -184,17 +192,20 @@ def matches(matching_model: MatchingModel, document: Document):
         return True
 
     elif matching_model.matching_algorithm == MatchingModel.MATCH_ANY:
-        for word in _split_match(matching_model):
-            if re.search(rf"\b{word}\b", document_content, flags=search_flags):
+        for word in _split_match(matching_model, fold=fold):
+            if re.search(rf"\b{word}\b", folded_content, flags=search_flags):
                 log_reason(matching_model, document, f"it contains this word: {word}")
                 return True
         return False
 
     elif matching_model.matching_algorithm == MatchingModel.MATCH_LITERAL:
+        literal = matching_model.match
+        if fold:
+            literal = normalize_for_search(literal)
         result = bool(
             re.search(
-                rf"\b{re.escape(matching_model.match)}\b",
-                document_content,
+                rf"\b{re.escape(literal)}\b",
+                folded_content,
                 flags=search_flags,
             ),
         )
@@ -225,9 +236,9 @@ def matches(matching_model: MatchingModel, document: Document):
         from rapidfuzz import fuzz
 
         match = re.sub(r"[^\w\s]", "", matching_model.match)
-        text = re.sub(r"[^\w\s]", "", document_content)
+        text = re.sub(r"[^\w\s]", "", folded_content)
         if matching_model.is_insensitive:
-            match = match.lower()
+            match = normalize_for_search(match).lower()
             text = text.lower()
         if fuzz.partial_ratio(match, text, score_cutoff=90):
             # TODO: make this better
@@ -249,10 +260,11 @@ def matches(matching_model: MatchingModel, document: Document):
         raise NotImplementedError("Unsupported matching algorithm")
 
 
-def _split_match(matching_model):
+def _split_match(matching_model, *, fold=False):
     """
     Splits the match to individual keywords, getting rid of unnecessary
-    spaces and grouping quoted words together.
+    spaces and grouping quoted words together. With fold, keywords are
+    folded like the content they are matched against (normalize_for_search).
 
     Example:
       '  some random  words "with   quotes  " and   spaces'
@@ -261,10 +273,11 @@ def _split_match(matching_model):
     """
     findterms = re.compile(r'"([^"]+)"|(\S+)').findall
     normspace = re.compile(r"\s+").sub
+    match = normalize_for_search(matching_model.match) if fold else matching_model.match
     return [
         # normspace(" ", (t[0] or t[1]).strip()).replace(" ", r"\s+")
         re.escape(normspace(" ", (t[0] or t[1]).strip())).replace(r"\ ", r"\s+")
-        for t in findterms(matching_model.match)
+        for t in findterms(match)
     ]
 
 

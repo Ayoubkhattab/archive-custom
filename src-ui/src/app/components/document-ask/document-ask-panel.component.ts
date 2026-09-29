@@ -171,7 +171,12 @@ export class DocumentAskPanelComponent {
     const text = message.parsed?.body ?? message.content
     const cached = this.markdownCache.get(message)
     if (cached && cached.content === text) return cached.html
-    const html = marked.parse(text ?? '', { async: false, breaks: true }) as string
+    const html = (
+      marked.parse(text ?? '', { async: false, breaks: true }) as string
+    ).replace(
+      /غير\s+مذكور\s+في\s+المستند/gu,
+      '<span class="ask-missing">$&</span>'
+    )
     const sanitized = this.sanitizer.sanitize(SecurityContext.HTML, html) ?? ''
     const safe = this.sanitizer.bypassSecurityTrustHtml(sanitized)
     this.markdownCache.set(message, { content: text, html: safe })

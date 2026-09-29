@@ -620,6 +620,70 @@ class TestParser(DirectoriesMixin, FileSystemAssertsMixin, TestCase):
 
         self.assertIn("[OCR skipped on page(s) 4-6]", sidecar)
 
+    def test_merge_sidecar_with_pdf_text(self):
+        """
+        GIVEN:
+            - A sidecar where OCR skipped pages that already had text,
+              one placeholder covering a run of pages
+        WHEN:
+            - The text is extracted
+        THEN:
+            - OCR'ed pages keep Tesseract's text, skipped pages get the
+              PDF's own text, in page order
+        """
+        parser = RasterisedDocumentParser(None)
+        sidecar = parser.tempdir / "sidecar.txt"
+        sidecar.write_text(
+            "نص صفحة ١ من OCR\f[OCR skipped on page(s) 2-3]\fنص صفحة ٤ من OCR\f",
+            encoding="utf-8",
+        )
+        pdf_text = "pdf 1\fpdf page 2\fpdf page 3\fpdf 4\f"
+
+        with mock.patch.object(parser, "pdftotext", return_value=pdf_text):
+            text = parser.extract_text(sidecar, Path("archive.pdf"))
+
+        self.assertEqual(
+            text,
+            "نص صفحة ١ من OCR\n\npdf page 2\n\npdf page 3\n\nنص صفحة ٤ من OCR",
+        )
+
+    def test_merge_sidecar_page_count_mismatch_uses_pdf_text(self):
+        parser = RasterisedDocumentParser(None)
+        sidecar = parser.tempdir / "sidecar.txt"
+        sidecar.write_text("ocr 1\f[OCR skipped on page 2]\f", encoding="utf-8")
+
+        with mock.patch.object(
+            parser,
+            "pdftotext",
+            return_value="pdf 1\fpdf 2\fpdf 3\f",
+        ):
+            text = parser.extract_text(sidecar, Path("archive.pdf"))
+
+        self.assertEqual(text, "pdf 1 pdf 2 pdf 3")
+
+    @mock.patch("paperless_tesseract.parsers.RasterisedDocumentParser.extract_text")
+    def test_garbled_text_layer_forces_ocr(self, m_extract_text):
+        """
+        GIVEN:
+            - A PDF whose text layer is unreadable (fonts without Unicode map)
+        WHEN:
+            - The document is parsed in skip mode
+        THEN:
+            - OCR is forced instead of skipping pages that "have text"
+        """
+        m_extract_text.side_effect = [" " * 30, "نص من OCR"]
+        parser = RasterisedDocumentParser(None)
+
+        with mock.patch("ocrmypdf.ocr") as m_ocr:
+            parser.parse(
+                self.SAMPLE_FILES / "simple-digital.pdf",
+                "application/pdf",
+            )
+
+        self.assertTrue(m_ocr.call_args.kwargs["force_ocr"])
+        self.assertNotIn("skip_text", m_ocr.call_args.kwargs)
+        self.assertEqual(parser.get_text(), "نص من OCR")
+
     @override_settings(OCR_MODE="redo")
     def test_single_page_mixed(self):
         """

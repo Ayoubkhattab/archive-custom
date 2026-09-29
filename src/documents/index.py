@@ -23,6 +23,10 @@ from guardian.shortcuts import get_users_with_perms
 from whoosh import classify
 from whoosh import highlight
 from whoosh import query
+from whoosh.analysis import Filter
+from whoosh.analysis import LowercaseFilter
+from whoosh.analysis import RegexTokenizer
+from whoosh.analysis import StopFilter
 from whoosh.fields import BOOLEAN
 from whoosh.fields import DATETIME
 from whoosh.fields import KEYWORD
@@ -50,6 +54,8 @@ from documents.models import CustomFieldInstance
 from documents.models import Document
 from documents.models import Note
 from documents.models import User
+from documents.text_normalization import ARABIC_MARKS
+from documents.text_normalization import normalize_for_search
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -60,19 +66,48 @@ if TYPE_CHECKING:
 logger = logging.getLogger("paperless.index")
 
 
+class ArabicNormalizeFilter(Filter):
+    """Folds diacritics, letter variants and digits, see normalize_for_search."""
+
+    def __call__(self, tokens):
+        for t in tokens:
+            t.text = normalize_for_search(t.text)
+            yield t
+
+
+def text_analyzer():
+    """
+    whoosh's StandardAnalyzer with two changes for Arabic: diacritics are
+    non-spacing marks, which "\\w" does not match, so the default tokenizer
+    cut "مُحَمَّد" into single letters; and tokens are folded so a query
+    matches however the word was spelled.
+
+    Changing this changes the indexed terms: bump INDEX_VERSION in
+    docker/compose/entrypoint-prod.sh so the index is rebuilt on deploy.
+    """
+    word = rf"\w[\w{ARABIC_MARKS}]*"
+    return (
+        RegexTokenizer(rf"{word}(?:\.{word})*")
+        | LowercaseFilter()
+        | ArabicNormalizeFilter()
+        | StopFilter()
+    )
+
+
 def get_schema() -> Schema:
+    analyzer = text_analyzer()
     return Schema(
         id=NUMERIC(stored=True, unique=True),
-        title=TEXT(sortable=True),
-        content=TEXT(),
+        title=TEXT(sortable=True, analyzer=analyzer),
+        content=TEXT(analyzer=analyzer),
         asn=NUMERIC(sortable=True, signed=False),
-        correspondent=TEXT(sortable=True),
+        correspondent=TEXT(sortable=True, analyzer=analyzer),
         correspondent_id=NUMERIC(),
         has_correspondent=BOOLEAN(),
         tag=KEYWORD(commas=True, scorable=True, lowercase=True),
         tag_id=KEYWORD(commas=True, scorable=True),
         has_tag=BOOLEAN(),
-        type=TEXT(sortable=True),
+        type=TEXT(sortable=True, analyzer=analyzer),
         type_id=NUMERIC(),
         has_type=BOOLEAN(),
         created=DATETIME(sortable=True),
@@ -81,9 +116,9 @@ def get_schema() -> Schema:
         path=TEXT(sortable=True),
         path_id=NUMERIC(),
         has_path=BOOLEAN(),
-        notes=TEXT(),
+        notes=TEXT(analyzer=analyzer),
         num_notes=NUMERIC(sortable=True, signed=False),
-        custom_fields=TEXT(),
+        custom_fields=TEXT(analyzer=analyzer),
         custom_field_count=NUMERIC(sortable=True, signed=False),
         has_custom_fields=BOOLEAN(),
         custom_fields_id=KEYWORD(commas=True),
@@ -519,7 +554,8 @@ def autocomplete(
         # Don't let searches with a query that happen to match a field override the
         # content field query instead and return bogus, not text data
         qp.remove_plugin_class(FieldsPlugin)
-        q = qp.parse(f"{term.lower()}*")
+        # Prefix terms skip the analyzer, so fold them like indexed terms.
+        q = qp.parse(f"{normalize_for_search(term.lower())}*")
         user_criterias: list = get_permissions_criterias(user)
 
         results = s.search(

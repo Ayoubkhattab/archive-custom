@@ -44,6 +44,30 @@ describe('parseAnswer', () => {
     expect(parsed.body).toEqual('لم يرد ذلك في المستند.')
   })
 
+  it('finds a source label appended to the last sentence', () => {
+    // As in a real answer: the label mid-line, then an invented page reference.
+    const parsed = parseAnswer(
+      'موضوع المستند شرح نظام المعلومات، ورقمه المرجعي 391. المصدر: «في دراسة هندسية شاملة للنظم المعلومات» (صفحة 1 من المستند).'
+    )
+    expect(parsed.body).toEqual(
+      'موضوع المستند شرح نظام المعلومات، ورقمه المرجعي 391.'
+    )
+    expect(parsed.quotes).toEqual(['في دراسة هندسية شاملة للنظم المعلومات'])
+  })
+
+  it('does not mistake the word المصدر without a colon for the label', () => {
+    const parsed = parseAnswer('المصدر الرئيسي للبيانات هو الوزارة.')
+    expect(parsed.body).toEqual('المصدر الرئيسي للبيانات هو الوزارة.')
+    expect(parsed.quotes).toEqual([])
+  })
+
+  it('uses long inline quotations when there is no label', () => {
+    const parsed = parseAnswer(
+      'ينص المستند على أن «مدة الضمان ثلاث سنوات من تاريخ التسليم» وأن «نعم».'
+    )
+    expect(parsed.quotes).toEqual(['مدة الضمان ثلاث سنوات من تاريخ التسليم'])
+  })
+
   it('handles an answer without a source line', () => {
     const parsed = parseAnswer('جواب بلا مصدر')
     expect(parsed.body).toEqual('جواب بلا مصدر')

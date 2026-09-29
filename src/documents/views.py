@@ -1871,6 +1871,9 @@ class DocumentAskView(GenericAPIView):
             document.content,
             question,
             settings.LLM_ASK_MAX_CONTEXT_CHARS,
+            excerpt_budget_chars=(
+                settings.LLM_ASK_FAST_EXCERPT_CHARS if mode == "fast" else None
+            ),
         )
         warm_key = _ask_warm_key(document)
         conversation = build_ask_messages(

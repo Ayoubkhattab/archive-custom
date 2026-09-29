@@ -1218,6 +1218,21 @@ OCR_COLOR_CONVERSION_STRATEGY = os.getenv(
 
 OCR_USER_ARGS = os.getenv("PAPERLESS_OCR_USER_ARGS")
 
+# Minimum resolution pages are rasterised at for OCR (ocrmypdf --oversample).
+# Empty or 0 disables it.
+OCR_OVERSAMPLE_DPI: Final[int | None] = (
+    int(os.environ["PAPERLESS_OCR_OVERSAMPLE_DPI"])
+    if os.getenv("PAPERLESS_OCR_OVERSAMPLE_DPI", "").strip()
+    else None
+)
+
+# Tesseract binarisation (ocrmypdf --tesseract-thresholding): auto, otsu,
+# adaptive-otsu or sauvola. sauvola copes better with shadows and uneven
+# lighting in phone photos and poor scans.
+OCR_THRESHOLDING: Final[str | None] = (
+    os.getenv("PAPERLESS_OCR_THRESHOLDING") or None
+)
+
 MAX_IMAGE_PIXELS: Final[int | None] = __get_optional_int(
     "PAPERLESS_MAX_IMAGE_PIXELS",
 )
@@ -1391,6 +1406,8 @@ def _get_nltk_language_setting(ocr_lang: str) -> str | None:
     """
     ocr_lang = ocr_lang.split("+")[0]
     iso_code_to_nltk = {
+        # No punkt model for Arabic; the classifier tokenizes it itself.
+        "ara": "arabic",
         "dan": "danish",
         "nld": "dutch",
         "eng": "english",
@@ -1538,4 +1555,10 @@ LLM_FAST_MAX_OUTPUT_TOKENS = int(os.getenv("PAPERLESS_AI_FAST_MAX_TOKENS", "600"
 # pre-read while the question is typed); a longer one is cut to excerpts.
 LLM_ASK_MAX_CONTEXT_CHARS = int(
     os.getenv("PAPERLESS_AI_ASK_MAX_CHARS", str(LLM_CHAT_MAX_CONTEXT_CHARS)),
+)
+# A longer document is cut to its opening plus the passages matching the
+# question; in the quick mode to at most this much, since excerpts can't be
+# pre-read and all of them are read while the person waits.
+LLM_ASK_FAST_EXCERPT_CHARS = int(
+    os.getenv("PAPERLESS_AI_ASK_FAST_EXCERPT_CHARS", "3000"),
 )

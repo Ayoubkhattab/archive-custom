@@ -54,6 +54,22 @@ if [ ! -f "${PAPERLESS_STATICDIR:-/usr/src/paperless/static}/frontend/en-US/inde
   python manage.py collectstatic --noinput
 fi
 
+# Rebuild the search index when the way it analyses text changes (see
+# text_analyzer in documents/index.py). Runs in the background so the site
+# comes up at once; search results fill in as the rebuild progresses. The
+# version is only recorded after a successful rebuild, so an interrupted one
+# is retried on the next start.
+INDEX_VERSION="arabic-1"
+index_version_file="${PAPERLESS_DATA_DIR:-/usr/src/paperless/data}/.index_version"
+if [ "$(cat "$index_version_file" 2>/dev/null)" != "$INDEX_VERSION" ]; then
+  echo "Search index is out of date, rebuilding it in the background..."
+  (
+    python manage.py document_index reindex --no-progress-bar \
+      && echo "$INDEX_VERSION" > "$index_version_file" \
+      && echo "Search index rebuilt."
+  ) &
+fi
+
 # Start production server (GRANIAN_WORKERS workers, default 4; no reload).
 # asginl: Django has no ASGI lifespan support, so "asgi" logs a lifespan error
 # on every worker start. Same flags as the upstream image's s6 service.

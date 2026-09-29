@@ -26,6 +26,7 @@ from documents.caching import CLASSIFIER_VERSION_KEY
 from documents.caching import StoredLRUCache
 from documents.models import Document
 from documents.models import MatchingModel
+from documents.text_normalization import normalize_for_search
 
 logger = logging.getLogger("paperless.classifier")
 
@@ -96,7 +97,8 @@ class DocumentClassifier:
     # v7 - Updated scikit-learn package version
     # v8 - Added storage path classifier
     # v9 - Changed from hashing to time/ids for re-train check
-    FORMAT_VERSION = 9
+    # v10 - Arabic diacritics/letter variants folded before tokenizing
+    FORMAT_VERSION = 10
 
     def __init__(self) -> None:
         # last time a document changed and therefore training might be required
@@ -401,8 +403,12 @@ class DocumentClassifier:
                 # Sometimes, somehow, there's multiple threads loading the corpus
                 # and it's not thread safe, raising an AttributeError
                 self._stemmer = SnowballStemmer(settings.NLTK_LANGUAGE)
-                self._stop_words = frozenset(stopwords.words(settings.NLTK_LANGUAGE))
-            except AttributeError:
+                # Folded like the content, or "إلى" would no longer match.
+                self._stop_words = frozenset(
+                    normalize_for_search(word)
+                    for word in stopwords.words(settings.NLTK_LANGUAGE)
+                )
+            except (AttributeError, LookupError, OSError):
                 logger.debug("Could not initialize NLTK for advanced text processing.")
                 return False
         return True
@@ -456,8 +462,10 @@ class DocumentClassifier:
         This is unnecessary when training the classifier.
         """
 
-        # Lower case the document, reduce space,
+        # Drop Arabic diacritics first: they are not "\w", so they would cut
+        # words in pieces. Then lower case the document, reduce space,
         # and keep only letters and digits.
+        content = normalize_for_search(content)
         content = " ".join(match.group().lower() for match in RE_WORD.finditer(content))
 
         if ADVANCED_TEXT_PROCESSING_ENABLED:
@@ -467,7 +475,12 @@ class DocumentClassifier:
                 return content
             # Tokenize
             # This splits the content into tokens, roughly words
-            words = word_tokenize(content, language=settings.NLTK_LANGUAGE)
+            if settings.NLTK_LANGUAGE == "arabic":
+                # punkt has no Arabic model; the content is already one
+                # space separated word per token.
+                words = content.split()
+            else:
+                words = word_tokenize(content, language=settings.NLTK_LANGUAGE)
             # Stem the words and skip stop words
             content = self.stem_and_skip_stop_words(words, shared_cache=shared_cache)
 

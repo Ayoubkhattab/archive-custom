@@ -63,7 +63,8 @@
                 </div>
               }
               @case ('streaming') {
-                <div class="ask-plain">{{ m.content }}<span class="ask-cursor" aria-hidden="true"></span></div>
+                <div class="ask-markdown" [innerHTML]="renderMarkdown(m)"></div>
+                <span class="ask-cursor" aria-hidden="true"></span>
               }
               @case ('error') {
                 <div class="ask-error-text">

@@ -294,9 +294,13 @@
   }
 }
 
+// The answer is inserted with [innerHTML], which Angular's style scoping does
+// not reach, hence ::ng-deep (still confined to this panel by .ask-markdown).
 .ask-markdown {
   overflow-wrap: anywhere;
+}
 
+:host ::ng-deep .ask-markdown {
   :is(p, ul, ol) {
     margin-bottom: 0.5rem;
   }
@@ -309,6 +313,63 @@
     font-size: 0.95rem;
     font-weight: 700;
     margin: 0.75rem 0 0.35rem;
+  }
+
+  // "- **Item:** value" answers: one fact per row, the label in the brand
+  // colour so the eye can run down the list.
+  ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  ul > li {
+    position: relative;
+    padding: 0.4rem 0.7rem;
+    padding-inline-start: 1.1rem;
+    border-radius: var(--pngx-radius);
+    background-color: var(--pngx-surface-2);
+    line-height: 1.7;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset-inline-start: 0.45rem;
+      top: 0.55rem;
+      bottom: 0.55rem;
+      width: 3px;
+      border-radius: var(--pngx-radius-pill);
+      background-color: var(--pngx-brand-wheat);
+    }
+  }
+
+  ol {
+    padding-inline-start: 1.25rem;
+
+    > li {
+      margin-bottom: 0.25rem;
+    }
+  }
+
+  strong {
+    font-weight: 700;
+    color: var(--bs-primary);
+  }
+
+  // Values the document doesn't contain: visibly not a fact.
+  .ask-missing {
+    padding: 0 0.4rem;
+    border-radius: var(--pngx-radius-sm);
+    background-color: color-mix(in srgb, var(--pngx-brand-wheat) 22%, transparent);
+    color: var(--bs-secondary-color);
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+
+  code {
+    unicode-bidi: plaintext;
   }
 }
 

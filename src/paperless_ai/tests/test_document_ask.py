@@ -107,3 +107,40 @@ class TestBuildMessages:
             question="س",
         )
         assert "مقتطفات" in messages[0][1]
+
+
+class TestQuickModeExcerpts:
+    def test_quick_answers_send_fewer_excerpts(self):
+        content = "\n\n".join(["البداية " + FILLER] + [FILLER] * 20)
+        full = select_context("عقد", content, "ما الموضوع؟", 8000)
+        quick = select_context(
+            "عقد",
+            content,
+            "ما الموضوع؟",
+            8000,
+            excerpt_budget_chars=2000,
+        )
+        assert not quick.complete
+        assert len(quick.text) < len(full.text)
+        assert len(quick.text) <= 2200
+
+    def test_whole_document_is_unaffected_by_the_excerpt_budget(self):
+        # A document that fits is sent whole in every mode, so it can be
+        # pre-read once and reused.
+        context = select_context(
+            "عقد",
+            "نص قصير",
+            "سؤال",
+            8000,
+            excerpt_budget_chars=100,
+        )
+        assert context.complete
+
+
+def test_prompt_shows_the_expected_shape():
+    from paperless_ai.document_ask import ASK_SYSTEM_PROMPT
+    from paperless_ai.document_ask import NOT_MENTIONED
+
+    assert "- **" in ASK_SYSTEM_PROMPT
+    assert NOT_MENTIONED in ASK_SYSTEM_PROMPT
+    assert f"{SOURCE_LABEL} «" in ASK_SYSTEM_PROMPT

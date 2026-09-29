@@ -17,6 +17,8 @@ from django.utils import timezone
 
 from documents.loggers import LoggingMixin
 from documents.signals import document_consumer_declaration
+from documents.text_normalization import normalize_extracted_text
+from documents.text_normalization import to_ascii_digits
 from documents.utils import copy_file_with_basic_stats
 from documents.utils import run_subprocess
 from paperless.config import OcrConfig
@@ -46,6 +48,8 @@ DATE_REGEX = re.compile(
     r"(\b|(?!=([_-])))(\d{1,2})[\.\/-](\d{1,2})[\.\/-](\d{4}|\d{2})(\b|(?=([_-])))|"
     r"(\b|(?!=([_-])))(\d{4}|\d{2})[\.\/-](\d{1,2})[\.\/-](\d{1,2})(\b|(?=([_-])))|"
     r"(\b|(?!=([_-])))(\d{1,2}[\. ]+[a-zéûäëčžúřěáíóńźçŞğü]{3,9} \d{4}|[a-zéûäëčžúřěáíóńźçŞğü]{3,9} \d{1,2}, \d{4})(\b|(?=([_-])))|"
+    # Arabic month names: "15 مارس 2024", "15 من مارس، 2024"
+    r"(\b|(?!=([_-])))(\d{1,2}[\. ]+(?:من )?[ء-ي]{3,9}[ ,،]+\d{4})(\b|(?=([_-])))|"
     r"(\b|(?!=([_-])))([^\W\d_]{3,9} \d{1,2}, (\d{4}))(\b|(?=([_-])))|"
     r"(\b|(?!=([_-])))([^\W\d_]{3,9} \d{4})(\b|(?=([_-])))|"
     r"(\b|(?!=([_-])))(\d{1,2}[^ 0-9]{2}[\. ]+[^ ]{3,9}[ \.\/-]\d{4})(\b|(?=([_-])))|"
@@ -304,7 +308,10 @@ def parse_date_generator(filename, text) -> Iterator[datetime.datetime]:
         match: Match[str],
         date_order: str,
     ) -> datetime.datetime | None:
-        date_string = match.group(0)
+        # dateparser reads neither Arabic-Indic digits nor "15 من مارس، 2024".
+        date_string = (
+            to_ascii_digits(match.group(0)).replace("،", " ").replace(" من ", " ")
+        )
 
         try:
             date = __parser(date_string, date_order)
@@ -396,7 +403,9 @@ class DocumentParser(LoggingMixin):
         raise NotImplementedError
 
     def get_text(self):
-        return self.text
+        # Every parser's output goes through here, so Arabic extraction
+        # artefacts are repaired no matter which parser produced the text.
+        return normalize_extracted_text(self.text)
 
     def get_date(self) -> datetime.datetime | None:
         return self.date

@@ -43,28 +43,45 @@ HISTORY_MESSAGE_CHARS = 1500
 HEAD_CHARS = 1200
 PASSAGE_CHARS = 700
 
-# The interface parses the line that starts with this label.
+# The interface looks for this label to find the quotes.
 SOURCE_LABEL = "المصدر:"
 NOT_IN_DOCUMENT = "لم يرد ذلك في المستند."
 
+NOT_MENTIONED = "غير مذكور في المستند"
+
+# Small models follow the shape of an example far more reliably than a list of
+# rules, so the expected output is shown once. It stays in the system prompt,
+# which never changes for a document (see the module docstring on caching).
 ASK_SYSTEM_PROMPT = (
     "أنت مدقق مستندات دقيق. تجيب عن أسئلة المستخدم عن مستند واحد محدد، "
     "اعتماداً على نصه المرفق أدناه وحده.\n"
     "القواعد:\n"
-    "1. لا تستعمل أي معلومة من خارج نص المستند، ولا تخمّن ولا تفترض ما لم يُذكر فيه.\n"
-    "2. ابدأ بالجواب مباشرة، في جملة أو بضع جمل، أو قائمة قصيرة إن طلب السؤال عدة "
-    "عناصر، دون مقدمات.\n"
-    "3. انقل الأرقام والتواريخ والأسماء والمبالغ والأرقام المرجعية كما وردت في النص "
-    "حرفياً.\n"
-    f"4. بعد الجواب اكتب سطراً مستقلاً يبدأ بـ {SOURCE_LABEL} يليه اقتباس حرفي قصير، "
-    "أو اقتباسان، من نص المستند بين علامتي « » يثبت الجواب. انسخ الاقتباس من النص "
-    "كما هو تماماً دون إعادة صياغة.\n"
-    f"5. إذا لم يكن الجواب في النص فاكتب فقط: {NOT_IN_DOCUMENT} ولا تكتب سطر المصدر.\n"
-    "6. النص مستخرج بالتعرف الضوئي على الحروف وقد يحوي أخطاء إملائية بسيطة؛ "
+    "1. لا تستعمل أي معلومة من خارج نص المستند، ولا تخمّن ولا تستنتج ما لم "
+    "يُكتب فيه صراحةً.\n"
+    "2. ابدأ بالجواب مباشرة دون مقدمات ولا تكرار للسؤال.\n"
+    "3. إذا سأل عن أكثر من معلومة فاكتب قائمة نقطية، كل عنصر بالشكل: "
+    "- **اسم المعلومة:** قيمتها\n"
+    f"4. إذا طُلبت معلومة غير موجودة في النص فاكتب قيمتها: {NOT_MENTIONED}. "
+    "لا تضع مكانها رقماً أو تاريخاً آخر من النص يخص شيئاً مختلفاً.\n"
+    "5. انقل الأرقام والتواريخ والأسماء والمبالغ والأرقام المرجعية كما وردت في "
+    "النص حرفياً، ولا تذكر أرقام صفحات أو مواضع لم ترد في النص.\n"
+    f"6. في آخر الإجابة، وفي سطر مستقل وحده، اكتب {SOURCE_LABEL} ثم اقتباساً "
+    "حرفياً قصيراً (أو اقتباسين) من نص المستند بين « » يثبت الجواب، منسوخاً كما "
+    "هو دون تعديل. لا تضع المصدر داخل فقرة الجواب.\n"
+    f"7. إذا لم يكن في النص أي شيء يجيب عن السؤال فاكتب فقط: {NOT_IN_DOCUMENT} "
+    "دون سطر مصدر.\n"
+    "8. النص مستخرج بالتعرف الضوئي على الحروف وقد يحوي أخطاء إملائية بسيطة؛ "
     "اعتمد المعنى الأقرب ولا تصحح الاقتباس.\n"
-    "You check ONE document. Answer only from its text below, then add a line "
-    f"'{SOURCE_LABEL} «verbatim quote»'. If the text does not contain the answer, "
-    "say so and give no source line.\n"
+    "\n"
+    "مثال على شكل الإجابة (المحتوى مثال فقط):\n"
+    "السؤال: ما تاريخ العقد ومدته ورقمه؟\n"
+    "- **تاريخ العقد:** 2024/03/01\n"
+    "- **مدة العقد:** سنتان\n"
+    f"- **رقم العقد:** {NOT_MENTIONED}\n"
+    f"{SOURCE_LABEL} «أبرم هذا العقد بتاريخ 2024/03/01» «ومدته سنتان»\n"
+    "\n"
+    "You check ONE document. Answer only from its text below, in the format "
+    f"above, ending with a separate line '{SOURCE_LABEL} «verbatim quote»'.\n"
 )
 
 DEEP_STYLE = (
@@ -113,6 +130,7 @@ def select_context(
     content: str | None,
     question: str,
     budget_chars: int,
+    excerpt_budget_chars: int | None = None,
 ) -> DocumentContext:
     """
     What of the document to put in front of the model.
@@ -124,6 +142,12 @@ def select_context(
     text = (content or "").strip()
     if len(text) <= budget_chars:
         return DocumentContext(text=text, complete=True)
+
+    # Excerpts can't be pre-read (they depend on the question), so every
+    # character of them is read while the person waits: a quick answer sends
+    # fewer of them than the whole-document budget would allow.
+    if excerpt_budget_chars:
+        budget_chars = min(budget_chars, excerpt_budget_chars)
 
     head = _cut(text[:HEAD_CHARS], min(HEAD_CHARS, budget_chars // 4))
     remaining = budget_chars - len(head) - 80

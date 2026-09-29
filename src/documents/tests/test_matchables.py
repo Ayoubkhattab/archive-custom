@@ -236,6 +236,33 @@ class TestMatching(_TestMatchingBase):
         )
 
 
+class TestArabicMatching(_TestMatchingBase):
+    def test_match_any_ignores_arabic_spelling_variants(self):
+        self._test_matching(
+            "فاتورة أحمد",
+            "MATCH_ANY",
+            ["رقم فاتوره", "فاتورة", "السيد احمد", "السيد أَحْمَد"],
+            ["محمد", "فاتورات"],
+        )
+
+    def test_match_literal_ignores_arabic_spelling_variants(self):
+        self._test_matching(
+            "وزارة الصحة",
+            "MATCH_LITERAL",
+            ["خطاب وزارة الصحه", "وِزَارَة الصِّحَّة"],
+            ["وزارة التعليم"],
+        )
+
+    def test_case_sensitive_keeps_exact_spelling(self):
+        self._test_matching(
+            "فاتورة",
+            "MATCH_ANY",
+            ["فاتورة"],
+            ["فاتوره"],
+            case_sensitive=True,
+        )
+
+
 class TestCaseSensitiveMatching(_TestMatchingBase):
     def test_match_all(self):
         self._test_matching(

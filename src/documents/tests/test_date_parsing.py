@@ -46,6 +46,28 @@ class TestDate:
         )
         assert parse_date("", text) is None
 
+    def test_date_arabic_indic_digits(self, settings_timezone: ZoneInfo):
+        text = "التاريخ: ١٥/٠٣/٢٠٢٣ م"
+        date = parse_date("", text)
+        assert date == datetime.datetime(2023, 3, 15, 0, 0, tzinfo=settings_timezone)
+
+    def test_date_arabic_month_name(
+        self,
+        settings: SettingsWrapper,
+        settings_timezone: ZoneInfo,
+    ):
+        settings.DATE_PARSER_LANGUAGES = ["ar", "en"]
+        for text in ["صدر في 15 مارس 2023", "صدر في ١٥ مارس، ٢٠٢٣"]:
+            date = parse_date("", text)
+            assert date == datetime.datetime(
+                2023,
+                3,
+                15,
+                0,
+                0,
+                tzinfo=settings_timezone,
+            ), text
+
     def test_date_format_7(
         self,
         settings: SettingsWrapper,

@@ -31,9 +31,16 @@ export interface ParsedAnswer {
   notInDocument: boolean
 }
 
-// The label may be bolded by the model and use either colon.
-const SOURCE_LINE =
-  /(^|\n)[ \t>*_-]*(?:المصدر|المصادر|المرجع|Sources?)[ \t*_]*[:：]/giu
+// The label may be bolded by the model, use either colon, and, although it is
+// asked to put it on a line of its own, small models often append it to the
+// last sentence ("… 391. المصدر: «…»"), so it is found anywhere after a space
+// or punctuation. A colon is required, so the plain word "المصدر" in an
+// answer is not mistaken for it.
+const SOURCE_LABEL =
+  /(^|[\s(.،؛:])[>*_-]*[ \t]*(?:المصدر|المصادر|المرجع|Sources?)[ \t*_]*[:：]/giu
+
+// Without a label, only a quotation long enough to be evidence counts.
+const MIN_UNLABELLED_QUOTE_WORDS = 4
 
 const QUOTE = /«([^»]{2,}?)»|“([^”]{2,}?)”|"([^"\n]{2,}?)"/gu
 
@@ -46,19 +53,30 @@ const PARTIAL_THRESHOLD = 0.8
 export function parseAnswer(text: string): ParsedAnswer {
   const source = text ?? ''
   let sourceStart = -1
-  for (const match of source.matchAll(SOURCE_LINE)) {
+  for (const match of source.matchAll(SOURCE_LABEL)) {
     sourceStart = match.index + match[1].length
   }
 
-  const body = (
-    sourceStart >= 0 ? source.slice(0, sourceStart) : source
-  ).trim()
+  const body = (sourceStart >= 0 ? source.slice(0, sourceStart) : source)
+    .trim()
+    // What a mid-sentence label leaves behind ("…391. " or "…(").
+    .replace(/[\s،؛:(]+$/u, '')
   const tail = sourceStart >= 0 ? source.slice(sourceStart) : ''
 
   const quotes: string[] = []
   for (const match of tail.matchAll(QUOTE)) {
     const quote = (match[1] ?? match[2] ?? match[3] ?? '').trim()
     if (quote && !quotes.includes(quote)) quotes.push(quote)
+  }
+  if (sourceStart < 0) {
+    // No label: the model may still have quoted the document inline.
+    for (const match of body.matchAll(QUOTE)) {
+      const quote = (match[1] ?? match[2] ?? match[3] ?? '').trim()
+      const words = quote.split(/\s+/).filter(Boolean).length
+      if (words >= MIN_UNLABELLED_QUOTE_WORDS && !quotes.includes(quote)) {
+        quotes.push(quote)
+      }
+    }
   }
 
   return {

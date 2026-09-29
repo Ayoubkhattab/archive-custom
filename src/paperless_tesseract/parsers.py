@@ -10,12 +10,21 @@ from PIL import Image
 from documents.parsers import DocumentParser
 from documents.parsers import ParseError
 from documents.parsers import make_thumbnail_from_pdf
+from documents.text_normalization import looks_garbled
 from documents.utils import maybe_override_pixel_limit
 from documents.utils import run_subprocess
 from paperless.config import OcrConfig
 from paperless.models import ArchiveFileChoices
 from paperless.models import CleanChoices
 from paperless.models import ModeChoices
+
+
+# What ocrmypdf writes to the sidecar for pages it did not OCR, e.g.
+# "[OCR skipped on page 2]" or "[OCR skipped on page(s) 4-6]".
+OCR_SKIPPED_MARKER = "[OCR skipped on page"
+OCR_SKIPPED_PAGES = re.compile(
+    r"\[OCR skipped on page(?:\(s\))? (\d+)(?:\s*-\s*(\d+))?\]",
+)
 
 
 class NoTextFoundException(Exception):
@@ -165,21 +174,31 @@ class RasterisedDocumentParser(DocumentParser):
         ):
             text = self.read_file_handle_unicode_errors(sidecar_file)
 
-            if "[OCR skipped on page" not in text:
-                # This happens when there's already text in the input file.
-                # The sidecar file will only contain text for OCR'ed pages.
+            if OCR_SKIPPED_MARKER not in text:
                 self.log.debug("Using text from sidecar file")
                 return post_process_text(text)
-            else:
-                self.log.debug("Incomplete sidecar file: discarding.")
+
+            # This happens when there's already text in the input file: the
+            # sidecar only has text for the pages OCR'ed. Take the other
+            # pages from the PDF but keep Tesseract's own text for scanned
+            # pages, rather than reading it back out of the invisible text
+            # layer, which loses line structure (and, for Arabic, often the
+            # word order).
+            merged = self.merge_sidecar_with_pdf_text(text, pdf_file)
+            if merged is not None:
+                self.log.debug("Using sidecar text merged with PDF text")
+                return post_process_text(merged)
+            self.log.debug("Incomplete sidecar file: discarding.")
 
         # no success with the sidecar file, try PDF
+        return post_process_text(self.pdftotext(pdf_file))
 
+    def pdftotext(self, pdf_file: Path) -> str | None:
+        """Text layer of the PDF, pages separated by form feeds."""
         if not Path(pdf_file).is_file():
             return None
 
         try:
-            text = None
             with tempfile.NamedTemporaryFile(
                 mode="w+",
                 dir=self.tempdir,
@@ -196,9 +215,7 @@ class RasterisedDocumentParser(DocumentParser):
                     ],
                     logger=self.log,
                 )
-                text = self.read_file_handle_unicode_errors(Path(tmp.name))
-
-            return post_process_text(text)
+                return self.read_file_handle_unicode_errors(Path(tmp.name))
 
         except Exception:
             #  If pdftotext fails, fall back to OCR.
@@ -208,6 +225,45 @@ class RasterisedDocumentParser(DocumentParser):
             )
             # probably not a PDF file.
             return None
+
+    def merge_sidecar_with_pdf_text(
+        self,
+        sidecar_text: str,
+        pdf_file: Path,
+    ) -> str | None:
+        """
+        Replaces each "[OCR skipped on page N]" placeholder of the sidecar
+        with that page's text from the PDF. None if the pages don't line up.
+        """
+        pdf_text = self.pdftotext(pdf_file)
+        if pdf_text is None:
+            return None
+
+        # None stands for a page OCR skipped. One placeholder can cover a run
+        # of pages: "[OCR skipped on page(s) 4-6]".
+        ocr_pages: list[str | None] = []
+        for chunk in _split_pages(sidecar_text):
+            skipped = OCR_SKIPPED_PAGES.search(chunk)
+            if skipped:
+                first = int(skipped.group(1))
+                last = int(skipped.group(2) or first)
+                ocr_pages.extend([None] * (last - first + 1))
+            elif OCR_SKIPPED_MARKER in chunk:
+                return None  # a placeholder format we don't know
+            else:
+                ocr_pages.append(chunk)
+
+        pdf_pages = _split_pages(pdf_text)
+        if len(ocr_pages) != len(pdf_pages):
+            self.log.debug(
+                f"Sidecar has {len(ocr_pages)} pages, PDF text {len(pdf_pages)}",
+            )
+            return None
+
+        return "\n\n".join(
+            pdf_page if ocr_page is None else ocr_page
+            for ocr_page, pdf_page in zip(ocr_pages, pdf_pages)
+        )
 
     def construct_ocrmypdf_parameters(
         self,
@@ -305,6 +361,14 @@ class RasterisedDocumentParser(DocumentParser):
                     f"Image DPI of {ocrmypdf_args['image_dpi']} is low, OCR may fail",
                 )
 
+        # Tesseract reads Arabic well at ~300 DPI: joined letters and dots
+        # blur together below that. Only low-resolution pages are upscaled.
+        if settings.OCR_OVERSAMPLE_DPI:
+            ocrmypdf_args["oversample"] = settings.OCR_OVERSAMPLE_DPI
+
+        if settings.OCR_THRESHOLDING:
+            ocrmypdf_args["tesseract_thresholding"] = settings.OCR_THRESHOLDING
+
         if self.settings.user_args is not None:
             try:
                 ocrmypdf_args = {**ocrmypdf_args, **self.settings.user_args}
@@ -344,6 +408,19 @@ class RasterisedDocumentParser(DocumentParser):
             text_original = None
             original_has_text = False
 
+        # A text layer made from fonts without a Unicode mapping is common in
+        # Arabic PDFs. Skipping OCR because "the page has text" would store
+        # that gibberish, so OCR every page instead.
+        force_ocr = original_has_text and looks_garbled(
+            text_original,
+            expect_arabic="ara" in (self.settings.language or "").split("+"),
+        )
+        if force_ocr:
+            self.log.warning(
+                "The text layer of this PDF is unreadable, replacing it with OCR.",
+            )
+            original_has_text = False
+
         # If the original has text, and the user doesn't want an archive,
         # we're done here
         skip_archive_for_text = (
@@ -377,6 +454,7 @@ class RasterisedDocumentParser(DocumentParser):
             mime_type,
             archive_path,
             sidecar_file,
+            safe_fallback=force_ocr,
         )
 
         try:
@@ -457,6 +535,15 @@ class RasterisedDocumentParser(DocumentParser):
                     f"No text was found in {document_path}, the content will be empty.",
                 )
                 self.text = ""
+
+
+def _split_pages(text: str) -> list[str]:
+    # Pages are separated by form feeds; pdftotext also ends the last page
+    # with one, which would otherwise count as an extra empty page.
+    pages = text.split("\f")
+    if text.endswith("\f"):
+        pages.pop()
+    return pages
 
 
 def post_process_text(text):
