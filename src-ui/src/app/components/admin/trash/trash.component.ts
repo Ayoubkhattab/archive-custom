@@ -14,6 +14,7 @@ import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
 import { TrashService } from 'src/app/services/trash.service'
 import { ConfirmDialogComponent } from '../../common/confirm-dialog/confirm-dialog.component'
+import { EmptyStateComponent } from '../../common/empty-state/empty-state.component'
 import { PageHeaderComponent } from '../../common/page-header/page-header.component'
 import { PreviewPopupComponent } from '../../common/preview-popup/preview-popup.component'
 import { LoadingComponentWithPermissions } from '../../loading-component/loading.component'
@@ -23,6 +24,7 @@ import { LoadingComponentWithPermissions } from '../../loading-component/loading
   templateUrl: './trash.component.html',
   styleUrl: './trash.component.scss',
   imports: [
+    EmptyStateComponent,
     PageHeaderComponent,
     PreviewPopupComponent,
     FormsModule,

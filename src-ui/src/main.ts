@@ -152,6 +152,13 @@ import {
   x,
   xCircle,
   xLg,
+  arrowReturnLeft,
+  calendarWeek,
+  cloudArrowUp,
+  command,
+  fileEarmarkText,
+  inbox,
+  keyboard,
 } from 'ngx-bootstrap-icons'
 import { ColorSliderModule } from 'ngx-color/slider'
 import { CookieService } from 'ngx-cookie-service'
@@ -381,6 +388,13 @@ const icons = {
   x,
   xCircle,
   xLg,
+  arrowReturnLeft,
+  calendarWeek,
+  cloudArrowUp,
+  command,
+  fileEarmarkText,
+  inbox,
+  keyboard,
 }
 
 if (environment.production) {

@@ -15,6 +15,7 @@ import { CustomDatePipe } from 'src/app/pipes/custom-date.pipe'
 import { PermissionType } from 'src/app/services/permissions.service'
 import { CorrespondentService } from 'src/app/services/rest/correspondent.service'
 import { CorrespondentEditDialogComponent } from '../../common/edit-dialog/correspondent-edit-dialog/correspondent-edit-dialog.component'
+import { EmptyStateComponent } from '../../common/empty-state/empty-state.component'
 import { PageHeaderComponent } from '../../common/page-header/page-header.component'
 import { ManagementListComponent } from '../management-list/management-list.component'
 
@@ -26,6 +27,7 @@ import { ManagementListComponent } from '../management-list/management-list.comp
   imports: [
     SortableDirective,
     IfPermissionsDirective,
+    EmptyStateComponent,
     PageHeaderComponent,
     TitleCasePipe,
     FormsModule,

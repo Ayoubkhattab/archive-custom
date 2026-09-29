@@ -92,7 +92,7 @@ export class HotKeyService {
     })
   }
 
-  private openHelpModal() {
+  public openHelpModal() {
     const modal = this.modalService.open(HotkeyDialogComponent)
     modal.componentInstance.hotkeys = this.hotkeys
   }

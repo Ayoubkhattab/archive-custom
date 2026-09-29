@@ -8,11 +8,14 @@ import {
 import { NgClass } from '@angular/common'
 import {
   Component,
+  DestroyRef,
+  ElementRef,
   HostListener,
   inject,
   OnInit,
   ViewChild,
 } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { ActivatedRoute, Router, RouterModule } from '@angular/router'
 import {
   NgbCollapseModule,
@@ -35,6 +38,8 @@ import {
   DjangoMessageLevel,
   DjangoMessagesService,
 } from 'src/app/services/django-messages.service'
+import { CommandPaletteService } from 'src/app/services/command-palette.service'
+import { HotKeyService } from 'src/app/services/hot-key.service'
 import { OpenDocumentsService } from 'src/app/services/open-documents.service'
 import {
   PermissionAction,
@@ -95,6 +100,9 @@ export class AppFrameComponent
   private modalService = inject(NgbModal)
   permissionsService = inject(PermissionsService)
   private djangoMessagesService = inject(DjangoMessagesService)
+  private commandPaletteService = inject(CommandPaletteService)
+  private hotKeyService = inject(HotKeyService)
+  private destroyRef = inject(DestroyRef)
 
   appRemoteVersion: AppRemoteVersion
 
@@ -119,6 +127,14 @@ export class AppFrameComponent
   }
 
   ngOnInit(): void {
+    this.hotKeyService
+      .addShortcut({
+        keys: 'control.k',
+        description: $localize`:@@palette.title:Quick access`,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.commandPaletteService.toggle())
+
     if (this.settingsService.get(SETTINGS_KEYS.UPDATE_CHECKING_ENABLED)) {
       this.checkForUpdates()
     }
@@ -176,6 +192,7 @@ export class AppFrameComponent
   }
 
   @ViewChild('chatWidget') private chatWidget?: ChatComponent
+  @ViewChild('mainContent') private mainContent?: ElementRef<HTMLElement>
 
   openChat(): void {
     this.closeMenu()
@@ -189,15 +206,13 @@ export class AppFrameComponent
   darkModeToggleLabelLight = $localize`Light mode`
   darkModeToggleLabelDark = $localize`Dark mode`
 
+  openCommandPalette(): void {
+    this.closeMenu()
+    this.commandPaletteService.open()
+  }
+
   toggleDarkMode(): void {
-    const enabled = !this.darkModeEnabled
-    this.settingsService.set(SETTINGS_KEYS.DARK_MODE_USE_SYSTEM, false)
-    this.settingsService.set(SETTINGS_KEYS.DARK_MODE_ENABLED, enabled)
-    this.settingsService.updateAppearanceSettings(false, enabled)
-    this.settingsService
-      .storeSettings()
-      .pipe(first())
-      .subscribe()
+    this.settingsService.toggleDarkMode()
   }
 
   get slimSidebarEnabled(): boolean {
@@ -225,6 +240,15 @@ export class AppFrameComponent
 
   closeMenu() {
     this.isMenuCollapsed = true
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    this.closeMenu()
+  }
+
+  skipToContent() {
+    this.mainContent?.nativeElement.focus()
   }
 
   editProfile() {

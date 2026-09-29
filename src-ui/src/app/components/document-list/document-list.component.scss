@@ -12,6 +12,14 @@ tr {
   background-color: var(--pngx-primary-faded);
 }
 
+// Hover has no touch equivalent, so the selection checkbox that normally
+// appears on card hover is always visible on touch devices.
+@media (hover: none) {
+  :host ::ng-deep .document-card-check {
+    display: block;
+  }
+}
+
 $paperless-card-breakpoints: (
   // 0: 2, // xs is manual for slim-sidebar
   768px: 3, //md

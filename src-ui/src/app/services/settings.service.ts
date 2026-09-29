@@ -431,6 +431,30 @@ export class SettingsService {
     ).trim()
   }
 
+  /**
+   * Flip between light and dark, leaving "follow the system" behind. Where the
+   * View Transitions API exists the whole page crossfades between themes;
+   * elsewhere (and with reduced motion) the switch is instant.
+   */
+  public toggleDarkMode(): void {
+    const enabled = !this.get(SETTINGS_KEYS.DARK_MODE_ENABLED)
+    this.set(SETTINGS_KEYS.DARK_MODE_USE_SYSTEM, false)
+    this.set(SETTINGS_KEYS.DARK_MODE_ENABLED, enabled)
+    const apply = () => this.updateAppearanceSettings(false, enabled)
+    const doc = this.document as Document & {
+      startViewTransition?: (callback: () => void) => unknown
+    }
+    if (
+      doc.startViewTransition &&
+      !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      doc.startViewTransition(apply)
+    } else {
+      apply()
+    }
+    this.storeSettings().pipe(first()).subscribe()
+  }
+
   public updateAppearanceSettings(
     darkModeUseSystem = null,
     darkModeEnabled = null,

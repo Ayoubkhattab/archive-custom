@@ -1,0 +1,835 @@
+// ---------------------------------------------------------------------------
+// أرشيف المعلومات design system
+//
+// Loaded last from `_app-styles.scss`, so it refines Bootstrap and the older
+// per-feature overrides without having to fight them with !important.
+//
+// The identity palette itself is fixed and is only *named* here, never
+// re-tinted: Forest, Golden Wheat, Sand, Deep Umber and the two night greens.
+// Everything else (surfaces, hover tints, shadows, focus rings) is derived
+// from those with `color-mix()`, so a change to a brand colour flows through.
+// ---------------------------------------------------------------------------
+
+// Identity palette ----------------------------------------------------------
+:root {
+  --pngx-brand-forest: #428177;
+  --pngx-brand-forest-deep: #054239;
+  --pngx-brand-forest-night: #002623;
+  --pngx-brand-wheat: #b9a779;
+  --pngx-brand-wheat-deep: #988561;
+  --pngx-brand-sand: #edebe0;
+  --pngx-brand-umber: #6b1f2a;
+}
+
+// Scales --------------------------------------------------------------------
+:root {
+  // Radius
+  --pngx-radius-sm: 0.375rem;
+  --pngx-radius: 0.625rem;
+  --pngx-radius-lg: 0.875rem;
+  --pngx-radius-xl: 1.25rem;
+  --pngx-radius-pill: 999px;
+  --bs-border-radius: var(--pngx-radius);
+  --bs-border-radius-sm: var(--pngx-radius-sm);
+  --bs-border-radius-lg: var(--pngx-radius-lg);
+  --bs-border-radius-xl: var(--pngx-radius-xl);
+  --bs-border-radius-pill: var(--pngx-radius-pill);
+
+  // Motion. One easing curve for everything that moves, so the app feels of
+  // a piece; durations short enough never to be in the way.
+  --pngx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --pngx-duration-fast: 120ms;
+  --pngx-duration: 200ms;
+  --pngx-duration-slow: 320ms;
+
+  // Fluid type for page titles: grows with the viewport between phone and
+  // desktop instead of jumping at a breakpoint.
+  --pngx-font-size-title: clamp(1.25rem, 1.05rem + 0.9vw, 1.75rem);
+
+  // Touch target minimum (WCAG 2.5.8 / platform guidelines)
+  --pngx-touch-target: 44px;
+
+  // Layout
+  --pngx-navbar-height: 56px;
+}
+
+// Surfaces ------------------------------------------------------------------
+// canvas  – the page behind everything (a whisper of Sand)
+// surface – cards, sidebar, menus, inputs
+// surface-2 – hover / selected rows, table heads
+:root {
+  --pngx-canvas: color-mix(in srgb, var(--pngx-brand-sand) 45%, #ffffff);
+  --pngx-surface: #ffffff;
+  --pngx-surface-2: color-mix(in srgb, var(--pngx-brand-sand) 60%, #ffffff);
+  --pngx-hairline: color-mix(in srgb, var(--pngx-brand-wheat) 40%, transparent);
+  --pngx-hover-tint: color-mix(in srgb, var(--pngx-brand-forest) 8%, transparent);
+  --pngx-active-tint: color-mix(in srgb, var(--pngx-brand-forest) 14%, transparent);
+  --pngx-focus-ring: 0 0 0 3px color-mix(in srgb, var(--bs-primary) 35%, transparent);
+
+  // Shadows are tinted with the night green instead of pure black, so
+  // elevation reads as part of the palette rather than a grey smudge.
+  --pngx-shadow-color: 174deg 100% 7%;
+  --pngx-shadow-sm: 0 1px 2px hsl(var(--pngx-shadow-color) / 0.05), 0 2px 8px hsl(var(--pngx-shadow-color) / 0.04);
+  --pngx-shadow-md: 0 2px 4px hsl(var(--pngx-shadow-color) / 0.06), 0 8px 24px hsl(var(--pngx-shadow-color) / 0.08);
+  --pngx-shadow-lg: 0 4px 8px hsl(var(--pngx-shadow-color) / 0.08), 0 20px 40px hsl(var(--pngx-shadow-color) / 0.14);
+}
+
+@mixin pngx-dark-surfaces {
+  --pngx-canvas: var(--pngx-brand-forest-night);
+  --pngx-surface: color-mix(in srgb, var(--pngx-brand-forest-deep) 40%, var(--pngx-brand-forest-night));
+  --pngx-surface-2: var(--pngx-brand-forest-deep);
+  --pngx-hairline: color-mix(in srgb, var(--pngx-brand-forest) 45%, transparent);
+  --pngx-hover-tint: color-mix(in srgb, var(--pngx-brand-wheat) 10%, transparent);
+  --pngx-active-tint: color-mix(in srgb, var(--pngx-brand-forest) 35%, transparent);
+  --pngx-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px rgb(0 0 0 / 0.2);
+  --pngx-shadow-md: 0 2px 4px rgb(0 0 0 / 0.35), 0 8px 24px rgb(0 0 0 / 0.3);
+  --pngx-shadow-lg: 0 4px 8px rgb(0 0 0 / 0.4), 0 20px 40px rgb(0 0 0 / 0.45);
+}
+
+[data-bs-theme="dark"] {
+  @include pngx-dark-surfaces;
+}
+
+[data-bs-theme="auto"] {
+  @media (prefers-color-scheme: dark) {
+    @include pngx-dark-surfaces;
+  }
+}
+
+// Base ----------------------------------------------------------------------
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  // Keeps the fixed navbar from covering anchored/fragment targets.
+  scroll-padding-top: calc(var(--pngx-navbar-height) + 1rem);
+}
+
+body {
+  background-color: var(--pngx-canvas);
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--pngx-brand-wheat) 45%, transparent);
+  color: inherit;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+// Standard scrollbar styling (Firefox, Chromium 121+); the ::-webkit-scrollbar
+// rules in `_app-styles.scss` remain for Safari.
+@supports (scrollbar-color: auto) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--pngx-brand-wheat) 55%, transparent) transparent;
+  }
+}
+
+// Motion: only the properties that are actually animated, on the elements
+// that are actually interactive — not a blanket `* { transition }`, which
+// also animated every layout change and every theme switch across thousands
+// of nodes.
+a,
+.btn,
+.nav-link,
+.dropdown-item,
+.list-group-item,
+.page-link,
+.form-control,
+.form-select,
+.form-check-input,
+.badge,
+.card,
+.ng-select .ng-select-container,
+table.table > tbody > tr > * {
+  transition:
+    color var(--pngx-duration) var(--pngx-ease),
+    background-color var(--pngx-duration) var(--pngx-ease),
+    border-color var(--pngx-duration) var(--pngx-ease),
+    box-shadow var(--pngx-duration) var(--pngx-ease),
+    transform var(--pngx-duration-fast) var(--pngx-ease),
+    opacity var(--pngx-duration) var(--pngx-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+// Focus: one visible ring for keyboard users, none for pointer clicks.
+:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+.page-link:focus-visible,
+.dropdown-item:focus-visible {
+  outline: none;
+  box-shadow: var(--pngx-focus-ring);
+}
+
+.btn:focus:not(:focus-visible),
+.dropdown-item:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+// Skip link: first tab stop on every page.
+.pngx-skip-link {
+  position: fixed;
+  inset-inline-start: 1rem;
+  top: 0.5rem;
+  z-index: 1100;
+  padding: 0.5rem 1rem;
+  border-radius: var(--pngx-radius);
+  background-color: var(--pngx-surface);
+  color: var(--bs-primary);
+  box-shadow: var(--pngx-shadow-lg);
+  font-weight: 600;
+  transform: translateY(-200%);
+
+  &:focus-visible {
+    transform: none;
+  }
+}
+
+// Route entry: routed pages settle in instead of popping in. Pure CSS, so it
+// never blocks input the way a document-level view transition would.
+@keyframes pngx-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// `backwards`, not `both`: once finished the animation must stop applying,
+// or its transform would become the containing block for every
+// `position: fixed` / sticky descendant of the page.
+main > router-outlet + * {
+  display: block;
+  animation: pngx-enter var(--pngx-duration-slow) var(--pngx-ease) backwards;
+}
+
+// Theme switch uses the View Transitions API (see AppFrameComponent); a
+// short crossfade instead of the default.
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--pngx-duration-slow);
+  animation-timing-function: var(--pngx-ease);
+}
+
+// Navbar --------------------------------------------------------------------
+.navbar.bg-primary {
+  min-height: var(--pngx-navbar-height);
+  // Golden Wheat hairline: the identity's secondary colour framing the top.
+  box-shadow: inset 0 -2px 0 var(--pngx-brand-wheat), var(--pngx-shadow-sm) !important;
+  padding-top: env(safe-area-inset-top);
+
+  .navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .nav-link,
+  .btn {
+    border-radius: var(--pngx-radius-pill);
+  }
+}
+
+// Sidebar -------------------------------------------------------------------
+#sidebarMenu.sidebar {
+  background-color: var(--pngx-surface) !important;
+  box-shadow: none;
+  border-inline-end: 1px solid var(--pngx-hairline);
+
+  .sidebar-heading {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--pngx-brand-wheat-deep) !important;
+    margin-bottom: 0.25rem;
+  }
+
+  .nav-link {
+    padding-block: 0.5rem;
+
+    i-bs {
+      opacity: 0.85;
+    }
+
+    &:hover {
+      background-color: var(--pngx-hover-tint);
+    }
+
+    &.active {
+      background-color: var(--pngx-active-tint);
+      color: var(--bs-primary);
+
+      i-bs {
+        opacity: 1;
+      }
+    }
+  }
+
+  .badge {
+    border-radius: var(--pngx-radius-pill);
+    font-weight: 600;
+  }
+}
+
+
+.sidebar-slim-toggler {
+  border-radius: var(--pngx-radius-pill) !important;
+  box-shadow: var(--pngx-shadow-sm);
+  border: 1px solid var(--pngx-hairline) !important;
+  background-color: var(--pngx-surface) !important;
+  color: var(--bs-body-color) !important;
+
+  &:hover {
+    color: var(--bs-primary) !important;
+    box-shadow: var(--pngx-shadow-md);
+  }
+}
+
+// Mobile: the sidebar becomes a drawer over a dimmed backdrop.
+@media (max-width: 767.98px) {
+  #sidebarMenu.sidebar {
+    box-shadow: var(--pngx-shadow-lg);
+    border-inline-end: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pngx-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 990; // below the sidebar (995), above content
+    background-color: rgb(0 38 35 / 0.45);
+    backdrop-filter: blur(2px);
+    animation: pngx-fade-in var(--pngx-duration) var(--pngx-ease) both;
+  }
+}
+
+@keyframes pngx-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+// Page header ---------------------------------------------------------------
+pngx-page-header {
+  display: block;
+
+  h3 {
+    font-size: var(--pngx-font-size-title);
+    font-weight: 700;
+    color: var(--bs-body-color);
+  }
+}
+
+// Cards ---------------------------------------------------------------------
+.card {
+  --bs-card-bg: var(--pngx-surface);
+  --bs-card-border-color: var(--pngx-hairline);
+  --bs-card-border-radius: var(--pngx-radius-lg);
+  --bs-card-inner-border-radius: calc(var(--pngx-radius-lg) - 1px);
+  --bs-card-cap-bg: transparent;
+  background-color: var(--pngx-surface);
+  border-color: var(--pngx-hairline);
+  box-shadow: var(--pngx-shadow-sm);
+
+  // `bg-light` cards (dashboard widgets and friends) join the surface system
+  // instead of Bootstrap's neutral grey.
+  &.bg-light {
+    background-color: var(--pngx-surface) !important;
+  }
+
+  > .card-header {
+    background-color: transparent;
+    border-bottom-color: var(--pngx-hairline);
+    padding-block: 0.75rem;
+
+    .card-title {
+      font-weight: 700;
+    }
+  }
+
+  > .card-footer {
+    background-color: transparent;
+    border-top-color: var(--pngx-hairline);
+  }
+}
+
+
+.card-selected {
+  border-color: var(--bs-primary) !important;
+  box-shadow: 0 0 0 1px var(--bs-primary), var(--pngx-shadow-md);
+}
+
+// Buttons -------------------------------------------------------------------
+.btn {
+  --bs-btn-font-weight: 500;
+}
+
+.btn-primary {
+  box-shadow: 0 1px 2px hsl(var(--pngx-shadow-color) / 0.15);
+
+  &:hover {
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--bs-primary) 35%, transparent);
+  }
+}
+
+// Comfortable tap targets wherever the pointer is a finger.
+@media (pointer: coarse) {
+  .btn:not(.btn-sm):not(.btn-link):not(.btn-close),
+  .form-control:not(.form-control-sm),
+  .form-select:not(.form-select-sm),
+  .page-link {
+    min-height: var(--pngx-touch-target);
+  }
+
+  .dropdown-item {
+    padding-block: 0.6rem;
+  }
+}
+
+// Forms ---------------------------------------------------------------------
+.form-control,
+.form-select,
+.input-group-text {
+  border-radius: var(--pngx-radius);
+}
+
+.form-control:not(.btn),
+.form-select {
+  background-color: var(--pngx-surface);
+
+  &:hover:not(:focus):not(:disabled) {
+    border-color: var(--pngx-brand-wheat-deep);
+  }
+
+  &:focus {
+    background-color: var(--pngx-surface);
+    border-color: var(--bs-primary);
+  }
+}
+
+.form-label,
+.col-form-label {
+  font-weight: 500;
+}
+
+.form-check-input {
+  cursor: pointer;
+}
+
+.ng-select .ng-select-container {
+  border-radius: var(--pngx-radius) !important;
+}
+
+.ng-dropdown-panel {
+  border-radius: var(--pngx-radius) !important;
+  box-shadow: var(--pngx-shadow-lg);
+  overflow: hidden;
+}
+
+// Tables --------------------------------------------------------------------
+table.table {
+  --bs-table-hover-bg: var(--pngx-hover-tint);
+  --bs-table-border-color: var(--pngx-hairline);
+  margin-bottom: 0;
+
+  > thead > tr > th {
+    background-color: var(--pngx-surface-2);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--bs-secondary-color);
+    border-bottom-width: 1px;
+    vertical-align: middle;
+  }
+
+  > tbody > tr > td {
+    vertical-align: middle;
+  }
+}
+
+// Tables inside cards: let the card own the frame.
+.card > table.table,
+.card > .table-responsive > table.table {
+  > thead > tr > th:first-child {
+    border-start-start-radius: calc(var(--pngx-radius-lg) - 1px);
+  }
+
+  > thead > tr > th:last-child {
+    border-start-end-radius: calc(var(--pngx-radius-lg) - 1px);
+  }
+}
+
+// Horizontal scroll hint for wide tables on phones.
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+// Menus, popovers, tooltips -------------------------------------------------
+.dropdown-menu {
+  --bs-dropdown-bg: var(--pngx-surface);
+  --bs-dropdown-border-color: var(--pngx-hairline);
+  --bs-dropdown-border-radius: var(--pngx-radius-lg);
+  --bs-dropdown-padding-x: 0.35rem;
+  --bs-dropdown-padding-y: 0.35rem;
+  --bs-dropdown-item-border-radius: var(--pngx-radius-sm);
+  background-color: var(--pngx-surface);
+  border-color: var(--pngx-hairline);
+  box-shadow: var(--pngx-shadow-lg) !important;
+
+  &.show {
+    animation: pngx-pop var(--pngx-duration) var(--pngx-ease);
+  }
+
+  .dropdown-item {
+    border-radius: var(--pngx-radius-sm);
+
+    &:hover,
+    &:focus {
+      background-color: var(--pngx-hover-tint);
+    }
+  }
+}
+
+// Opacity only: ng-bootstrap positions menus with an inline `transform`,
+// which an animated transform would override mid-flight.
+@keyframes pngx-pop {
+  from {
+    opacity: 0;
+  }
+}
+
+.popover {
+  --bs-popover-border-radius: var(--pngx-radius-lg);
+  --bs-popover-inner-border-radius: calc(var(--pngx-radius-lg) - 1px);
+  --bs-popover-box-shadow: var(--pngx-shadow-lg);
+  box-shadow: var(--pngx-shadow-lg);
+}
+
+.tooltip {
+  --bs-tooltip-border-radius: var(--pngx-radius-sm);
+  --bs-tooltip-bg: var(--pngx-brand-forest-night);
+  --bs-tooltip-font-size: 0.8rem;
+}
+
+// Modals --------------------------------------------------------------------
+.modal {
+  --bs-modal-border-radius: var(--pngx-radius-xl);
+  --bs-modal-inner-border-radius: calc(var(--pngx-radius-xl) - 1px);
+  --bs-modal-bg: var(--pngx-surface);
+  --bs-modal-border-color: var(--pngx-hairline);
+  --bs-modal-header-border-color: var(--pngx-hairline);
+  --bs-modal-footer-border-color: var(--pngx-hairline);
+  --bs-modal-box-shadow: var(--pngx-shadow-lg);
+}
+
+.modal-content {
+  background-color: var(--pngx-surface);
+  box-shadow: var(--pngx-shadow-lg);
+  overflow: hidden;
+}
+
+
+.modal-title {
+  font-weight: 700;
+}
+
+.modal-backdrop {
+  --bs-backdrop-bg: var(--pngx-brand-forest-night);
+  --bs-backdrop-opacity: 0.55;
+}
+
+.modal-footer {
+  gap: 0.5rem;
+
+  > * {
+    margin: 0;
+  }
+}
+
+// Phones: dialogs become bottom sheets, reachable with a thumb.
+@media (max-width: 575.98px) {
+  .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog) {
+    display: flex;
+    align-items: flex-end;
+    margin: 0;
+    min-height: 100%;
+
+    .modal-content {
+      border-end-start-radius: 0;
+      border-end-end-radius: 0;
+      border-bottom: none;
+      max-height: 92dvh;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .modal-body {
+      overflow-y: auto;
+    }
+  }
+}
+
+@media (max-width: 575.98px) {
+  .modal.fade .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog) {
+    transform: translateY(40px);
+  }
+
+  .modal.show .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog) {
+    transform: none;
+  }
+}
+
+// Toasts --------------------------------------------------------------------
+.toast {
+  --bs-toast-border-radius: var(--pngx-radius-lg);
+  --bs-toast-box-shadow: var(--pngx-shadow-lg);
+  --bs-toast-border-color: var(--pngx-hairline);
+  backdrop-filter: saturate(160%) blur(8px);
+}
+
+// Badges --------------------------------------------------------------------
+.badge {
+  --bs-badge-font-weight: 600;
+  --bs-badge-border-radius: var(--pngx-radius-pill);
+  --bs-badge-padding-x: 0.6em;
+}
+
+// Tags keep their user-chosen shape via their own component styles; only
+// count badges and status badges are pill-shaped.
+pngx-tag .badge {
+  --bs-badge-border-radius: var(--pngx-radius-sm);
+}
+
+// Alerts --------------------------------------------------------------------
+.alert {
+  --bs-alert-border-radius: var(--pngx-radius-lg);
+  border-inline-start-width: 4px;
+}
+
+// Nav tabs & pills ----------------------------------------------------------
+.nav-tabs {
+  gap: 0.25rem;
+  border-bottom-color: var(--pngx-hairline);
+
+  .nav-link {
+    border-start-start-radius: var(--pngx-radius);
+    border-start-end-radius: var(--pngx-radius);
+    font-weight: 500;
+
+    &.active {
+      font-weight: 700;
+      box-shadow: inset 0 3px 0 var(--bs-primary);
+    }
+  }
+}
+
+// Phones: long tab rows scroll sideways instead of wrapping into a stack.
+@media (max-width: 767.98px) {
+  .nav-tabs:not(.flex-column) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-link {
+      white-space: nowrap;
+    }
+  }
+}
+
+.nav-pills {
+  --bs-nav-pills-border-radius: var(--pngx-radius-pill);
+  --bs-nav-pills-link-active-bg: var(--bs-primary);
+}
+
+// Pagination ----------------------------------------------------------------
+.pagination {
+  --bs-pagination-border-radius: var(--pngx-radius);
+  gap: 0.25rem;
+
+  .page-link {
+    border-radius: var(--pngx-radius) !important;
+    min-width: 2.25rem;
+    text-align: center;
+  }
+
+  .page-item.active .page-link {
+    border-color: var(--bs-primary) !important;
+  }
+}
+
+// List groups ---------------------------------------------------------------
+.list-group {
+  --bs-list-group-border-radius: var(--pngx-radius-lg);
+  --bs-list-group-border-color: var(--pngx-hairline);
+  --bs-list-group-bg: var(--pngx-surface);
+  --bs-list-group-action-hover-bg: var(--pngx-hover-tint);
+}
+
+.list-group-item {
+  background-color: var(--pngx-surface);
+  border-color: var(--pngx-hairline);
+
+  &.list-group-item-action:hover,
+  &.list-group-item-action:focus {
+    background-color: var(--pngx-hover-tint);
+  }
+}
+
+// Accordion -----------------------------------------------------------------
+.accordion {
+  --bs-accordion-border-radius: var(--pngx-radius-lg);
+  --bs-accordion-inner-border-radius: calc(var(--pngx-radius-lg) - 1px);
+  --bs-accordion-border-color: var(--pngx-hairline);
+  --bs-accordion-bg: var(--pngx-surface);
+  --bs-accordion-btn-bg: var(--pngx-surface);
+  --bs-accordion-btn-focus-box-shadow: var(--pngx-focus-ring);
+}
+
+// Progress ------------------------------------------------------------------
+.progress {
+  --bs-progress-border-radius: var(--pngx-radius-pill);
+  background-color: var(--pngx-surface-2);
+}
+
+// Empty states --------------------------------------------------------------
+.empty-state {
+  padding-block: 2.5rem !important;
+}
+
+// Skeleton shimmer for placeholder content ---------------------------------
+.placeholder {
+  border-radius: var(--pngx-radius-sm);
+}
+
+.placeholder-glow .placeholder {
+  background-color: color-mix(in srgb, var(--pngx-brand-wheat) 35%, transparent);
+}
+
+// Dark-mode surface overrides -----------------------------------------------
+// `theme.scss` paints these with the flat body colour, under both an explicit
+// `dark` theme and `auto` + a dark system preference; `body` in the selector
+// matches its specificity so the surface system wins in both.
+@mixin pngx-dark-surface-overrides {
+  .card {
+    background-color: var(--pngx-surface);
+
+    .card-header {
+      background-color: transparent;
+    }
+  }
+
+  .modal-content,
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    background-color: var(--pngx-surface);
+  }
+
+  #sidebarMenu.sidebar .nav-link.active {
+    color: var(--bs-body-color);
+  }
+}
+
+[data-bs-theme="dark"] body {
+  @include pngx-dark-surface-overrides;
+}
+
+[data-bs-theme="auto"] {
+  @media (prefers-color-scheme: dark) {
+    body {
+      @include pngx-dark-surface-overrides;
+    }
+  }
+}
+
+// Command palette -------------------------------------------------------------
+// Anchored near the top like a spotlight, not centred: the eye (and the
+// results) start where the input is.
+.pngx-palette-dialog {
+  max-width: 680px;
+  margin-top: 12vh;
+  margin-top: 12dvh;
+
+  .modal-content {
+    border-radius: var(--pngx-radius-xl);
+    box-shadow: var(--pngx-shadow-lg), 0 0 0 1px var(--pngx-hairline);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .pngx-palette-dialog {
+    margin: 0.75rem;
+    margin-top: calc(env(safe-area-inset-top) + 0.75rem);
+  }
+}
+
+.modal-backdrop.pngx-palette-backdrop {
+  --bs-backdrop-opacity: 0.4;
+}
+
+.pngx-palette-window {
+  backdrop-filter: blur(3px);
+}
+
+// Navbar quick-access trigger -----------------------------------------------
+.pngx-palette-trigger {
+  color: var(--pngx-primary-text-contrast) !important;
+  opacity: 0.9;
+  gap: 0.4rem;
+
+  &:hover {
+    opacity: 1;
+    background-color: rgb(255 255 255 / 0.12);
+  }
+
+  kbd {
+    font-family: inherit;
+    font-size: 0.68rem;
+    padding: 0.05rem 0.35rem;
+    color: inherit;
+    background-color: rgb(255 255 255 / 0.14);
+    border: 1px solid rgb(255 255 255 / 0.22);
+    border-radius: var(--pngx-radius-sm);
+    box-shadow: none;
+  }
+}

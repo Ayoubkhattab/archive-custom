@@ -14,6 +14,7 @@ import { SortableDirective } from 'src/app/directives/sortable.directive'
 import { PermissionType } from 'src/app/services/permissions.service'
 import { DocumentTypeService } from 'src/app/services/rest/document-type.service'
 import { DocumentTypeEditDialogComponent } from '../../common/edit-dialog/document-type-edit-dialog/document-type-edit-dialog.component'
+import { EmptyStateComponent } from '../../common/empty-state/empty-state.component'
 import { PageHeaderComponent } from '../../common/page-header/page-header.component'
 import { ManagementListComponent } from '../management-list/management-list.component'
 
@@ -23,6 +24,7 @@ import { ManagementListComponent } from '../management-list/management-list.comp
   styleUrls: ['./../management-list/management-list.component.scss'],
   imports: [
     SortableDirective,
+    EmptyStateComponent,
     PageHeaderComponent,
     TitleCasePipe,
     IfPermissionsDirective,

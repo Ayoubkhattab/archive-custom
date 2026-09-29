@@ -12854,6 +12854,158 @@
         </context-group>
         <target state="translated">خطأ أثناء تحميل الإعدادات</target>
       </trans-unit>
+      <trans-unit id="palette.title" datatype="html">
+        <source>Quick access</source>
+        <target state="translated">الوصول السريع</target>
+      </trans-unit>
+      <trans-unit id="palette.trigger.title" datatype="html">
+        <source>Quick access (Ctrl+K)</source>
+        <target state="translated">الوصول السريع (Ctrl+K)</target>
+      </trans-unit>
+      <trans-unit id="palette.placeholder" datatype="html">
+        <source>Search documents, views, pages and actions…</source>
+        <target state="translated">ابحث في المستندات والعروض والصفحات والإجراءات…</target>
+      </trans-unit>
+      <trans-unit id="palette.searching" datatype="html">
+        <source>Searching…</source>
+        <target state="translated">جارٍ البحث…</target>
+      </trans-unit>
+      <trans-unit id="palette.noResults" datatype="html">
+        <source>No matches. Try another word, or search the full text of all documents.</source>
+        <target state="translated">لا توجد نتائج مطابقة. جرّب كلمة أخرى، أو ابحث في النص الكامل لجميع المستندات.</target>
+      </trans-unit>
+      <trans-unit id="palette.group.search" datatype="html">
+        <source>Search</source>
+        <target state="translated">بحث</target>
+      </trans-unit>
+      <trans-unit id="palette.group.recent" datatype="html">
+        <source>Recently opened</source>
+        <target state="translated">المفتوحة مؤخراً</target>
+      </trans-unit>
+      <trans-unit id="palette.group.filters" datatype="html">
+        <source>Filter documents by</source>
+        <target state="translated">تصفية المستندات حسب</target>
+      </trans-unit>
+      <trans-unit id="palette.group.actions" datatype="html">
+        <source>Quick actions</source>
+        <target state="translated">إجراءات سريعة</target>
+      </trans-unit>
+      <trans-unit id="palette.group.pages" datatype="html">
+        <source>Go to</source>
+        <target state="translated">انتقال إلى</target>
+      </trans-unit>
+      <trans-unit id="palette.searchAll" datatype="html">
+        <source>Search all documents for</source>
+        <target state="translated">ابحث في جميع المستندات عن</target>
+      </trans-unit>
+      <trans-unit id="palette.hint.tag" datatype="html">
+        <source>Tag</source>
+        <target state="translated">وسم</target>
+      </trans-unit>
+      <trans-unit id="palette.action.upload" datatype="html">
+        <source>Upload documents</source>
+        <target state="translated">رفع مستندات</target>
+      </trans-unit>
+      <trans-unit id="palette.action.recentlyAdded" datatype="html">
+        <source>Recently added documents</source>
+        <target state="translated">المستندات المضافة حديثاً</target>
+      </trans-unit>
+      <trans-unit id="palette.action.theme" datatype="html">
+        <source>Switch light / dark mode</source>
+        <target state="translated">التبديل بين الوضع الفاتح والداكن</target>
+      </trans-unit>
+      <trans-unit id="palette.action.shortcuts" datatype="html">
+        <source>Keyboard shortcuts</source>
+        <target state="translated">اختصارات لوحة المفاتيح</target>
+      </trans-unit>
+      <trans-unit id="palette.action.clearRecent" datatype="html">
+        <source>Clear recently opened list</source>
+        <target state="translated">مسح قائمة المفتوحة مؤخراً</target>
+      </trans-unit>
+      <trans-unit id="palette.hint.navigate" datatype="html">
+        <source>to move</source>
+        <target state="translated">للتنقل</target>
+      </trans-unit>
+      <trans-unit id="palette.hint.open" datatype="html">
+        <source>to open</source>
+        <target state="translated">للفتح</target>
+      </trans-unit>
+      <trans-unit id="palette.hint.newTab" datatype="html">
+        <source>in a new tab</source>
+        <target state="translated">في تبويب جديد</target>
+      </trans-unit>
+      <trans-unit id="dashboard.greeting.morning" datatype="html">
+        <source>Good morning</source>
+        <target state="translated">صباح الخير</target>
+      </trans-unit>
+      <trans-unit id="dashboard.greeting.afternoon" datatype="html">
+        <source>Good afternoon</source>
+        <target state="translated">طاب يومك</target>
+      </trans-unit>
+      <trans-unit id="dashboard.greeting.evening" datatype="html">
+        <source>Good evening</source>
+        <target state="translated">مساء الخير</target>
+      </trans-unit>
+      <trans-unit id="dashboard.hero.subtitle" datatype="html">
+        <source>What are you looking for today?</source>
+        <target state="translated">عمّ تبحث اليوم؟</target>
+      </trans-unit>
+      <trans-unit id="dashboard.hero.searchPlaceholder" datatype="html">
+        <source>Search for a document, correspondent, tag or page…</source>
+        <target state="translated">ابحث عن مستند أو مراسل أو وسم أو صفحة…</target>
+      </trans-unit>
+      <trans-unit id="dashboard.quick.uploadSub" datatype="html">
+        <source>Or drop files anywhere</source>
+        <target state="translated">أو أفلت الملفات في أي مكان</target>
+      </trans-unit>
+      <trans-unit id="dashboard.quick.allDocuments" datatype="html">
+        <source>All documents</source>
+        <target state="translated">جميع المستندات</target>
+      </trans-unit>
+      <trans-unit id="dashboard.quick.allDocumentsSub" datatype="html">
+        <source>Browse and filter the archive</source>
+        <target state="translated">تصفّح الأرشيف وقم بتصفيته</target>
+      </trans-unit>
+      <trans-unit id="dashboard.quick.recentlyAddedSub" datatype="html">
+        <source>Newest arrivals first</source>
+        <target state="translated">الأحدث وصولاً أولاً</target>
+      </trans-unit>
+      <trans-unit id="dashboard.quick.tasks" datatype="html">
+        <source>Processing queue</source>
+        <target state="translated">قائمة المعالجة</target>
+      </trans-unit>
+      <trans-unit id="dashboard.quick.tasksSub" datatype="html">
+        <source>Follow files being archived</source>
+        <target state="translated">تابع الملفات قيد الأرشفة</target>
+      </trans-unit>
+      <trans-unit id="dashboard.recent.title" datatype="html">
+        <source>Continue where you left off</source>
+        <target state="translated">تابع من حيث توقفت</target>
+      </trans-unit>
+      <trans-unit id="dashboard.recent.clear" datatype="html">
+        <source>Clear</source>
+        <target state="translated">مسح</target>
+      </trans-unit>
+      <trans-unit id="dashboard.recent.remove" datatype="html">
+        <source>Remove from this list</source>
+        <target state="translated">إزالة من هذه القائمة</target>
+      </trans-unit>
+      <trans-unit id="skip.mainContent" datatype="html">
+        <source>Skip to main content</source>
+        <target state="translated">انتقل إلى المحتوى الرئيسي</target>
+      </trans-unit>
+      <trans-unit id="180686262915203614" datatype="html">
+        <source>The trash is empty.</source>
+        <target state="translated">سلة المحذوفات فارغة.</target>
+      </trans-unit>
+      <trans-unit id="5989057740649911267" datatype="html">
+        <source>No documents match the current view or filters.</source>
+        <target state="translated">لا توجد مستندات تطابق العرض أو عوامل التصفية الحالية.</target>
+      </trans-unit>
+      <trans-unit id="2417047855328234165" datatype="html">
+        <source>No <x id="INTERPOLATION" equiv-text="{{typeNamePlural}}"/> found.</source>
+        <target state="translated">لم يتم العثور على <x id="INTERPOLATION" equiv-text="{{typeNamePlural}}"/>.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

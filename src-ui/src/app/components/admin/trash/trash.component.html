@@ -88,6 +88,10 @@
     </table>
 </div>
 
+@if (!loading && documentsInTrash.length === 0) {
+    <pngx-empty-state icon="trash" message="The trash is empty." i18n-message></pngx-empty-state>
+}
+
 @if (!loading) {
     <div class="d-flex mb-2">
         <div>

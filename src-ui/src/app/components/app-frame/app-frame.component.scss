@@ -347,3 +347,8 @@ main {
 ::ng-deep .navItemDrag .position-absolute i-bs {
   display: none;
 }
+
+// The skip link moves focus here; it is a landmark, not a control, so no ring.
+main:focus {
+  outline: none;
+}

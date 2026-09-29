@@ -115,10 +115,6 @@ body {
   letter-spacing: 0;
 }
 
-* {
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
-}
-
 // Modernized surfaces: softer corners + subtle elevation
 .card,
 .modal-content,
@@ -1013,6 +1009,16 @@ canvas.hiddenCanvasElement {
 .document-card {
   overflow: hidden;
 
+  &:hover {
+    box-shadow: var(--pngx-shadow-md);
+  }
+
+  @media (hover: none) {
+    &:hover {
+      box-shadow: var(--pngx-shadow-sm);
+    }
+  }
+
   .card-footer i-bs svg {
     vertical-align: middle;
   }
@@ -1041,3 +1047,7 @@ canvas.hiddenCanvasElement {
     display: block;
   }
 }
+
+// Design system: tokens, surfaces and component refinements. Kept last so it
+// layers over everything above.
+@include meta.load-css("design-system");

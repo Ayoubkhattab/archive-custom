@@ -1,0 +1,61 @@
+<div class="palette" (keydown)="onKeydown($event)">
+  <h2 id="pngx-palette-title" class="visually-hidden" i18n="@@palette.title">Quick access</h2>
+
+  <div class="palette-search">
+    <i-bs class="palette-search-icon" width="1.2em" height="1.2em" name="search"></i-bs>
+    <input #searchInput type="text" class="palette-input" name="paletteQuery"
+      placeholder="Search documents, views, pages and actions…" i18n-placeholder="@@palette.placeholder"
+      autocomplete="off" spellcheck="false"
+      role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="pngx-palette-list"
+      [attr.aria-activedescendant]="activeItemId"
+      [(ngModel)]="query" (ngModelChange)="onQueryChange($event)">
+    @if (loading) {
+      <div class="spinner-border spinner-border-sm text-muted" role="status">
+        <span class="visually-hidden" i18n="@@palette.searching">Searching…</span>
+      </div>
+    }
+    <button type="button" class="btn btn-sm palette-esc" (click)="close()" aria-label="Close" i18n-aria-label>
+      <kbd>Esc</kbd>
+    </button>
+  </div>
+
+  <div #list class="palette-list" id="pngx-palette-list" role="listbox" aria-labelledby="pngx-palette-title">
+    @for (group of groups; track group.key) {
+      <div class="palette-group" role="group" [attr.aria-label]="group.label">
+        <div class="palette-group-label" aria-hidden="true">{{ group.label }}</div>
+        @for (item of group.items; track item.id) {
+          <div class="palette-item" role="option"
+            [id]="'palette-item-' + item.id"
+            [class.active]="item.index === activeIndex"
+            [attr.aria-selected]="item.index === activeIndex"
+            (click)="onItemClick(item, $event)"
+            (mousemove)="onItemHover(item)">
+            <span class="palette-item-icon"><i-bs width="1.05em" height="1.05em" [name]="item.icon"></i-bs></span>
+            <span class="palette-item-label">{{ item.label }}</span>
+            @if (item.hint) {
+              <span class="palette-item-hint">{{ item.hint }}</span>
+            }
+            @if (item.date) {
+              <span class="palette-item-hint">{{ item.date | customDate }}</span>
+            }
+            <i-bs class="palette-item-enter" width="0.95em" height="0.95em" name="arrow-return-left"></i-bs>
+          </div>
+        }
+      </div>
+    } @empty {
+      <div class="palette-empty">
+        <i-bs width="1.6em" height="1.6em" name="search"></i-bs>
+        <p class="mb-0" i18n="@@palette.noResults">No matches. Try another word, or search the full text of all documents.</p>
+      </div>
+    }
+  </div>
+
+  <div class="palette-footer" aria-hidden="true">
+    <span><kbd>↑</kbd><kbd>↓</kbd> <ng-container i18n="@@palette.hint.navigate">to move</ng-container></span>
+    <span><kbd>Enter</kbd> <ng-container i18n="@@palette.hint.open">to open</ng-container></span>
+    <span class="d-none d-sm-inline"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> <ng-container i18n="@@palette.hint.newTab">in a new tab</ng-container></span>
+    <span class="ms-auto"><kbd>Ctrl</kbd>+<kbd>K</kbd></span>
+  </div>
+
+  <input #fileInput type="file" multiple class="d-none" (change)="onFilesPicked($event)" tabindex="-1" aria-hidden="true">
+</div>

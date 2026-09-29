@@ -1,7 +1,84 @@
-<header class="dashboard-hero mt-3 mb-4">
-  <pngx-logo extra_classes="dashboard-hero-logo" height="clamp(1.75rem, 5vw, 3.5rem)"></pngx-logo>
-  <p class="dashboard-hero-subtitle text-muted mb-0">{{ subtitle }}</p>
+<header class="dashboard-hero mt-3">
+  <div class="dashboard-hero-text">
+    <p class="dashboard-hero-greeting mb-1">
+      <span>{{ greeting }}</span>
+      @if (settingsService.displayName) {
+        <strong>{{ settingsService.displayName }}</strong>
+      }
+    </p>
+    <pngx-logo extra_classes="dashboard-hero-logo" height="clamp(1.6rem, 4.5vw, 3rem)"></pngx-logo>
+    <p class="dashboard-hero-subtitle mb-0" i18n="@@dashboard.hero.subtitle">What are you looking for today?</p>
+  </div>
+
+  <button type="button" class="dashboard-search" (click)="openCommandPalette()" aria-keyshortcuts="Control+K">
+    <i-bs class="dashboard-search-icon" width="1.2em" height="1.2em" name="search"></i-bs>
+    <span class="dashboard-search-placeholder" i18n="@@dashboard.hero.searchPlaceholder">Search for a document, correspondent, tag or page…</span>
+    <kbd class="d-none d-md-inline-block" aria-hidden="true">Ctrl K</kbd>
+  </button>
+
+  <nav class="quick-actions" aria-label="Quick actions" i18n-aria-label="@@palette.group.actions">
+    @if (canUpload) {
+      <button type="button" class="quick-action" (click)="quickUpload.click()">
+        <span class="quick-action-icon"><i-bs name="cloud-arrow-up"></i-bs></span>
+        <span class="quick-action-text">
+          <span class="quick-action-title" i18n="@@palette.action.upload">Upload documents</span>
+          <span class="quick-action-sub" i18n="@@dashboard.quick.uploadSub">Or drop files anywhere</span>
+        </span>
+      </button>
+      <input #quickUpload type="file" multiple class="d-none" (change)="onQuickUpload($event)" tabindex="-1" aria-hidden="true">
+    }
+    <a class="quick-action" routerLink="/documents" *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.Document }">
+      <span class="quick-action-icon"><i-bs name="files"></i-bs></span>
+      <span class="quick-action-text">
+        <span class="quick-action-title" i18n="@@dashboard.quick.allDocuments">All documents</span>
+        <span class="quick-action-sub" i18n="@@dashboard.quick.allDocumentsSub">Browse and filter the archive</span>
+      </span>
+    </a>
+    <a class="quick-action" routerLink="/documents" [queryParams]="{ sort: 'added', reverse: 1 }" *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.Document }">
+      <span class="quick-action-icon"><i-bs name="calendar-week"></i-bs></span>
+      <span class="quick-action-text">
+        <span class="quick-action-title" i18n="@@palette.action.recentlyAdded">Recently added documents</span>
+        <span class="quick-action-sub" i18n="@@dashboard.quick.recentlyAddedSub">Newest arrivals first</span>
+      </span>
+    </a>
+    <a class="quick-action" routerLink="/tasks" *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.PaperlessTask }">
+      <span class="quick-action-icon"><i-bs name="list-task"></i-bs></span>
+      <span class="quick-action-text">
+        <span class="quick-action-title" i18n="@@dashboard.quick.tasks">Processing queue</span>
+        <span class="quick-action-sub" i18n="@@dashboard.quick.tasksSub">Follow files being archived</span>
+      </span>
+    </a>
+  </nav>
 </header>
+
+@if (recentDocuments.length) {
+  <section class="recent-documents mb-4" aria-labelledby="recent-documents-title">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h2 id="recent-documents-title" class="recent-documents-title mb-0" i18n="@@dashboard.recent.title">Continue where you left off</h2>
+      <button type="button" class="btn btn-link btn-sm text-muted" (click)="clearRecentDocuments()" i18n="@@dashboard.recent.clear">Clear</button>
+    </div>
+    <div class="recent-documents-row" role="list">
+      @for (doc of recentDocuments; track doc.id) {
+        <div class="recent-document" role="listitem">
+          <a class="recent-document-link" [routerLink]="['/documents', doc.id]" [title]="doc.title">
+            <span class="recent-document-thumb">
+              <i-bs class="recent-document-fallback" width="1.6em" height="1.6em" name="file-earmark-text"></i-bs>
+              <img [src]="thumbUrl(doc.id)" alt="" loading="lazy" decoding="async" (error)="$any($event.target).remove()">
+            </span>
+            <span class="recent-document-title">{{ doc.title }}</span>
+            @if (doc.created) {
+              <span class="recent-document-date">{{ doc.created | customDate }}</span>
+            }
+          </a>
+          <button type="button" class="btn recent-document-remove" (click)="removeRecentDocument(doc.id)"
+            title="Remove from this list" i18n-title="@@dashboard.recent.remove" aria-label="Remove from this list" i18n-aria-label="@@dashboard.recent.remove">
+            <i-bs width="0.9em" height="0.9em" name="x"></i-bs>
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+}
 
 <div class="row">
   <div class="col-12 mb-4" *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.UISettings }">

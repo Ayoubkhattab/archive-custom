@@ -67,6 +67,7 @@ import { ComponentRouterService } from 'src/app/services/component-router.servic
 import { DocumentListViewService } from 'src/app/services/document-list-view.service'
 import { HotKeyService } from 'src/app/services/hot-key.service'
 import { OpenDocumentsService } from 'src/app/services/open-documents.service'
+import { RecentDocumentsService } from 'src/app/services/recent-documents.service'
 import {
   PermissionAction,
   PermissionsService,
@@ -200,6 +201,7 @@ export class DocumentDetailComponent
   private router = inject(Router)
   private modalService = inject(NgbModal)
   private openDocumentService = inject(OpenDocumentsService)
+  private recentDocumentsService = inject(RecentDocumentsService)
   private documentListViewService = inject(DocumentListViewService)
   private documentTitlePipe = inject(DocumentTitlePipe)
   private toastService = inject(ToastService)
@@ -470,6 +472,7 @@ export class DocumentDetailComponent
           }
           this.documentId = doc.id
           this.suggestions = null
+          this.recentDocumentsService.record(doc)
           const openDocument = this.openDocumentService.getOpenDocument(
             this.documentId
           )

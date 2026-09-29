@@ -60,6 +60,12 @@
   </table>
 </div>
 
+@if (!loading && collectionSize === 0) {
+  <pngx-empty-state icon="inbox">
+    <p class="mb-0 small fst-italic" i18n>No {{typeNamePlural}} found.</p>
+  </pngx-empty-state>
+}
+
 @if (!loading) {
   <div class="d-flex mb-2">
     @if (collectionSize > 0) {

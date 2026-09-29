@@ -10,10 +10,20 @@ import { RouterModule } from '@angular/router'
 import { NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { TourNgBootstrapModule, TourService } from 'ngx-ui-tour-ng-bootstrap'
 import { SavedView } from 'src/app/data/saved-view'
+import { CustomDatePipe } from 'src/app/pipes/custom-date.pipe'
+import { CommandPaletteService } from 'src/app/services/command-palette.service'
+import {
+  PermissionAction,
+  PermissionsService,
+  PermissionType,
+} from 'src/app/services/permissions.service'
+import { RecentDocumentsService } from 'src/app/services/recent-documents.service'
+import { DocumentService } from 'src/app/services/rest/document.service'
 import { IfPermissionsDirective } from 'src/app/directives/if-permissions.directive'
 import { SavedViewService } from 'src/app/services/rest/saved-view.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
+import { UploadDocumentsService } from 'src/app/services/upload-documents.service'
 import { environment } from 'src/environments/environment'
 import { EmptyStateComponent } from '../common/empty-state/empty-state.component'
 import { LogoComponent } from '../common/logo/logo.component'
@@ -45,6 +55,7 @@ import { WelcomeWidgetComponent } from './widgets/welcome-widget/welcome-widget.
     TourNgBootstrapModule,
     NgxBootstrapIconsModule,
     RouterModule,
+    CustomDatePipe,
   ],
 })
 export class DashboardComponent extends ComponentWithPermissions {
@@ -52,6 +63,11 @@ export class DashboardComponent extends ComponentWithPermissions {
   savedViewService = inject(SavedViewService)
   private tourService = inject(TourService)
   private toastService = inject(ToastService)
+  private commandPaletteService = inject(CommandPaletteService)
+  private recentDocumentsService = inject(RecentDocumentsService)
+  private documentService = inject(DocumentService)
+  private uploadDocumentsService = inject(UploadDocumentsService)
+  private permissionsService = inject(PermissionsService)
 
   public dashboardViews: SavedView[] = []
   constructor() {
@@ -60,6 +76,59 @@ export class DashboardComponent extends ComponentWithPermissions {
     this.savedViewService.listAll().subscribe(() => {
       this.dashboardViews = this.savedViewService.dashboardViews
     })
+  }
+
+  get greeting(): string {
+    const hour = new Date().getHours()
+    if (hour >= 5 && hour < 12) {
+      return $localize`:@@dashboard.greeting.morning:Good morning`
+    } else if (hour >= 12 && hour < 17) {
+      return $localize`:@@dashboard.greeting.afternoon:Good afternoon`
+    }
+    return $localize`:@@dashboard.greeting.evening:Good evening`
+  }
+
+  get canUpload(): boolean {
+    return this.permissionsService.currentUserCan(
+      PermissionAction.Add,
+      PermissionType.Document
+    )
+  }
+
+  get recentDocuments() {
+    if (
+      !this.permissionsService.currentUserCan(
+        PermissionAction.View,
+        PermissionType.Document
+      )
+    ) {
+      return []
+    }
+    return this.recentDocumentsService.list().slice(0, 8)
+  }
+
+  thumbUrl(id: number): string {
+    return this.documentService.getThumbUrl(id)
+  }
+
+  openCommandPalette() {
+    this.commandPaletteService.open()
+  }
+
+  onQuickUpload(event: Event) {
+    const input = event.target as HTMLInputElement
+    Array.from(input.files ?? []).forEach((file) =>
+      this.uploadDocumentsService.uploadFile(file)
+    )
+    input.value = ''
+  }
+
+  removeRecentDocument(id: number) {
+    this.recentDocumentsService.remove(id)
+  }
+
+  clearRecentDocuments() {
+    this.recentDocumentsService.clear()
   }
 
   get subtitle() {

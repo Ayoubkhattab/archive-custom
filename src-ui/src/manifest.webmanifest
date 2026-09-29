@@ -1,5 +1,6 @@
 {
-  "background_color": "white",
+  "background_color": "#edebe0",
+  "theme_color": "#428177",
   "description": "أرشيف المعلومات: مسح، فهرسة وأرشفة جميع مستنداتك",
   "display": "standalone",
   "icons": [

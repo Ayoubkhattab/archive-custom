@@ -3,6 +3,10 @@
     display: none;
 }
 
+tr.data-row {
+    cursor: pointer;
+}
+
 tbody tr:last-child td {
     border-bottom: none !important;
 }

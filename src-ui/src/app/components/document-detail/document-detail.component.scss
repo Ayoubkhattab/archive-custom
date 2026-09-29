@@ -1,5 +1,7 @@
 .preview-sticky {
   height: calc(100vh - 160px);
+  // dynamic viewport height excludes mobile browser chrome where supported
+  height: calc(100dvh - 160px);
   top: 70px;
   position: sticky;
 }
@@ -70,6 +72,7 @@ textarea.rtl {
   inset-inline-start: 0;
   width: 100%;
   height: calc(100vh - 160px);
+  height: calc(100dvh - 160px);
   overflow: hidden;
   background-color: gray;
   padding: 10px 8px; // border

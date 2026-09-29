@@ -2,11 +2,15 @@
   font-size: 90%;
 }
 
+:host {
+  --pngx-card-thumb-height: 180px;
+}
+
 .doc-img {
   object-fit: cover;
   // See document-card-large: mirrored for right-to-left documents below.
   object-position: top left;
-  height: 180px;
+  height: var(--pngx-card-thumb-height);
 }
 
 .document-card-check {
@@ -37,7 +41,8 @@
 .document-card-notes {
   position: absolute;
   inset-inline-end: 0;
-  top: 142px;
+  // sits just above the thumbnail's bottom edge, tied to its height
+  top: calc(var(--pngx-card-thumb-height) - 38px);
 }
 
 .card-info {
