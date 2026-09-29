@@ -89,6 +89,47 @@ export class PermissionsSelectComponent
 
   public allowedTypes = Object.keys(PermissionType)
 
+  /**
+   * What each permission type is called in the interface. The keys are
+   * PermissionType's code names, which were shown as-is before.
+   */
+  private readonly typeLabels: Record<string, string> = {
+    Document: $localize`:@@permissions.type.Document:Documents`,
+    Tag: $localize`:@@permissions.type.Tag:Tags`,
+    Correspondent: $localize`:@@permissions.type.Correspondent:Correspondents`,
+    DocumentType: $localize`:@@permissions.type.DocumentType:Document types`,
+    StoragePath: $localize`:@@permissions.type.StoragePath:Storage paths`,
+    SavedView: $localize`:@@permissions.type.SavedView:Saved views`,
+    PaperlessTask: $localize`:@@permissions.type.PaperlessTask:File tasks`,
+    AppConfig: $localize`:@@permissions.type.AppConfig:Application configuration`,
+    UISettings: $localize`:@@permissions.type.UISettings:Interface settings`,
+    History: $localize`:@@permissions.type.History:Change history`,
+    Note: $localize`:@@permissions.type.Note:Notes`,
+    MailAccount: $localize`:@@permissions.type.MailAccount:Mail accounts`,
+    MailRule: $localize`:@@permissions.type.MailRule:Mail rules`,
+    User: $localize`:@@permissions.type.User:Users`,
+    Group: $localize`:@@permissions.type.Group:Groups`,
+    ShareLink: $localize`:@@permissions.type.ShareLink:Share links`,
+    CustomField: $localize`:@@permissions.type.CustomField:Custom fields`,
+    Workflow: $localize`:@@permissions.type.Workflow:Workflows`,
+    ProcessedMail: $localize`:@@permissions.type.ProcessedMail:Processed mail`,
+  }
+
+  private readonly actionLabels: Record<string, string> = {
+    Add: $localize`Add`,
+    Change: $localize`Change`,
+    Delete: $localize`Delete`,
+    View: $localize`View`,
+  }
+
+  typeLabel(type: string): string {
+    return this.typeLabels[type] ?? type
+  }
+
+  actionLabel(action: string): string {
+    return this.actionLabels[action] ?? action
+  }
+
   constructor() {
     super()
     if (!this.settingsService.get(SETTINGS_KEYS.AUDITLOG_ENABLED)) {

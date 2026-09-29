@@ -6428,7 +6428,7 @@
           <context context-type="sourcefile">src/app/components/common/system-status-dialog/system-status-dialog.component.html</context>
           <context context-type="linenumber">56</context>
         </context-group>
-        <target state="translated">اكتب</target>
+        <target state="translated">النوع</target>
       </trans-unit>
       <trans-unit id="1230154438678955604" datatype="html">
         <source>Change</source>
@@ -13213,6 +13213,82 @@
       <trans-unit id="aiSuggest.dates" datatype="html">
         <source>Dates</source>
         <target state="translated">التواريخ</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.Document" datatype="html">
+        <source>Documents</source>
+        <target state="translated">المستندات</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.Tag" datatype="html">
+        <source>Tags</source>
+        <target state="translated">العلامات</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.Correspondent" datatype="html">
+        <source>Correspondents</source>
+        <target state="translated">جهات التراسل</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.DocumentType" datatype="html">
+        <source>Document types</source>
+        <target state="translated">أنواع المستندات</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.StoragePath" datatype="html">
+        <source>Storage paths</source>
+        <target state="translated">مسارات التخزين</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.SavedView" datatype="html">
+        <source>Saved views</source>
+        <target state="translated">طرق العرض المحفوظة</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.PaperlessTask" datatype="html">
+        <source>File tasks</source>
+        <target state="translated">مهام معالجة الملفات</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.AppConfig" datatype="html">
+        <source>Application configuration</source>
+        <target state="translated">تهيئة التطبيق</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.UISettings" datatype="html">
+        <source>Interface settings</source>
+        <target state="translated">إعدادات الواجهة</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.History" datatype="html">
+        <source>Change history</source>
+        <target state="translated">السجل التاريخي</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.Note" datatype="html">
+        <source>Notes</source>
+        <target state="translated">الملاحظات</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.MailAccount" datatype="html">
+        <source>Mail accounts</source>
+        <target state="translated">حسابات البريد</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.MailRule" datatype="html">
+        <source>Mail rules</source>
+        <target state="translated">قواعد البريد</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.User" datatype="html">
+        <source>Users</source>
+        <target state="translated">المستخدمون</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.Group" datatype="html">
+        <source>Groups</source>
+        <target state="translated">المجموعات</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.ShareLink" datatype="html">
+        <source>Share links</source>
+        <target state="translated">روابط المشاركة</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.CustomField" datatype="html">
+        <source>Custom fields</source>
+        <target state="translated">الحقول المخصصة</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.Workflow" datatype="html">
+        <source>Workflows</source>
+        <target state="translated">سير العمل</target>
+      </trans-unit>
+      <trans-unit id="permissions.type.ProcessedMail" datatype="html">
+        <source>Processed mail</source>
+        <target state="translated">البريد المُعالَج</target>
       </trans-unit>
     </body>
   </file>

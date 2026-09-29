@@ -5,7 +5,8 @@
       <i-bs name="question-circle"></i-bs>
     </button>
     <ng-template #infoPopover>
-     </ng-template>
+      <p class="mb-0" i18n>Global permissions define what areas of the app and API endpoints users can access.</p>
+    </ng-template>
   </label>
   <ul class="list-group">
     <li class="list-group-item d-flex">
@@ -18,7 +19,7 @@
     </li>
     @for (type of allowedTypes; track type) {
       <li class="list-group-item d-flex" [formGroupName]="type">
-        <div class="col-3">{{type}}:</div>
+        <div class="col-3 permission-type" [title]="type">{{ typeLabel(type) }}</div>
         <div class="col form-check form-check-inline form-switch" [ngbPopover]="isInherited(type) ? inheritedWarning : lockedWarning" [disablePopover]="!isInherited(type) && !isAnyLocked(type)" placement="left" triggers="mouseenter:mouseleave">
           <input type="checkbox" class="form-check-input" id="{{type}}_all" (change)="toggleAll($event, type)" [checked]="typesWithAllActions.has(type) || isInherited(type)" [attr.disabled]="disabled || isInherited(type) || isAnyLocked(type) ? true : null">
           <label class="form-check-label visually-hidden" for="{{type}}_all" i18n>All</label>
@@ -26,7 +27,7 @@
         @for (action of PermissionAction | keyvalue; track action) {
           <div class="col form-check form-check-inline" [ngbPopover]="isInherited(type, action.key) ? inheritedWarning : lockedWarning" [disablePopover]="!isInherited(type, action.key) && !isLocked(type, action.key)" placement="left" triggers="mouseenter:mouseleave">
             <input type="checkbox" class="form-check-input" id="{{type}}_{{action.key}}" formControlName="{{action.key}}">
-            <label class="form-check-label visually-hidden" for="{{type}}_{{action.key}}">{{action.key}}</label>
+            <label class="form-check-label visually-hidden" for="{{type}}_{{action.key}}">{{ actionLabel(action.key) }} — {{ typeLabel(type) }}</label>
           </div>
         }
       </li>
