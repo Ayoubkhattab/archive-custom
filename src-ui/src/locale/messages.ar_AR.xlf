@@ -13006,6 +13006,158 @@
         <source>No <x id="INTERPOLATION" equiv-text="{{typeNamePlural}}"/> found.</source>
         <target state="translated">لم يتم العثور على <x id="INTERPOLATION" equiv-text="{{typeNamePlural}}"/>.</target>
       </trans-unit>
+      <trans-unit id="ask.title" datatype="html">
+        <source>Ask about this file</source>
+        <target state="translated">اسأل عن الملف</target>
+      </trans-unit>
+      <trans-unit id="ask.trigger.title" datatype="html">
+        <source>Ask the AI about this file (Q)</source>
+        <target state="translated">اسأل الذكاء الاصطناعي عن هذا الملف (Q)</target>
+      </trans-unit>
+      <trans-unit id="palette.action.askDocument" datatype="html">
+        <source>Ask the AI about this document</source>
+        <target state="translated">اسأل الذكاء الاصطناعي عن هذا المستند</target>
+      </trans-unit>
+      <trans-unit id="ask.new" datatype="html">
+        <source>New conversation</source>
+        <target state="translated">محادثة جديدة</target>
+      </trans-unit>
+      <trans-unit id="ask.mode" datatype="html">
+        <source>Answer mode</source>
+        <target state="translated">نمط الإجابة</target>
+      </trans-unit>
+      <trans-unit id="ask.mode.fast" datatype="html">
+        <source>Quick answer</source>
+        <target state="translated">إجابة سريعة</target>
+      </trans-unit>
+      <trans-unit id="ask.mode.deep" datatype="html">
+        <source>Careful check</source>
+        <target state="translated">تدقيق متأنٍّ</target>
+      </trans-unit>
+      <trans-unit id="ask.loadingDocument" datatype="html">
+        <source>Opening the document…</source>
+        <target state="translated">جارٍ فتح المستند…</target>
+      </trans-unit>
+      <trans-unit id="ask.intro" datatype="html">
+        <source>Ask anything about this file. Answers come from its text only, and each one quotes the document so you can verify it.</source>
+        <target state="translated">اسأل عن أي شيء في هذا الملف. تأتي الإجابات من نصه وحده، وتُرفق كل إجابة باقتباس من المستند لتتحقق منها بنفسك.</target>
+      </trans-unit>
+      <trans-unit id="ask.suggest.summary" datatype="html">
+        <source>Summarize this document in a few points</source>
+        <target state="translated">لخّص هذا المستند في نقاط</target>
+      </trans-unit>
+      <trans-unit id="ask.suggest.subject" datatype="html">
+        <source>What is the subject, date and reference number?</source>
+        <target state="translated">ما موضوع المستند وتاريخه ورقمه المرجعي؟</target>
+      </trans-unit>
+      <trans-unit id="ask.suggest.parties" datatype="html">
+        <source>Who are the parties or people mentioned?</source>
+        <target state="translated">من الأطراف أو الأشخاص المذكورون؟</target>
+      </trans-unit>
+      <trans-unit id="ask.suggest.dates" datatype="html">
+        <source>What are the important dates and deadlines?</source>
+        <target state="translated">ما التواريخ والمهل المهمة؟</target>
+      </trans-unit>
+      <trans-unit id="ask.suggest.amounts" datatype="html">
+        <source>What amounts and figures are mentioned?</source>
+        <target state="translated">ما المبالغ والأرقام الواردة؟</target>
+      </trans-unit>
+      <trans-unit id="ask.suggest.actions" datatype="html">
+        <source>What is required, and by whom?</source>
+        <target state="translated">ما المطلوب، وممّن؟</target>
+      </trans-unit>
+      <trans-unit id="ask.reading" datatype="html">
+        <source>Reading the document…</source>
+        <target state="translated">جارٍ قراءة المستند…</target>
+      </trans-unit>
+      <trans-unit id="ask.notInDocument" datatype="html">
+        <source>The document does not contain this information.</source>
+        <target state="translated">هذه المعلومة غير واردة في المستند.</target>
+      </trans-unit>
+      <trans-unit id="ask.evidence" datatype="html">
+        <source>Evidence from the document</source>
+        <target state="translated">الدليل من نص المستند</target>
+      </trans-unit>
+      <trans-unit id="ask.quote.exact" datatype="html">
+        <source>Found in the document</source>
+        <target state="translated">موجود حرفياً في المستند</target>
+      </trans-unit>
+      <trans-unit id="ask.quote.partial" datatype="html">
+        <source>Close match in the document</source>
+        <target state="translated">مطابق تقريباً لنص المستند</target>
+      </trans-unit>
+      <trans-unit id="ask.quote.missing" datatype="html">
+        <source>Not found in the document — check manually</source>
+        <target state="translated">لم يُعثر عليه في المستند — تحقّق يدوياً</target>
+      </trans-unit>
+      <trans-unit id="ask.showInText" datatype="html">
+        <source>Show in text</source>
+        <target state="translated">اعرضه في النص</target>
+      </trans-unit>
+      <trans-unit id="ask.copy" datatype="html">
+        <source>Copy</source>
+        <target state="translated">نسخ</target>
+      </trans-unit>
+      <trans-unit id="ask.copied" datatype="html">
+        <source>Copied to clipboard</source>
+        <target state="translated">تم النسخ إلى الحافظة</target>
+      </trans-unit>
+      <trans-unit id="ask.noEvidence" datatype="html">
+        <source>No quote was given for this answer — check it against the document.</source>
+        <target state="translated">لم تُرفق هذه الإجابة باقتباس — طابقها مع المستند قبل الاعتماد عليها.</target>
+      </trans-unit>
+      <trans-unit id="ask.context.complete" datatype="html">
+        <source>Read the whole document</source>
+        <target state="translated">قرأ المستند كاملاً</target>
+      </trans-unit>
+      <trans-unit id="ask.context.excerpts" datatype="html">
+        <source>Read relevant excerpts</source>
+        <target state="translated">قرأ مقاطع ذات صلة</target>
+      </trans-unit>
+      <trans-unit id="ask.context.excerptsHint" datatype="html">
+        <source>The document is long: only its opening and the passages matching the question were read.</source>
+        <target state="translated">المستند طويل: قُرئت بدايته والمقاطع المطابقة للسؤال فقط.</target>
+      </trans-unit>
+      <trans-unit id="ask.stoppedBadge" datatype="html">
+        <source>Stopped</source>
+        <target state="translated">أُوقف</target>
+      </trans-unit>
+      <trans-unit id="ask.stopped" datatype="html">
+        <source>Stopped.</source>
+        <target state="translated">تم الإيقاف.</target>
+      </trans-unit>
+      <trans-unit id="ask.timeHint" datatype="html">
+        <source>Time to first word / total</source>
+        <target state="translated">زمن أول كلمة / الزمن الكلي</target>
+      </trans-unit>
+      <trans-unit id="ask.placeholder" datatype="html">
+        <source>Type your question about this file…</source>
+        <target state="translated">اكتب سؤالك عن هذا الملف…</target>
+      </trans-unit>
+      <trans-unit id="ask.inputLabel" datatype="html">
+        <source>Your question</source>
+        <target state="translated">سؤالك</target>
+      </trans-unit>
+      <trans-unit id="ask.stop" datatype="html">
+        <source>Stop</source>
+        <target state="translated">إيقاف</target>
+      </trans-unit>
+      <trans-unit id="ask.footnote" datatype="html">
+        <source>Enter to send · Shift+Enter for a new line · answers use this file only</source>
+        <target state="translated">Enter للإرسال · Shift+Enter لسطر جديد · الإجابات من هذا الملف فقط</target>
+      </trans-unit>
+      <trans-unit id="ask.locateFailed" datatype="html">
+        <source>The quote could not be located exactly in the text; search for it manually.</source>
+        <target state="translated">تعذّر تحديد موضع الاقتباس بدقة في النص، ابحث عنه يدوياً.</target>
+      </trans-unit>
+      <trans-unit id="ask.error.noText" datatype="html">
+        <source>This document has no extracted text yet, so it cannot be asked about. Wait for processing (OCR) to finish.</source>
+        <target state="translated">لا يحتوي هذا المستند على نص مستخرج بعد، لذا لا يمكن السؤال عنه. انتظر اكتمال المعالجة (التعرف الضوئي).</target>
+      </trans-unit>
+      <trans-unit id="ask.error.aiDisabled" datatype="html">
+        <source>AI features are turned off in the configuration.</source>
+        <target state="translated">ميزات الذكاء الاصطناعي معطّلة في الإعدادات.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

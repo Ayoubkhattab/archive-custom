@@ -529,3 +529,90 @@ class TestAIChatStreamingView(DirectoriesMixin, TestCase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertIn(b"Insufficient permissions", response.content)
+
+
+class TestDocumentAskView(DirectoriesMixin, TestCase):
+    ENDPOINT = "/api/documents/ask/"
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(username="asker", password="pass")
+        self.user.user_permissions.add(
+            Permission.objects.get(codename="view_document"),
+        )
+        self.client.force_login(user=self.user)
+        self.document = Document.objects.create(
+            title="عقد توريد",
+            filename="ask.pdf",
+            mime_type="application/pdf",
+            content="عقد توريد بين وزارة الصحة وشركة الأمل. مدة الضمان ثلاث سنوات.",
+            owner=self.user,
+        )
+
+    def post(self, payload):
+        return self.client.post(
+            self.ENDPOINT,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+    @override_settings(AI_ENABLED=False)
+    def test_ai_disabled(self):
+        response = self.post({"q": "س", "document_id": self.document.pk})
+        self.assertEqual(response.status_code, 400)
+
+    @override_settings(AI_ENABLED=True)
+    def test_invalid_requests(self):
+        self.assertEqual(self.post({"document_id": self.document.pk}).status_code, 400)
+        self.assertEqual(self.post({"q": "س"}).status_code, 400)
+        self.assertEqual(
+            self.post({"q": "س", "document_id": 999999}).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.post({"q": "x" * 5000, "document_id": self.document.pk}).status_code,
+            400,
+        )
+
+    @patch("documents.views.has_perms_owner_aware", return_value=False)
+    @override_settings(AI_ENABLED=True)
+    def test_no_permission_on_document(self, _):
+        response = self.post({"q": "س", "document_id": self.document.pk})
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(AI_ENABLED=True)
+    def test_document_without_text(self):
+        self.document.content = ""
+        self.document.save()
+        response = self.post({"q": "س", "document_id": self.document.pk})
+        self.assertEqual(response.status_code, 400)
+
+    @patch("documents.views.AIClient")
+    @override_settings(AI_ENABLED=True)
+    def test_streams_answer_from_document_with_history(self, mock_client):
+        mock_client.return_value.stream_chat.return_value = iter(
+            ["ثلاث سنوات\n", "المصدر: «مدة الضمان ثلاث سنوات»"],
+        )
+        response = self.post(
+            {
+                "q": "ما مدة الضمان؟",
+                "document_id": self.document.pk,
+                "history": [
+                    {"role": "user", "content": "من الطرفان؟"},
+                    {"role": "assistant", "content": "وزارة الصحة وشركة الأمل"},
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["X-Document-Context"], "complete")
+        # Iterating the response lets Django drain the async stream synchronously.
+        body = b"".join(response).decode()
+        self.assertIn("ثلاث سنوات", body)
+
+        messages = mock_client.return_value.stream_chat.call_args[0][0]
+        self.assertEqual(
+            [m.role.value if hasattr(m.role, "value") else m.role for m in messages],
+            ["system", "user", "assistant", "user"],
+        )
+        self.assertIn("مدة الضمان ثلاث سنوات", messages[0].content)
+        self.assertTrue(messages[-1].content.startswith("ما مدة الضمان؟"))

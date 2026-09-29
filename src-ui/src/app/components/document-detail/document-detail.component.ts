@@ -68,6 +68,8 @@ import { DocumentListViewService } from 'src/app/services/document-list-view.ser
 import { HotKeyService } from 'src/app/services/hot-key.service'
 import { OpenDocumentsService } from 'src/app/services/open-documents.service'
 import { RecentDocumentsService } from 'src/app/services/recent-documents.service'
+import { DocumentAskService } from 'src/app/services/document-ask.service'
+import { locateQuote } from 'src/app/utils/answer-sources'
 import {
   PermissionAction,
   PermissionsService,
@@ -202,6 +204,7 @@ export class DocumentDetailComponent
   private modalService = inject(NgbModal)
   private openDocumentService = inject(OpenDocumentsService)
   private recentDocumentsService = inject(RecentDocumentsService)
+  private documentAskService = inject(DocumentAskService)
   private documentListViewService = inject(DocumentListViewService)
   private documentTitlePipe = inject(DocumentTitlePipe)
   private toastService = inject(ToastService)
@@ -637,6 +640,22 @@ export class DocumentDetailComponent
       .pipe(takeUntil(this.unsubscribeNotifier))
       .subscribe(() => {
         if (this.hasPrevious()) this.previousDoc()
+      })
+
+    if (this.aiEnabled) {
+      this.hotKeyService
+        .addShortcut({
+          keys: 'q',
+          description: $localize`:@@ask.title:Ask about this file`,
+        })
+        .pipe(takeUntil(this.unsubscribeNotifier))
+        .subscribe(() => this.askAboutDocument())
+    }
+
+    this.documentAskService.locateQuote$
+      .pipe(takeUntil(this.unsubscribeNotifier))
+      .subscribe(({ documentId, quote }) => {
+        if (documentId === this.documentId) this.showQuoteInContent(quote)
       })
 
     this.hotKeyService
@@ -1694,27 +1713,57 @@ export class DocumentDetailComponent
       })
   }
 
+  /** Kept for the Actions menu; opens the "ask about this file" panel. */
   public aiChat() {
-    const message = prompt('What would you like to know about this document?')
-    if (message) {
-      this.http
-        .post('/api/documents/ai_suggest/chat/', {
-          document_id: this.document.id,
-          message: message
-        })
-        .subscribe({
-          next: (response: any) => {
-            if (response.success) {
-              this.toastService.showInfo($localize`AI Response: ${response.response}`)
-            } else {
-              this.toastService.showError($localize`AI Chat failed: ${response.error}`)
-            }
-          },
-          error: (error) => {
-            this.toastService.showError($localize`AI Chat error: ${error.message}`)
+    this.askAboutDocument()
+  }
+
+  get isAskPanelOpen(): boolean {
+    return (
+      this.documentAskService.isOpen() &&
+      this.documentAskService.document()?.id === this.documentId
+    )
+  }
+
+  public askAboutDocument() {
+    if (!this.document) return
+    this.documentAskService.toggle(this.document)
+  }
+
+  /**
+   * Switch to the content tab and select a quote from an AI answer, so it can
+   * be read in context. The saved text is searched, not unsaved edits.
+   */
+  private showQuoteInContent(quote: string) {
+    this.router
+      .navigate(['documents', this.documentId, 'content'])
+      .then(() =>
+        setTimeout(() => {
+          const textarea = window.document.getElementById(
+            'content'
+          ) as HTMLTextAreaElement
+          const range = textarea ? locateQuote(quote, textarea.value) : null
+          if (!textarea || !range) {
+            this.toastService.showInfo(
+              $localize`:@@ask.locateFailed:The quote could not be located exactly in the text; search for it manually.`
+            )
+            return
           }
-        })
-    }
+          textarea.scrollIntoView({ block: 'center', behavior: 'smooth' })
+          textarea.focus({ preventScroll: true })
+          textarea.setSelectionRange(range.start, range.end)
+          // Bring the selection into view inside the textarea itself.
+          const lineHeight =
+            parseFloat(getComputedStyle(textarea).lineHeight) || 20
+          const lineIndex = textarea.value
+            .slice(0, range.start)
+            .split('\n').length
+          textarea.scrollTop = Math.max(
+            0,
+            (lineIndex - 3) * lineHeight
+          )
+        }, 60)
+      )
   }
 
   public aiClassify() {

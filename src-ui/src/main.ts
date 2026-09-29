@@ -159,6 +159,10 @@ import {
   fileEarmarkText,
   inbox,
   keyboard,
+  arrowUp,
+  hourglassSplit,
+  quote,
+  shieldCheck,
 } from 'ngx-bootstrap-icons'
 import { ColorSliderModule } from 'ngx-color/slider'
 import { CookieService } from 'ngx-cookie-service'
@@ -395,6 +399,10 @@ const icons = {
   fileEarmarkText,
   inbox,
   keyboard,
+  arrowUp,
+  hourglassSplit,
+  quote,
+  shieldCheck,
 }
 
 if (environment.production) {

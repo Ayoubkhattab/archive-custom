@@ -1,4 +1,4 @@
-import { matchesQuery, normalizeForSearch } from './command-palette.component'
+import { matchesQuery, normalizeForSearch } from 'src/app/utils/arabic-text'
 
 describe('command palette matching', () => {
   it('ignores Arabic spelling variants and diacritics', () => {

@@ -389,5 +389,9 @@
     <main #mainContent id="main-content" tabindex="-1" role="main" class="px-md-4" [class.col-slim]="slimSidebarEnabled">
       <router-outlet></router-outlet>
     </main>
+
+    @if (aiEnabled) {
+      <pngx-document-ask-panel></pngx-document-ask-panel>
+    }
   </div>
 </div>

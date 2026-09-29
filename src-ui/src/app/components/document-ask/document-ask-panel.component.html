@@ -1,0 +1,176 @@
+@if (ask.isOpen()) {
+  <aside class="ask-panel" role="complementary" aria-labelledby="ask-panel-title" (keydown)="onPanelKeydown($event)">
+    <header class="ask-header">
+      <span class="ask-header-icon" aria-hidden="true"><i-bs width="1.15em" height="1.15em" name="stars"></i-bs></span>
+      <div class="ask-header-text">
+        <h2 id="ask-panel-title" class="ask-title" i18n="@@ask.title">Ask about this file</h2>
+        <div class="ask-doc-title" [title]="ask.document()?.title ?? ''">
+          <i-bs width="0.9em" height="0.9em" name="file-earmark-text"></i-bs>
+          <span>{{ ask.document()?.title }}</span>
+        </div>
+      </div>
+      @if (messages.length) {
+        <button type="button" class="btn ask-icon-btn" (click)="newConversation()"
+          title="New conversation" i18n-title="@@ask.new" aria-label="New conversation" i18n-aria-label="@@ask.new">
+          <i-bs width="1.05em" height="1.05em" name="arrow-counterclockwise"></i-bs>
+        </button>
+      }
+      <button type="button" class="btn ask-icon-btn" (click)="close()" title="Close" i18n-title aria-label="Close" i18n-aria-label>
+        <i-bs width="1.2em" height="1.2em" name="x"></i-bs>
+      </button>
+    </header>
+
+    <div class="ask-modes" role="radiogroup" aria-label="Answer mode" i18n-aria-label="@@ask.mode">
+      <button type="button" role="radio" class="ask-mode" [class.active]="ask.mode() === 'fast'"
+        [attr.aria-checked]="ask.mode() === 'fast'" (click)="setMode('fast')">
+        <i-bs width="1em" height="1em" name="lightning-charge"></i-bs>
+        <span i18n="@@ask.mode.fast">Quick answer</span>
+      </button>
+      <button type="button" role="radio" class="ask-mode" [class.active]="ask.mode() === 'deep'"
+        [attr.aria-checked]="ask.mode() === 'deep'" (click)="setMode('deep')">
+        <i-bs width="1em" height="1em" name="shield-check"></i-bs>
+        <span i18n="@@ask.mode.deep">Careful check</span>
+      </button>
+    </div>
+
+    <div class="ask-body" #scrollBody aria-live="polite">
+      @if (ask.loadingDocument()) {
+        <div class="ask-loading">
+          <div class="spinner-border spinner-border-sm" role="status"></div>
+          <span i18n="@@ask.loadingDocument">Opening the document…</span>
+        </div>
+      } @else if (!messages.length) {
+        <div class="ask-intro">
+          <p class="ask-intro-text" i18n="@@ask.intro">Ask anything about this file. Answers come from its text only, and each one quotes the document so you can verify it.</p>
+          <div class="ask-suggestions">
+            @for (s of suggestions; track s) {
+              <button type="button" class="ask-chip" (click)="send(s)" [disabled]="ask.busy">{{ s }}</button>
+            }
+          </div>
+        </div>
+      }
+
+      @for (m of messages; track $index) {
+        @if (m.role === 'user') {
+          <div class="ask-question"><div class="ask-question-bubble">{{ m.content }}</div></div>
+        } @else {
+          <div class="ask-answer" [class.is-error]="m.state === 'error'">
+            @switch (m.state) {
+              @case ('waiting') {
+                <div class="ask-thinking">
+                  <span class="ask-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                  <span i18n="@@ask.reading">Reading the document…</span>
+                </div>
+              }
+              @case ('streaming') {
+                <div class="ask-plain">{{ m.content }}<span class="ask-cursor" aria-hidden="true"></span></div>
+              }
+              @case ('error') {
+                <div class="ask-error-text">
+                  <i-bs width="1em" height="1em" name="exclamation-triangle"></i-bs>
+                  <span>{{ m.content }}</span>
+                </div>
+              }
+              @default {
+                @if (m.parsed?.notInDocument) {
+                  <div class="ask-verdict is-not-found">
+                    <i-bs width="1em" height="1em" name="info-circle"></i-bs>
+                    <span i18n="@@ask.notInDocument">The document does not contain this information.</span>
+                  </div>
+                }
+                <div class="ask-markdown" [innerHTML]="renderMarkdown(m)"></div>
+
+                @if (m.quotes?.length) {
+                  <div class="ask-sources">
+                    <div class="ask-sources-label">
+                      <i-bs width="0.95em" height="0.95em" name="quote"></i-bs>
+                      <span i18n="@@ask.evidence">Evidence from the document</span>
+                    </div>
+                    @for (q of m.quotes; track q.text) {
+                      <figure class="ask-quote" [class]="'ask-quote is-' + q.status">
+                        <blockquote>{{ q.text }}</blockquote>
+                        <figcaption>
+                          <span class="ask-quote-status">
+                            <i-bs width="0.95em" height="0.95em" [name]="quoteIcon(q.status)"></i-bs>
+                            {{ quoteLabel(q.status) }}
+                          </span>
+                          <span class="ask-quote-actions">
+                            @if (onDocumentPage && q.status !== QuoteStatus.Missing) {
+                              <button type="button" class="btn btn-link btn-sm" (click)="locate(q.text)" i18n="@@ask.showInText">Show in text</button>
+                            }
+                            <button type="button" class="btn btn-link btn-sm" (click)="copy(q.text)"
+                              title="Copy" i18n-title="@@ask.copy" aria-label="Copy" i18n-aria-label="@@ask.copy">
+                              <i-bs width="0.9em" height="0.9em" name="clipboard"></i-bs>
+                            </button>
+                          </span>
+                        </figcaption>
+                      </figure>
+                    }
+                  </div>
+                } @else if (!m.parsed?.notInDocument && m.state === 'done') {
+                  <div class="ask-verdict is-unverified">
+                    <i-bs width="1em" height="1em" name="exclamation-triangle"></i-bs>
+                    <span i18n="@@ask.noEvidence">No quote was given for this answer — check it against the document.</span>
+                  </div>
+                }
+              }
+            }
+
+            @if (m.state !== 'waiting' && m.state !== 'streaming') {
+              <div class="ask-meta">
+                <span class="ask-badge">
+                  @if (m.mode === 'deep') {
+                    <i-bs width="0.85em" height="0.85em" name="shield-check"></i-bs>
+                    <ng-container i18n="@@ask.mode.deep">Careful check</ng-container>
+                  } @else {
+                    <i-bs width="0.85em" height="0.85em" name="lightning-charge"></i-bs>
+                    <ng-container i18n="@@ask.mode.fast">Quick answer</ng-container>
+                  }
+                </span>
+                @if (m.context === 'complete') {
+                  <span class="ask-badge" i18n="@@ask.context.complete">Read the whole document</span>
+                } @else if (m.context === 'excerpts') {
+                  <span class="ask-badge is-warn" title="The document is long: only its opening and the passages matching the question were read." i18n-title="@@ask.context.excerptsHint" i18n="@@ask.context.excerpts">Read relevant excerpts</span>
+                }
+                @if (m.state === 'stopped') {
+                  <span class="ask-badge" i18n="@@ask.stoppedBadge">Stopped</span>
+                }
+                @if (m.totalMs !== undefined) {
+                  <span class="ask-time" title="Time to first word / total" i18n-title="@@ask.timeHint">
+                    <i-bs width="0.85em" height="0.85em" name="hourglass-split"></i-bs>
+                    @if (m.firstWordMs !== undefined) { {{ seconds(m.firstWordMs) }} / }{{ seconds(m.totalMs) }}s
+                  </span>
+                }
+                @if (m.state !== 'error') {
+                  <button type="button" class="btn btn-link btn-sm ask-copy" (click)="copy(m.content)"
+                    title="Copy" i18n-title="@@ask.copy" aria-label="Copy" i18n-aria-label="@@ask.copy">
+                    <i-bs width="0.9em" height="0.9em" name="clipboard"></i-bs>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
+    <form class="ask-composer" (submit)="$event.preventDefault(); send()">
+      <textarea #input class="ask-input" name="askDraft" rows="1" [(ngModel)]="draft" (keydown)="onKeydown($event)"
+        [disabled]="ask.loadingDocument()" autocomplete="off"
+        placeholder="Type your question about this file…" i18n-placeholder="@@ask.placeholder"
+        aria-label="Your question" i18n-aria-label="@@ask.inputLabel"></textarea>
+      @if (ask.busy) {
+        <button type="button" class="btn ask-send is-stop" (click)="ask.stop()"
+          title="Stop" i18n-title="@@ask.stop" aria-label="Stop" i18n-aria-label="@@ask.stop">
+          <i-bs width="1em" height="1em" name="stop-fill"></i-bs>
+        </button>
+      } @else {
+        <button type="submit" class="btn ask-send" [disabled]="!draft.trim() || ask.loadingDocument()"
+          title="Send" i18n-title aria-label="Send" i18n-aria-label>
+          <i-bs width="1.1em" height="1.1em" name="arrow-up"></i-bs>
+        </button>
+      }
+    </form>
+    <p class="ask-footnote" i18n="@@ask.footnote">Enter to send · Shift+Enter for a new line · answers use this file only</p>
+  </aside>
+}

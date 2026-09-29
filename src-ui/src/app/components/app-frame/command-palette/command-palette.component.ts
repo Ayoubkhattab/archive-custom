@@ -30,6 +30,7 @@ import {
 } from 'src/app/data/filter-rule-type'
 import { GlobalSearchType, SETTINGS_KEYS } from 'src/app/data/ui-settings'
 import { CustomDatePipe } from 'src/app/pipes/custom-date.pipe'
+import { DocumentAskService } from 'src/app/services/document-ask.service'
 import { DocumentListViewService } from 'src/app/services/document-list-view.service'
 import { HotKeyService } from 'src/app/services/hot-key.service'
 import {
@@ -46,6 +47,7 @@ import {
 } from 'src/app/services/rest/search.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { UploadDocumentsService } from 'src/app/services/upload-documents.service'
+import { matchesQuery } from 'src/app/utils/arabic-text'
 
 export interface PaletteItem {
   id: string
@@ -69,31 +71,6 @@ export interface PaletteGroup {
 const MAX_RECENT = 6
 const MAX_PER_REMOTE_GROUP = 5
 
-/**
- * Normalises text for matching so that Arabic spelling variants and
- * diacritics don't hide a result: all alef forms → ا, ى → ي, ة → ه, and
- * tashkeel / tatweel removed. Latin text is lower-cased.
- */
-export function normalizeForSearch(value: string): string {
-  return (value ?? '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[ً-ٰٟـ]/g, '') // tashkeel, superscript alef, tatweel
-    .replace(/[آأإٱ]/g, 'ا') // آ أ إ ٱ → ا
-    .replace(/ى/g, 'ي') // ى → ي
-    .replace(/ة/g, 'ه') // ة → ه
-    .replace(/[̀-ͯ]/g, '') // Latin combining marks
-    .trim()
-}
-
-/** Every whitespace-separated term of the query must appear somewhere. */
-export function matchesQuery(haystack: string, query: string): boolean {
-  const terms = normalizeForSearch(query).split(/\s+/).filter(Boolean)
-  if (!terms.length) return true
-  const text = normalizeForSearch(haystack)
-  return terms.every((t) => text.includes(t))
-}
-
 @Component({
   selector: 'pngx-command-palette',
   templateUrl: './command-palette.component.html',
@@ -113,6 +90,7 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
   private recentDocumentsService = inject(RecentDocumentsService)
   private uploadDocumentsService = inject(UploadDocumentsService)
   private hotKeyService = inject(HotKeyService)
+  private documentAskService = inject(DocumentAskService)
 
   @ViewChild('searchInput') searchInput: ElementRef<HTMLInputElement>
   @ViewChild('fileInput') fileInput: ElementRef<HTMLInputElement>
@@ -462,6 +440,24 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
 
   private actionItems(): PaletteItem[] {
     const items: PaletteItem[] = []
+    const currentDocumentId = +(
+      this.router.url.match(/^\/documents\/(\d+)/)?.[1] ?? 0
+    )
+    if (
+      currentDocumentId &&
+      this.settingsService.get(SETTINGS_KEYS.AI_ENABLED)
+    ) {
+      items.push({
+        id: 'action-ask-document',
+        icon: 'stars',
+        label: $localize`:@@palette.action.askDocument:Ask the AI about this document`,
+        keywords: 'ai ask question chat document ذكاء اسال سؤال ملف مستند',
+        run: () => {
+          this.activeModal.close()
+          this.documentAskService.open(currentDocumentId)
+        },
+      })
+    }
     if (this.can(PermissionAction.Add, PermissionType.Document)) {
       items.push({
         id: 'action-upload',

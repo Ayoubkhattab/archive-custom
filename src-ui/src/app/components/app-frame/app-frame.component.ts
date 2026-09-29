@@ -57,6 +57,7 @@ import { ToastService } from 'src/app/services/toast.service'
 import { environment } from 'src/environments/environment'
 import { ChatComponent } from '../chat/chat/chat.component'
 import { ProfileEditDialogComponent } from '../common/profile-edit-dialog/profile-edit-dialog.component'
+import { DocumentAskPanelComponent } from '../document-ask/document-ask-panel.component'
 import { DocumentDetailComponent } from '../document-detail/document-detail.component'
 import { ComponentWithPermissions } from '../with-permissions/with-permissions.component'
 import { GlobalSearchComponent } from './global-search/global-search.component'
@@ -73,6 +74,7 @@ import { LogoComponent } from "../common/logo/logo.component";
     IfPermissionsDirective,
     ToastsDropdownComponent,
     ChatComponent,
+    DocumentAskPanelComponent,
     RouterModule,
     NgClass,
     NgbDropdownModule,

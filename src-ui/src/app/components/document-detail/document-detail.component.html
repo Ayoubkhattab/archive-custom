@@ -21,6 +21,14 @@
   </div>
   }
 
+  @if (aiEnabled) {
+    <button type="button" class="btn btn-sm btn-primary pngx-ask-trigger" (click)="askAboutDocument()"
+      [class.active]="isAskPanelOpen" [attr.aria-pressed]="isAskPanelOpen" aria-keyshortcuts="Q"
+      title="Ask the AI about this file (Q)" i18n-title="@@ask.trigger.title">
+      <i-bs width="1.1em" height="1.1em" name="stars"></i-bs><span class="d-none d-lg-inline ps-1" i18n="@@ask.title">Ask about this file</span>
+    </button>
+  }
+
   <button type="button" class="btn btn-sm btn-outline-danger me-md-4" (click)="delete()" [disabled]="!userCanDelete"
     *pngxIfPermissions="{ action: PermissionAction.Delete, type: PermissionType.Document }">
     <i-bs width="1.2em" height="1.2em" name="trash"></i-bs><span class="d-none d-lg-inline ps-1" i18n>Delete</span>
@@ -71,8 +79,8 @@
           <i-bs width="1em" height="1em" name="cpu"></i-bs>&nbsp;<span i18n>AI Suggest</span>
         </button>
 
-        <button ngbDropdownItem (click)="aiChat()" [disabled]="!userCanEdit || !userIsOwner">
-          <i-bs width="1em" height="1em" name="chat-dots"></i-bs>&nbsp;<span i18n>AI Chat</span>
+        <button ngbDropdownItem (click)="askAboutDocument()">
+          <i-bs width="1em" height="1em" name="stars"></i-bs>&nbsp;<span i18n="@@ask.title">Ask about this file</span>
         </button>
 
         <button ngbDropdownItem (click)="aiClassify()" [disabled]="!userCanEdit || !userIsOwner">

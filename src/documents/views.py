@@ -218,6 +218,10 @@ from paperless_ai.chat import stream_chat_with_documents
 from paperless_ai.client import DEFAULT_OLLAMA_ENDPOINT
 from paperless_ai.client import DEFAULT_OLLAMA_MODEL
 from paperless_ai.client import AIClient
+from paperless_ai.document_ask import MAX_QUESTION_CHARS as ASK_MAX_QUESTION_CHARS
+from paperless_ai.document_ask import build_messages as build_ask_messages
+from paperless_ai.document_ask import clean_history as clean_ask_history
+from paperless_ai.document_ask import select_context as select_ask_context
 from paperless_ai.llm_errors import describe_llm_error
 from paperless_ai.matching import extract_unmatched_names
 from paperless_ai.matching import match_correspondents_by_name
@@ -1666,6 +1670,129 @@ class ChatStreamingView(GenericAPIView):
         # Compressing a stream buffers it; "identity" makes the compression
         # middleware skip this response. X-Accel-Buffering does the same for
         # nginx if a reverse proxy sits in front.
+        response["Content-Encoding"] = "identity"
+        response["X-Accel-Buffering"] = "no"
+        return response
+
+
+class DocumentAskSerializer(serializers.Serializer):
+    document_id = serializers.IntegerField(required=True)
+    q = serializers.CharField(required=True, max_length=ASK_MAX_QUESTION_CHARS)
+    history = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        help_text="Earlier turns of this conversation: [{role, content}, ...].",
+    )
+    mode = serializers.ChoiceField(
+        choices=CHAT_MODES,
+        required=False,
+        help_text="fast: a direct answer. deep: a careful check of the whole text.",
+    )
+
+
+@method_decorator(
+    [
+        ensure_csrf_cookie,
+        cache_control(no_cache=True),
+    ],
+    name="dispatch",
+)
+class DocumentAskView(GenericAPIView):
+    """
+    "Ask about this file": a conversation about one document, answered from
+    its own text and ending with verbatim quotes the interface can check.
+    Kept apart from the archive-wide chat; see paperless_ai.document_ask.
+    """
+
+    permission_classes = (IsAuthenticated,)
+    serializer_class = DocumentAskSerializer
+
+    def post(self, request, *args, **kwargs):
+        request.compress_exempt = True
+        ai_config = AIConfig()
+        if not ai_config.ai_enabled:
+            return HttpResponseBadRequest("AI is required for this feature")
+
+        if not request.user.has_perm("documents.view_document"):
+            return HttpResponseForbidden("Insufficient permissions")
+
+        if not allow_request(request.user.pk):
+            return HttpResponse("Too many requests", status=429)
+
+        question = request.data.get("q")
+        if (
+            not isinstance(question, str)
+            or not question.strip()
+            or len(question) > ASK_MAX_QUESTION_CHARS
+        ):
+            return HttpResponseBadRequest("Invalid request")
+
+        try:
+            document = Document.objects.get(id=int(request.data.get("document_id")))
+        except (TypeError, ValueError):
+            return HttpResponseBadRequest("Invalid request")
+        except Document.DoesNotExist:
+            return HttpResponseBadRequest("Document not found")
+
+        if not has_perms_owner_aware(request.user, "view_document", document):
+            return HttpResponseForbidden("Insufficient permissions")
+
+        if len((document.content or "").strip()) < 20:
+            return HttpResponseBadRequest(
+                "This document has no extracted text yet. Run OCR/processing first.",
+            )
+
+        mode = normalize_mode(request.data.get("mode"))
+        mode_settings = MODE_SETTINGS[mode]
+        context = select_ask_context(
+            document.title,
+            document.content,
+            question,
+            settings.LLM_CHAT_MAX_CONTEXT_CHARS,
+        )
+        conversation = build_ask_messages(
+            title=document.title or document.filename or "",
+            context=context,
+            question=question,
+            history=clean_ask_history(request.data.get("history")),
+            deep=mode == "deep",
+            closing_instruction=ARABIC_ONLY,
+        )
+
+        def _stream():
+            from llama_index.core.llms import ChatMessage
+
+            client = AIClient(
+                max_output_tokens=mode_settings["max_output_tokens"],
+                thinking=mode_settings["thinking"],
+            )
+            yield from client.stream_chat(
+                [
+                    ChatMessage(role=role, content=content)
+                    for role, content in conversation
+                ],
+            )
+
+        def _stream_safely():
+            try:
+                yield from _stream()
+            except Exception as exc:
+                logger.exception("Document ask failed")
+                yield "\n\n" + describe_llm_error(
+                    exc,
+                    endpoint=ai_config.llm_endpoint or DEFAULT_OLLAMA_ENDPOINT,
+                    model=ai_config.llm_model or DEFAULT_OLLAMA_MODEL,
+                    timeout=settings.LLM_REQUEST_TIMEOUT,
+                )
+
+        response = StreamingHttpResponse(
+            stream_from_sync(_stream_safely, heartbeat=STREAM_HEARTBEAT),
+            content_type="text/plain; charset=utf-8",
+        )
+        # Tells the interface whether the whole document was read or excerpts.
+        response["X-Document-Context"] = (
+            "complete" if context.complete else "excerpts"
+        )
         response["Content-Encoding"] = "identity"
         response["X-Accel-Buffering"] = "no"
         return response

@@ -833,3 +833,22 @@ pngx-tag .badge {
     box-shadow: none;
   }
 }
+
+// "Ask about this file" panel -----------------------------------------------
+:root {
+  --pngx-ask-width: 420px;
+}
+
+@media (min-width: 1400px) {
+  :root {
+    --pngx-ask-width: 460px;
+  }
+}
+
+// Wide screens: the page makes room for the panel instead of sitting under it,
+// so the document can be read and checked beside the answers.
+@media (min-width: 1200px) {
+  body.pngx-ask-open main#main-content {
+    width: calc(100% - var(--pngx-content-offset) - var(--pngx-ask-width)) !important;
+  }
+}
