@@ -5,6 +5,7 @@ import {
 } from '@angular/common/http/testing'
 import { TestBed } from '@angular/core/testing'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
+import { allIcons, NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { Subscription } from 'rxjs'
 import { environment } from 'src/environments/environment'
 import { ConfirmDialogComponent } from '../components/common/confirm-dialog/confirm-dialog.component'
@@ -56,7 +57,7 @@ describe('OpenDocumentsService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [ConfirmDialogComponent],
+      imports: [ConfirmDialogComponent, NgxBootstrapIconsModule.pick(allIcons)],
       providers: [
         OpenDocumentsService,
         NgbModal,

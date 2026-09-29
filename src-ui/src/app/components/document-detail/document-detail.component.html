@@ -75,16 +75,12 @@
 
       @if (aiEnabled) {
         <div class="dropdown-divider"></div>
-        <button ngbDropdownItem (click)="aiSuggest()" [disabled]="!userCanEdit || !userIsOwner">
-          <i-bs width="1em" height="1em" name="cpu"></i-bs>&nbsp;<span i18n>AI Suggest</span>
+        <button ngbDropdownItem (click)="openAiSuggestions()">
+          <i-bs width="1em" height="1em" name="cpu"></i-bs>&nbsp;<span i18n="@@aiSuggest.title">AI suggestions</span>
         </button>
 
         <button ngbDropdownItem (click)="askAboutDocument()">
           <i-bs width="1em" height="1em" name="stars"></i-bs>&nbsp;<span i18n="@@ask.title">Ask about this file</span>
-        </button>
-
-        <button ngbDropdownItem (click)="aiClassify()" [disabled]="!userCanEdit || !userIsOwner">
-          <i-bs width="1em" height="1em" name="robot"></i-bs>&nbsp;<span i18n>AI Classify</span>
         </button>
       }
 

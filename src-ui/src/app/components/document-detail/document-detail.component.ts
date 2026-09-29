@@ -69,6 +69,7 @@ import { HotKeyService } from 'src/app/services/hot-key.service'
 import { OpenDocumentsService } from 'src/app/services/open-documents.service'
 import { RecentDocumentsService } from 'src/app/services/recent-documents.service'
 import { DocumentAskService } from 'src/app/services/document-ask.service'
+import { AiSuggestionsDialogComponent } from './ai-suggestions-dialog/ai-suggestions-dialog.component'
 import { locateQuote } from 'src/app/utils/answer-sources'
 import {
   PermissionAction,
@@ -1694,22 +1695,55 @@ export class DocumentDetailComponent
       !!this.document?.archived_file_name
   }
 
+  /**
+   * AI suggestions (title, tags, correspondent, type…) in a dialog. Suggest and
+   * classify ask the model the same question, so both open this one dialog;
+   * applying is offered there to people who may edit the document.
+   */
+  public openAiSuggestions() {
+    if (!this.document) return
+    const modal = this.modalService.open(AiSuggestionsDialogComponent, {
+      size: 'lg',
+      scrollable: true,
+      ariaLabelledBy: 'ai-suggestions-title',
+    })
+    const dialog = modal.componentInstance as AiSuggestionsDialogComponent
+    dialog.documentId = this.document.id
+    dialog.documentTitle = this.document.title
+    dialog.canApply = this.userCanEdit
+    dialog.hasUnsavedChanges = this.openDocumentService.isDirty(this.document)
+    dialog.applied
+      .pipe(first(), takeUntil(this.unsubscribeNotifier))
+      .subscribe(() => this.reloadAfterServerChange())
+  }
+
   public aiSuggest() {
-    this.http
-      .post('/api/documents/ai_suggest/suggest/', { document_id: this.document.id })
-      .subscribe({
-        next: (response: any) => {
-          if (response.success) {
-            this.toastService.showInfo(
-              'AI Suggestions: ' + JSON.stringify(response.suggestions, null, 2)
-            )
-          } else {
-            this.toastService.showError($localize`AI Suggest failed: ${response.error}`)
-          }
-        },
-        error: (error) => {
-          this.toastService.showError($localize`AI Suggest error: ${error.message}`)
-        }
+    this.openAiSuggestions()
+  }
+
+  public aiClassify() {
+    this.openAiSuggestions()
+  }
+
+  /**
+   * The document was changed on the server (AI suggestions applied): take the
+   * saved version as the new clean state, as a save does.
+   */
+  private reloadAfterServerChange() {
+    this.documentsService
+      .get(this.documentId)
+      .pipe(first(), takeUntil(this.unsubscribeNotifier))
+      .subscribe((doc) => {
+        Object.assign(this.document, doc)
+        this.title = doc.title
+        this.documentForm.patchValue(doc)
+        const newValues = Object.assign({}, this.documentForm.value)
+        newValues.tags = [...doc.tags]
+        newValues.custom_fields = [...doc.custom_fields]
+        this.store.next(newValues)
+        this.documentForm.markAsPristine()
+        this.openDocumentService.setDirty(this.document, false)
+        this.openDocumentService.refreshDocument(this.documentId)
       })
   }
 
@@ -1764,28 +1798,6 @@ export class DocumentDetailComponent
           )
         }, 60)
       )
-  }
-
-  public aiClassify() {
-    this.http
-      .post('/api/documents/ai_suggest/classify/', {
-        document_id: this.document.id,
-        apply: false
-      })
-      .subscribe({
-        next: (response: any) => {
-          if (response.success) {
-            this.toastService.showInfo(
-              'AI Classification: ' + JSON.stringify(response.classification, null, 2)
-            )
-          } else {
-            this.toastService.showError($localize`AI Classify failed: ${response.error}`)
-          }
-        },
-        error: (error) => {
-          this.toastService.showError($localize`AI Classify error: ${error.message}`)
-        }
-      })
   }
 
   private tryRenderTiff() {

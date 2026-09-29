@@ -46,6 +46,15 @@ def post(client: Client, path: str, payload) -> "object":
     return client.post(path, data=json.dumps(payload), content_type="application/json")
 
 
+def streamed_json(response) -> dict:
+    """
+    The JSON result of a streamed classification. The model call runs while
+    the body is read, so this must happen inside any patch of it.
+    """
+    body = b"".join(response).decode().replace("\u200b", "")
+    return json.loads(body)
+
+
 def signed_in(user: User, **kwargs) -> Client:
     client = Client(**kwargs)
     client.force_login(user)
@@ -103,8 +112,11 @@ def test_user_who_may_edit_can_apply_a_classification(document):
             CLASSIFY,
             {"document_id": document.pk, "apply": True},
         )
+        result = streamed_json(response)
 
     assert response.status_code == 200
+    assert result["success"] is True
+    assert result["applied"] is True
     document.refresh_from_db()
     assert document.title == "New title"
 
@@ -119,9 +131,11 @@ def test_classifying_without_apply_never_modifies_the_document(document):
             CLASSIFY,
             {"document_id": document.pk, "apply": "true"},
         )
+        result = streamed_json(response)
 
     # Only a real boolean true applies changes, and this user may not edit.
     assert response.status_code == 200
+    assert result["applied"] is False
     document.refresh_from_db()
     assert document.title == "Original"
 
@@ -144,9 +158,13 @@ def test_internal_error_details_are_not_returned(document):
         side_effect=RuntimeError("secret-host:11434 refused the connection"),
     ):
         response = post(signed_in(user), SUGGEST, {"document_id": document.pk})
+        result = streamed_json(response)
 
-    assert response.status_code == 500
-    assert "secret-host" not in response.content.decode()
+    # The response has already started when the model fails, so the failure is
+    # reported in the result rather than as a status code.
+    assert response.status_code == 200
+    assert result["success"] is False
+    assert "secret-host" not in result["error"]
 
 
 def test_malformed_input_is_a_bad_request(document):
@@ -232,3 +250,39 @@ def test_streaming_chat_response_is_not_compressed():
 
     assert response.status_code == 200
     assert response["Content-Encoding"] == "identity"
+
+
+def test_classification_is_streamed_and_cached(document):
+    # Cloudflare answers 524 if nothing is sent for ~100 s; the response must
+    # start with a heartbeat instead of waiting for the model.
+    user = make_user("viewer", "view_document")
+    client = signed_in(user)
+
+    with patch("paperless_ai.views.get_ai_document_classification") as classify:
+        classify.return_value = {"title": "Suggested", "tags": ["فواتير"]}
+        first = post(client, SUGGEST, {"document_id": document.pk})
+        first_body = b"".join(first).decode()
+        second = streamed_json(post(client, SUGGEST, {"document_id": document.pk}))
+
+    assert first["Content-Encoding"] == "identity"
+    assert first_body.startswith("\u200b")
+    first_result = json.loads(first_body.replace("\u200b", ""))
+    assert first_result["suggestions"]["tags"] == ["فواتير"]
+    assert first_result["cached"] is False
+    assert second["cached"] is True
+    classify.assert_called_once()
+
+
+def test_editing_the_document_invalidates_the_cached_classification(document):
+    user = make_user("viewer", "view_document")
+    client = signed_in(user)
+
+    with patch("paperless_ai.views.get_ai_document_classification") as classify:
+        classify.return_value = {"title": "Suggested"}
+        streamed_json(post(client, SUGGEST, {"document_id": document.pk}))
+        document.title = "Edited"
+        document.save()
+        result = streamed_json(post(client, SUGGEST, {"document_id": document.pk}))
+
+    assert result["cached"] is False
+    assert classify.call_count == 2

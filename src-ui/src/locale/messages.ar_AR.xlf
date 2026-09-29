@@ -13170,6 +13170,50 @@
         <source>Stay on this page</source>
         <target state="translated">البقاء في الصفحة</target>
       </trans-unit>
+      <trans-unit id="aiSuggest.title" datatype="html">
+        <source>AI suggestions</source>
+        <target state="translated">اقتراحات الذكاء الاصطناعي</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.loading" datatype="html">
+        <source>The model is reading the document…</source>
+        <target state="translated">النموذج يقرأ المستند…</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.loadingHint" datatype="html">
+        <source>On this server that can take a minute or more. You can close this window; the result is kept for next time.</source>
+        <target state="translated">قد يستغرق ذلك دقيقة أو أكثر على هذا الخادم. يمكنك إغلاق النافذة، وستُحفظ النتيجة للمرة القادمة.</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.retry" datatype="html">
+        <source>Try again</source>
+        <target state="translated">أعد المحاولة</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.empty" datatype="html">
+        <source>The model had no suggestions for this document.</source>
+        <target state="translated">لم يقدّم النموذج أي اقتراحات لهذا المستند.</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.cached" datatype="html">
+        <source>Saved result, shown instantly. It is refreshed whenever the document changes.</source>
+        <target state="translated">نتيجة محفوظة تظهر فوراً، وتُحدَّث تلقائياً عند تعديل المستند.</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.saveFirst" datatype="html">
+        <source>Save your changes first to apply the suggestions.</source>
+        <target state="translated">احفظ تغييراتك أولاً لتتمكن من تطبيق الاقتراحات.</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.applyNote" datatype="html">
+        <source>Only names that already exist in the archive are applied.</source>
+        <target state="translated">تُطبَّق فقط الأسماء الموجودة مسبقاً في الأرشيف.</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.apply" datatype="html">
+        <source>Apply to document</source>
+        <target state="translated">تطبيق على المستند</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.applied" datatype="html">
+        <source>AI suggestions applied and saved.</source>
+        <target state="translated">طُبّقت اقتراحات الذكاء الاصطناعي وحُفظت.</target>
+      </trans-unit>
+      <trans-unit id="aiSuggest.dates" datatype="html">
+        <source>Dates</source>
+        <target state="translated">التواريخ</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>
