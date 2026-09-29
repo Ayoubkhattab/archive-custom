@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
+import { allIcons, NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { Subject } from 'rxjs'
 import { ConfirmDialogComponent } from './confirm-dialog.component'
 
@@ -11,7 +12,7 @@ describe('ConfirmDialogComponent', () => {
   beforeEach(async () => {
     TestBed.configureTestingModule({
       providers: [NgbActiveModal],
-      imports: [ConfirmDialogComponent],
+      imports: [ConfirmDialogComponent, NgxBootstrapIconsModule.pick(allIcons)],
     }).compileComponents()
 
     modal = TestBed.inject(NgbActiveModal)

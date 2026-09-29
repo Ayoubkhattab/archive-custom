@@ -13158,6 +13158,18 @@
         <source>AI features are turned off in the configuration.</source>
         <target state="translated">ميزات الذكاء الاصطناعي معطّلة في الإعدادات.</target>
       </trans-unit>
+      <trans-unit id="dialog.ok" datatype="html">
+        <source>OK</source>
+        <target state="translated">حسناً</target>
+      </trans-unit>
+      <trans-unit id="dialog.leaveWithoutSaving" datatype="html">
+        <source>Leave without saving</source>
+        <target state="translated">المغادرة دون حفظ</target>
+      </trans-unit>
+      <trans-unit id="dialog.stayOnPage" datatype="html">
+        <source>Stay on this page</source>
+        <target state="translated">البقاء في الصفحة</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

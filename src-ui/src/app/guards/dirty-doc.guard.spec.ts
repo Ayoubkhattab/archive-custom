@@ -1,51 +1,42 @@
-import { Component } from '@angular/core'
 import { TestBed } from '@angular/core/testing'
-import { RouterTestingModule } from '@angular/router/testing'
-import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap'
-import { routes } from '../app-routing.module'
+import { Observable, firstValueFrom } from 'rxjs'
+import { DialogService } from '../services/dialog.service'
 import { ComponentCanDeactivate, DirtyDocGuard } from './dirty-doc.guard'
-
-@Component({ imports: [NgbModule] })
-class GenericDirtyDocComponent implements ComponentCanDeactivate {
-  canDeactivate: () => boolean
-}
 
 describe('DirtyDocGuard', () => {
   let guard: DirtyDocGuard
-  let component: ComponentCanDeactivate
+  let dialogService: { confirm: jest.Mock }
+  const component: ComponentCanDeactivate = { canDeactivate: () => true }
 
   beforeEach(() => {
+    dialogService = { confirm: jest.fn() }
     TestBed.configureTestingModule({
-      providers: [DirtyDocGuard, NgbModal, GenericDirtyDocComponent],
-      imports: [
-        RouterTestingModule.withRoutes(routes),
-        NgbModule,
-        GenericDirtyDocComponent,
+      providers: [
+        DirtyDocGuard,
+        { provide: DialogService, useValue: dialogService },
       ],
-    }).compileComponents()
-
+    })
     guard = TestBed.inject(DirtyDocGuard)
-    const fixture = TestBed.createComponent(GenericDirtyDocComponent)
-    component = fixture.componentInstance
-    window.confirm = jest.fn().mockImplementation(() => true)
-
-    fixture.detectChanges()
   })
 
   it('should deactivate if component is not dirty', () => {
     component.canDeactivate = () => true
-    const confirmSpy = jest.spyOn(window, 'confirm')
-    const canDeactivate = guard.canDeactivate(component)
-
-    expect(canDeactivate).toBeTruthy()
-    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(guard.canDeactivate(component)).toBe(true)
+    expect(dialogService.confirm).not.toHaveBeenCalled()
   })
 
-  it('should not deactivate if component is dirty', () => {
+  it('should ask before leaving a dirty component', async () => {
     component.canDeactivate = () => false
-    const confirmSpy = jest.spyOn(window, 'confirm')
-    const canDeactivate = guard.canDeactivate(component)
+    dialogService.confirm.mockResolvedValue(false)
+    const result = guard.canDeactivate(component) as Observable<boolean>
+    expect(dialogService.confirm).toHaveBeenCalled()
+    expect(await firstValueFrom(result)).toBe(false)
+  })
 
-    expect(confirmSpy).toHaveBeenCalled()
+  it('should leave when the person confirms', async () => {
+    component.canDeactivate = () => false
+    dialogService.confirm.mockResolvedValue(true)
+    const result = guard.canDeactivate(component) as Observable<boolean>
+    expect(await firstValueFrom(result)).toBe(true)
   })
 })

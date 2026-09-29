@@ -1,32 +1,35 @@
-<div class="modal-header">
-  <h4 class="modal-title" id="modal-basic-title">{{title}}</h4>
-  <button type="button" class="btn-close" aria-label="Close" i18n-aria-label (click)="cancel()">
-  </button>
-</div>
-<div class="modal-body">
+<div [class]="'app-dialog tone-' + tone">
+  <button type="button" class="btn-close app-dialog-close" aria-label="Close" i18n-aria-label (click)="cancel()"></button>
+
+  <div class="app-dialog-icon" aria-hidden="true">
+    <i-bs width="1.6em" height="1.6em" [name]="iconName"></i-bs>
+  </div>
+
+  <h4 class="app-dialog-title modal-title" id="modal-basic-title">{{title}}</h4>
   @if (messageBold) {
-    <p><b>{{messageBold}}</b></p>
+    <p class="app-dialog-lead">{{messageBold}}</p>
   }
   @if (message) {
-    <p class="mb-0" [innerHTML]="message"></p>
+    <p class="app-dialog-message" [innerHTML]="message"></p>
   }
-</div>
-<div class="modal-footer">
-  <button type="button" class="btn" [class]="cancelBtnClass" (click)="cancel()" [disabled]="!buttonsEnabled">
-        <span class="d-inline-block" style="padding-bottom: 1px;">{{cancelBtnCaption}}</span>
-      </button>
-  <button type="button" class="btn" [class]="btnClass" (click)="confirm()" [disabled]="!confirmButtonEnabled || !buttonsEnabled">
-    <span>
-      {{btnCaption}}
-      <span class="visually-hidden" i18n>{{ seconds | number: '1.0-0' }} seconds</span>
-    </span>
-    @if (!confirmButtonEnabled) {
-      <ngb-progressbar style="height: 1px;" type="dark" [max]="secondsTotal" [value]="seconds"></ngb-progressbar>
-    }
-  </button>
-  @if (alternativeBtnCaption) {
-    <button type="button" class="btn" [class]="alternativeBtnClass" (click)="alternative()" [disabled]="!alternativeButtonEnabled || !buttonsEnabled">
-      {{alternativeBtnCaption}}
+
+  <div class="app-dialog-actions">
+    <button type="button" class="btn" [class]="cancelBtnClass" (click)="cancel()" [disabled]="!buttonsEnabled">
+      {{cancelBtnCaption}}
     </button>
-  }
+    @if (alternativeBtnCaption) {
+      <button type="button" class="btn" [class]="alternativeBtnClass" (click)="alternative()" [disabled]="!alternativeButtonEnabled || !buttonsEnabled">
+        {{alternativeBtnCaption}}
+      </button>
+    }
+    <button type="button" class="btn" [class]="btnClass" (click)="confirm()" [disabled]="!confirmButtonEnabled || !buttonsEnabled">
+      <span class="d-block">
+        {{btnCaption}}
+        <span class="visually-hidden" i18n>{{ seconds | number: '1.0-0' }} seconds</span>
+      </span>
+      @if (!confirmButtonEnabled) {
+        <ngb-progressbar type="dark" [max]="secondsTotal" [value]="seconds"></ngb-progressbar>
+      }
+    </button>
+  </div>
 </div>

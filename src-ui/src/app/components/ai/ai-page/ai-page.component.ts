@@ -33,6 +33,7 @@ import {
   conversationToReport,
 } from 'src/app/services/ai-report-export.service'
 import { ChatService } from 'src/app/services/chat.service'
+import { DialogService } from 'src/app/services/dialog.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
 import {
@@ -59,6 +60,7 @@ export class AiPageComponent implements OnInit, OnDestroy {
   private exporter = inject(AiReportExportService)
   private settings = inject(SettingsService)
   private toastService = inject(ToastService)
+  private dialogService = inject(DialogService)
   private sanitizer = inject(DomSanitizer)
   private zone = inject(NgZone)
   private cdr = inject(ChangeDetectorRef)
@@ -148,8 +150,17 @@ export class AiPageComponent implements OnInit, OnDestroy {
     this.refreshHistory()
   }
 
-  clearHistory(): void {
-    if (!confirm('هل تريد حذف كل المحادثات المحفوظة في هذا المتصفح؟')) return
+  async clearHistory(): Promise<void> {
+    const confirmed = await this.dialogService.confirm({
+      title: 'حذف كل المحادثات',
+      message:
+        'ستُحذف كل المحادثات المحفوظة في هذا المتصفح نهائياً، ولا يمكن استرجاعها.',
+      tone: 'danger',
+      icon: 'trash',
+      confirmLabel: 'حذف الكل',
+      cancelLabel: 'إلغاء',
+    })
+    if (!confirmed) return
     if (this.loading) this.stop()
     this.store.clear()
     this.current = this.blankConversation()

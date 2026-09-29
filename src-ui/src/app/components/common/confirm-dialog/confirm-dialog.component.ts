@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common'
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core'
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
+import { NgbActiveModal, NgbProgressbarModule } from '@ng-bootstrap/ng-bootstrap'
+import { NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { Subject } from 'rxjs'
 import { LoadingComponentWithPermissions } from '../../loading-component/loading.component'
 
@@ -8,7 +9,7 @@ import { LoadingComponentWithPermissions } from '../../loading-component/loading
   selector: 'pngx-confirm-dialog',
   templateUrl: './confirm-dialog.component.html',
   styleUrls: ['./confirm-dialog.component.scss'],
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, NgbProgressbarModule, NgxBootstrapIconsModule],
 })
 export class ConfirmDialogComponent extends LoadingComponentWithPermissions {
   activeModal = inject(NgbActiveModal)
@@ -53,6 +54,24 @@ export class ConfirmDialogComponent extends LoadingComponentWithPermissions {
   alternativeButtonEnabled = true
   seconds = 0
   secondsTotal = 0
+
+  /** Destructive confirmations (red button) get the danger look. */
+  get tone(): 'danger' | 'info' | 'warning' {
+    if (this.btnClass?.includes('danger')) return 'danger'
+    if (this.cancelBtnClass?.includes('visually-hidden')) return 'info'
+    return 'warning'
+  }
+
+  get iconName(): string {
+    switch (this.tone) {
+      case 'danger':
+        return 'exclamation-triangle'
+      case 'info':
+        return 'info-circle'
+      default:
+        return 'question-circle'
+    }
+  }
 
   confirmSubject: Subject<boolean>
   alternativeSubject: Subject<boolean>

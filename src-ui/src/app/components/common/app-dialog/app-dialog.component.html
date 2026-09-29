@@ -1,0 +1,36 @@
+<div [class]="'app-dialog tone-' + tone">
+  <button type="button" class="btn-close app-dialog-close" aria-label="Close" i18n-aria-label (click)="cancel()"></button>
+
+  <div class="app-dialog-icon" aria-hidden="true">
+    <i-bs width="1.6em" height="1.6em" [name]="iconName"></i-bs>
+  </div>
+
+  <h2 class="app-dialog-title" id="app-dialog-title">{{ title }}</h2>
+  @if (message) {
+    <p class="app-dialog-message" id="app-dialog-message">{{ message }}</p>
+  }
+
+  @if (kind === 'prompt') {
+    <form class="app-dialog-field" (submit)="$event.preventDefault(); confirm()">
+      @if (inputLabel) {
+        <label class="form-label" for="app-dialog-input">{{ inputLabel }}</label>
+      }
+      @if (multiline) {
+        <textarea #field id="app-dialog-input" class="form-control" name="value" rows="3"
+          [(ngModel)]="value" [placeholder]="placeholder" [attr.maxlength]="maxLength"
+          [attr.aria-label]="inputLabel || title" (keydown)="onFieldKeydown($event)"></textarea>
+      } @else {
+        <input #field id="app-dialog-input" class="form-control" name="value" type="text" autocomplete="off"
+          [(ngModel)]="value" [placeholder]="placeholder" [attr.maxlength]="maxLength"
+          [attr.aria-label]="inputLabel || title" (keydown)="onFieldKeydown($event)">
+      }
+    </form>
+  }
+
+  <div class="app-dialog-actions">
+    @if (kind !== 'alert') {
+      <button #cancelButton type="button" class="btn btn-outline-secondary" (click)="cancel()">{{ cancelLabel }}</button>
+    }
+    <button #confirmButton type="button" [class]="'btn ' + confirmClass" (click)="confirm()" [disabled]="!canConfirm">{{ confirmLabel }}</button>
+  </div>
+</div>

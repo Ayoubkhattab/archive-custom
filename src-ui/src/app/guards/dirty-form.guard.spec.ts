@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router'
 import { RouterTestingModule } from '@angular/router/testing'
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap'
 import { DirtyComponent } from '@ngneat/dirty-check-forms'
+import { allIcons, NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { routes } from '../app-routing.module'
 import { ConfirmDialogComponent } from '../components/common/confirm-dialog/confirm-dialog.component'
 import { DirtyFormGuard } from './dirty-form.guard'
@@ -33,6 +34,7 @@ describe('DirtyFormGuard', () => {
         GenericDirtyComponent,
       ],
       imports: [
+        NgxBootstrapIconsModule.pick(allIcons),
         RouterTestingModule.withRoutes(routes),
         NgbModule,
         ConfirmDialogComponent,

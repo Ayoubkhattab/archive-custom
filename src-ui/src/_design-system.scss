@@ -584,7 +584,7 @@ table.table {
 
 // Phones: dialogs become bottom sheets, reachable with a thumb.
 @media (max-width: 575.98px) {
-  .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog) {
+  .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog):not(.modal-dialog-centered) {
     display: flex;
     align-items: flex-end;
     margin: 0;
@@ -605,11 +605,11 @@ table.table {
 }
 
 @media (max-width: 575.98px) {
-  .modal.fade .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog) {
+  .modal.fade .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog):not(.modal-dialog-centered) {
     transform: translateY(40px);
   }
 
-  .modal.show .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog) {
+  .modal.show .modal-dialog:not(.modal-fullscreen):not(.pngx-palette-dialog):not(.modal-dialog-centered) {
     transform: none;
   }
 }
@@ -851,4 +851,125 @@ pngx-tag .badge {
   body.pngx-ask-open main#main-content {
     width: calc(100% - var(--pngx-content-offset) - var(--pngx-ask-width)) !important;
   }
+}
+
+// Dialogs (alert / confirm / prompt) -----------------------------------------
+// Shared by AppDialogComponent (DialogService) and ConfirmDialogComponent, so
+// every question the app asks looks the same. Replaces the browser's own
+// alert/confirm/prompt boxes, which must not be used.
+.pngx-app-dialog {
+  max-width: 440px;
+}
+
+@media (max-width: 575.98px) {
+  .pngx-app-dialog {
+    margin-inline: 1rem;
+  }
+}
+
+.app-dialog {
+  --app-dialog-accent: var(--bs-primary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1.75rem 1.5rem;
+  text-align: center;
+
+  &.tone-success {
+    --app-dialog-accent: var(--bs-primary);
+  }
+
+  &.tone-warning {
+    --app-dialog-accent: var(--pngx-brand-wheat-deep);
+  }
+
+  &.tone-danger {
+    --app-dialog-accent: var(--bs-danger);
+  }
+}
+
+.app-dialog-close {
+  position: absolute;
+  top: 0.9rem;
+  inset-inline-end: 0.9rem;
+  font-size: 0.75rem;
+}
+
+.app-dialog-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.75rem;
+  height: 3.75rem;
+  margin-bottom: 1rem;
+  border-radius: 50%;
+  color: var(--app-dialog-accent);
+  background-color: color-mix(in srgb, var(--app-dialog-accent) 12%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--app-dialog-accent) 5%, transparent);
+  animation: app-dialog-pop var(--pngx-duration-slow) var(--pngx-ease) backwards;
+}
+
+@keyframes app-dialog-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.app-dialog-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.app-dialog-message {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--bs-secondary-color);
+  line-height: 1.75;
+  white-space: pre-line;
+}
+
+.app-dialog-field {
+  width: 100%;
+  margin-top: 1.25rem;
+  text-align: start;
+
+  .form-control {
+    font-size: 0.95rem;
+    padding: 0.6rem 0.8rem;
+  }
+}
+
+.app-dialog-actions {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 1.5rem;
+
+  .btn {
+    flex: 1 1 0;
+    min-height: 2.6rem;
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .app-dialog {
+    padding-inline: 1.25rem;
+  }
+}
+
+.app-dialog-lead {
+  margin: 0 0 0.35rem;
+  max-width: 46ch;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.app-dialog-actions .btn .progress {
+  height: 2px;
+  margin-top: 0.25rem;
 }
