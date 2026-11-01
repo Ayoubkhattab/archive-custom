@@ -275,7 +275,7 @@ services:
 
   # ── Document Conversion ───────────────────────────────────────────────────────
   gotenberg:
-    image: docker.io/gotenberg/gotenberg:8.38
+    image: docker.io/gotenberg/gotenberg:8.39
     restart: always
     command:
       - "gotenberg"
