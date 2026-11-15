@@ -242,7 +242,7 @@ services:
       "
 
   gotenberg:
-    image: docker.io/gotenberg/gotenberg:8.38
+    image: docker.io/gotenberg/gotenberg:9.4
     restart: unless-stopped
     command:
       - "gotenberg"
