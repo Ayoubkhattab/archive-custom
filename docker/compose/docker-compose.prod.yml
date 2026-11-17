@@ -279,7 +279,7 @@ services:
 
   # ── Document Conversion ───────────────────────────────────────────────────────
   gotenberg:
-    image: docker.io/gotenberg/gotenberg:8.32
+    image: docker.io/gotenberg/gotenberg:8.38
     restart: always
     command:
       - "gotenberg"
@@ -289,7 +289,7 @@ services:
       - no-new-privileges:true
 
   tika:
-    image: docker.io/apache/tika:3.2.2.0
+    image: docker.io/apache/tika:4.1.0-1
     restart: always
     security_opt:
       - no-new-privileges:true
