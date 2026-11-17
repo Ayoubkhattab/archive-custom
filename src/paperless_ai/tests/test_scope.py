@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 from unittest.mock import patch
@@ -19,6 +20,16 @@ from paperless_ai.scope import apply_filters
 pytestmark = pytest.mark.django_db
 
 CHAT = "/api/documents/chat/"
+
+
+def read_stream(response) -> str:
+    """The body of a streamed chat answer (an async iterator under ASGI)."""
+
+    async def collect():
+        return [chunk async for chunk in response.streaming_content]
+
+    chunks = asyncio.run(collect())
+    return b"".join(c if isinstance(c, bytes) else c.encode() for c in chunks).decode()
 
 
 @pytest.fixture
@@ -179,7 +190,12 @@ class TestChatWithFilters:
         )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
-        with patch("documents.views.AIConfig") as config:
+        # The view builds its model client before streaming; with the config
+        # mocked a real one cannot be built, and no model is called here.
+        with (
+            patch("documents.views.AIConfig") as config,
+            patch("documents.views.AIClient"),
+        ):
             config.return_value.ai_enabled = True
             yield
 
@@ -199,7 +215,7 @@ class TestChatWithFilters:
                     },
                 },
             )
-            body = b"".join(response.streaming_content).decode()
+            body = read_stream(response)
         assert response.status_code == 200
         assert "ok" in body
         _, documents, _ = stream.call_args.args
@@ -213,7 +229,7 @@ class TestChatWithFilters:
             response = self.post(
                 {"q": "لخّص", "filters": {"created__date__gte": "2099-01-01"}},
             )
-            body = b"".join(response.streaming_content).decode()
+            body = read_stream(response)
         assert response.status_code == 200
         assert "لا توجد مستندات تطابق فلاتر البحث" in body
         stream.assert_not_called()

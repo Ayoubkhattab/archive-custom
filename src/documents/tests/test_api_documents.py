@@ -1260,6 +1260,7 @@ class TestDocumentApi(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.consume_file_mock.assert_not_called()
 
+    @override_settings(CONSUMER_STORE_UNSUPPORTED=False, CONSUMER_ZIP_EXTRACT=False)
     def test_upload_invalid_file(self):
         self.consume_file_mock.return_value = celery.result.AsyncResult(
             id=str(uuid.uuid4()),

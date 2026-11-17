@@ -73,6 +73,29 @@
         (apply)="setCustomFields($event)">
       </pngx-filterable-dropdown>
     }
+    <div ngbDropdown class="me-2" (openChange)="$event && loadFolders()">
+      <button type="button" class="btn btn-sm btn-outline-primary" ngbDropdownToggle [disabled]="!userCanEditAll">
+        <i-bs name="folder"></i-bs><div class="d-none d-sm-inline">&nbsp;<ng-container i18n="@@bulk.folder.move">Move to folder</ng-container></div>
+      </button>
+      <div ngbDropdownMenu class="shadow bulk-folder-menu">
+        @if (folderOptions === null) {
+          <div class="dropdown-item-text text-muted small"><span class="spinner-border spinner-border-sm"></span></div>
+        } @else {
+          @for (option of folderOptions; track option.id) {
+            <button ngbDropdownItem type="button" (click)="moveToFolder(option.id)"
+              [style.padding-inline-start.rem]="1 + option.depth * 0.75">
+              <i-bs name="folder-fill" class="text-warning"></i-bs>&nbsp;<span dir="auto">{{ option.name }}</span>
+            </button>
+          } @empty {
+            <div class="dropdown-item-text text-muted small" i18n="@@bulk.folder.empty">No folders yet</div>
+          }
+          <div class="dropdown-divider"></div>
+          <button ngbDropdownItem type="button" (click)="moveToFolder(null)">
+            <i-bs name="x"></i-bs>&nbsp;<ng-container i18n="@@bulk.folder.none">Not in a folder</ng-container>
+          </button>
+        }
+      </div>
+    </div>
     <div class="btn-group">
       <button type="button" class="btn btn-sm btn-outline-primary me-2" (click)="setPermissions()" [disabled]="!userOwnsAll || !userCanEditAll">
         <i-bs name="person-fill-lock"></i-bs><div class="d-none d-sm-inline">&nbsp;<ng-container i18n>Permissions</ng-container></div>

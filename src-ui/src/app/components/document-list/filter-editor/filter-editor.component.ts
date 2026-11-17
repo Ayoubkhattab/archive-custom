@@ -65,6 +65,7 @@ import {
   FILTER_HAS_STORAGE_PATH_ANY,
   FILTER_HAS_TAGS_ALL,
   FILTER_HAS_TAGS_ANY,
+  FILTER_FOLDER_TREE,
   FILTER_MIME_TYPE,
   FILTER_OWNER,
   FILTER_OWNER_ANY,
@@ -90,6 +91,8 @@ import {
   SelectionDataItem,
 } from 'src/app/services/rest/document.service'
 import { SearchService } from 'src/app/services/rest/search.service'
+import { FolderService } from 'src/app/services/rest/folder.service'
+import { buildFolderTree, folderPathLabel } from 'src/app/data/folder'
 import { StoragePathService } from 'src/app/services/rest/storage-path.service'
 import { TagService } from 'src/app/services/rest/tag.service'
 import {
@@ -266,6 +269,7 @@ export class FilterEditorComponent
   permissionsService = inject(PermissionsService)
   private customFieldService = inject(CustomFieldsService)
   private searchService = inject(SearchService)
+  private folderService = inject(FolderService)
 
   generateFilterName() {
     if (this.filterRules.length == 1) {
@@ -436,6 +440,7 @@ export class FilterEditorComponent
     this.dateAddedRelativeDate = null
     this.textFilterModifier = TEXT_FILTER_MODIFIER_EQUALS
     this.permissionsSelectionModel.clear()
+    this.folderIds = []
 
     value.forEach((rule) => {
       switch (rule.rule_type) {
@@ -735,6 +740,13 @@ export class FilterEditorComponent
               parseInt(rule.value, 10)
             )
           break
+        case FILTER_FOLDER_TREE: {
+          const id = parseInt(rule.value, 10)
+          if (!isNaN(id) && !this.folderIds.includes(id))
+            this.folderIds.push(id)
+          this.loadFolderNames()
+          break
+        }
         case FILTER_SHARED_BY_USER:
           this.permissionsSelectionModel.ownerFilter =
             OwnerFilterType.SHARED_BY_ME
@@ -1095,7 +1107,40 @@ export class FilterEditorComponent
         value: 'false',
       })
     }
+    // Set from a folder ("show in documents"); there is no dropdown for it,
+    // only the chip that removes it.
+    this.folderIds.forEach((id) =>
+      filterRules.push({ rule_type: FILTER_FOLDER_TREE, value: id.toString() })
+    )
     return filterRules
+  }
+
+  /** Folders the documents are limited to, with their subfolders. */
+  folderIds: number[] = []
+  private folderNames = new Map<number, string>()
+  private folderNamesRequested = false
+
+  folderName(id: number): string {
+    return this.folderNames.get(id) ?? `#${id}`
+  }
+
+  removeFolderFilter(id: number) {
+    this.folderIds = this.folderIds.filter((f) => f !== id)
+    this.updateRules()
+  }
+
+  private loadFolderNames() {
+    if (this.folderNamesRequested) return
+    this.folderNamesRequested = true
+    this.folderService.list().subscribe({
+      next: (folders) => {
+        const tree = buildFolderTree(folders)
+        tree.byId.forEach((node, id) =>
+          this.folderNames.set(id, folderPathLabel(node))
+        )
+      },
+      error: () => (this.folderNamesRequested = false),
+    })
   }
 
   @Output()

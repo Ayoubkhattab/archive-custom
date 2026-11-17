@@ -54,6 +54,25 @@ describe('UploadDocumentsService', () => {
     req[0].flush('123-456')
   })
 
+  it('files the upload in a folder when asked', () => {
+    const file = new File(['x'], 'archive.zip')
+    uploadDocumentsService.uploadFile(file, { folder: 12 })
+    const [req] = httpTestingController.match(
+      `${environment.apiBaseUrl}documents/post_document/`
+    )
+    const body = req.request.body as FormData
+    expect(body.get('folder')).toEqual('12')
+    expect(body.get('from_webui')).toEqual('true')
+    req.flush('123-456')
+
+    uploadDocumentsService.uploadFile(new File(['y'], 'b.pdf'))
+    const [plain] = httpTestingController.match(
+      `${environment.apiBaseUrl}documents/post_document/`
+    )
+    expect((plain.request.body as FormData).has('folder')).toBeFalsy()
+    plain.flush('789')
+  })
+
   it('updates progress during upload and failure', () => {
     const file = new File(
       [new Blob(['testing'], { type: 'application/pdf' })],
@@ -189,6 +208,16 @@ describe('UploadDocumentsService', () => {
       const [status] = websocketStatusService.getConsumerStatus()
       expect(status.taskId).toEqual('task-1')
       expect(status.phase).toEqual(FileStatusPhase.UPLOADING)
+    })
+
+    it('sends the folder with the completion of a chunked upload', async () => {
+      uploadDocumentsService.uploadFile(bigFile(), { folder: 5 })
+      httpTestingController.expectOne(sessionsUrl).flush(session([0, 1, 2]))
+      await settle()
+      const complete = httpTestingController.expectOne(completeUrl)
+      expect(complete.request.body).toEqual({ from_webui: true, folder: 5 })
+      complete.flush('task-2')
+      await settle()
     })
 
     it('resumes by sending only the chunks the server is missing', async () => {

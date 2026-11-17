@@ -32,6 +32,8 @@ import {
   DocumentService,
   SelectionDataItem,
 } from 'src/app/services/rest/document.service'
+import { FolderService } from 'src/app/services/rest/folder.service'
+import { buildFolderTree, flattenFolderTree } from 'src/app/data/folder'
 import { SavedViewService } from 'src/app/services/rest/saved-view.service'
 import { StoragePathService } from 'src/app/services/rest/storage-path.service'
 import { TagService } from 'src/app/services/rest/tag.service'
@@ -79,6 +81,7 @@ export class BulkEditorComponent
   private correspondentService = inject(CorrespondentService)
   list = inject(DocumentListViewService)
   private documentService = inject(DocumentService)
+  private folderService = inject(FolderService)
   private modalService = inject(NgbModal)
   private openDocumentService = inject(OpenDocumentsService)
   private settings = inject(SettingsService)
@@ -266,6 +269,30 @@ export class BulkEditorComponent
   ngOnDestroy(): void {
     this.unsubscribeNotifier.next(this)
     this.unsubscribeNotifier.complete()
+  }
+
+  /** Folders offered by "move to folder"; null until loaded. */
+  folderOptions: { id: number; name: string; depth: number }[] | null = null
+
+  loadFolders() {
+    this.folderService
+      .list()
+      .pipe(first())
+      .subscribe({
+        next: (folders) =>
+          (this.folderOptions = flattenFolderTree(buildFolderTree(folders)).map(
+            (node) => ({
+              id: node.folder.id,
+              name: node.folder.name,
+              depth: node.depth,
+            })
+          )),
+        error: () => (this.folderOptions = []),
+      })
+  }
+
+  moveToFolder(folder: number | null) {
+    this.executeBulkOperation(null, 'set_folder', { folder })
   }
 
   private executeBulkOperation(

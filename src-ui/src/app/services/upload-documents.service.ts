@@ -58,6 +58,11 @@ class RequestSlots {
 
 class UploadInterrupted extends Error {}
 
+export interface UploadOptions {
+  /** Id of the folder the file is filed in. */
+  folder?: number
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -91,18 +96,23 @@ export class UploadDocumentsService {
     event.returnValue = ''
   }
 
-  public uploadFile(file: File) {
+  /**
+   * @param options.folder files go into this folder; a ZIP archive is
+   *   unpacked into a subfolder of it.
+   */
+  public uploadFile(file: File, options: UploadOptions = {}) {
     if (file.size > this.chunkedThreshold) {
-      this.uploadChunked(file)
+      this.uploadChunked(file, options)
     } else {
-      this.uploadWhole(file)
+      this.uploadWhole(file, options)
     }
   }
 
-  private uploadWhole(file: File) {
+  private uploadWhole(file: File, options: UploadOptions) {
     let formData = new FormData()
     formData.append('document', file, file.name)
     formData.append('from_webui', 'true')
+    if (options.folder) formData.append('folder', String(options.folder))
     let status = this.websocketStatusService.newFileUpload(file.name)
 
     status.message = $localize`Connecting...`
@@ -164,7 +174,7 @@ export class UploadDocumentsService {
    * still stops, choosing the same file again resumes it, because the server
    * keeps the chunks and tells which ones it has.
    */
-  private async uploadChunked(file: File) {
+  private async uploadChunked(file: File, options: UploadOptions) {
     const status = this.websocketStatusService.newFileUpload(file.name)
     status.message = $localize`Connecting...`
     this.uploadStarted()
@@ -261,6 +271,7 @@ export class UploadDocumentsService {
         firstValueFrom(
           this.http.post<string>(this.sessionsUrl(session.id, 'complete'), {
             from_webui: true,
+            ...(options.folder ? { folder: options.folder } : {}),
           })
         )
       )

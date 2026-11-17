@@ -796,6 +796,7 @@ class SavedViewFilterRule(models.Model):
         (45, _("added to")),
         (46, _("added from")),
         (47, _("mime type is")),
+        (48, _("in folder, with its subfolders")),
     ]
 
     saved_view = models.ForeignKey(

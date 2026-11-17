@@ -101,6 +101,15 @@
           title="Permissions" i18n-title
           (ownerFilterSet)="updateRules()"
         [(selectionModel)]="permissionsSelectionModel"></pngx-permissions-filter-dropdown>
+        @for (id of folderIds; track id) {
+          <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 text-nowrap"
+            [disabled]="disabled" (click)="removeFolderFilter(id)"
+            title="Remove the folder filter" i18n-title="@@filter.folder.remove">
+            <i-bs width="1em" height="1em" name="folder-fill"></i-bs>
+            <span class="text-truncate" style="max-width: 14rem;">{{ folderName(id) }}</span>
+            <i-bs width="1em" height="1em" name="x"></i-bs>
+          </button>
+        }
       </div>
       <div class="d-flex flex-wrap d-none d-sm-inline-block">
         <button class="btn btn-outline-secondary btn-sm" [disabled]="!rulesModified" (click)="resetSelected()">

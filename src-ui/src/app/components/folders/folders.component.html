@@ -1,0 +1,179 @@
+<pngx-page-header title="المجلدات" subTitle="تصفّح مستنداتك حسب المجلدات، ومنها مجلدات ملفات ZIP المرفوعة">
+  @if (canUpload) {
+    <button type="button" class="btn btn-sm btn-outline-primary" (click)="createFolder()">
+      <i-bs width="1em" height="1em" name="folder-plus"></i-bs>
+      <span class="d-none d-sm-inline ms-1">مجلد جديد</span>
+    </button>
+    <button type="button" class="btn btn-sm btn-primary" (click)="chooseFiles()"
+      title="ارفع ملفات من أي نوع إلى هذا المجلد. ملف ZIP يُفكّ إلى مجلد فرعي بنفس بنيته.">
+      <i-bs width="1em" height="1em" name="upload"></i-bs>
+      <span class="d-none d-sm-inline ms-1">رفع ملفات أو ZIP هنا</span>
+    </button>
+    <input #fileInput type="file" multiple hidden (change)="onFilesChosen($event)">
+  }
+</pngx-page-header>
+
+<div class="folders-layout">
+  <!-- The whole tree, for jumping anywhere -->
+  <aside class="folders-tree card d-none d-md-flex">
+    <div class="card-header"><strong>شجرة المجلدات</strong></div>
+    <div class="folders-tree-body">
+      <button type="button" class="tree-row" [class.active]="currentId === null" (click)="open(null)">
+        <span class="tree-toggle"></span>
+        <i-bs width="1em" height="1em" name="house"></i-bs>
+        <span class="tree-name">كل المجلدات</span>
+      </button>
+      @if (loadingFolders && !tree.roots.length) {
+        <div class="p-3 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>جارٍ التحميل…</div>
+      }
+      <ng-template #branch let-nodes>
+        @for (node of nodes; track node.folder.id) {
+          <button type="button" class="tree-row" [class.active]="node.folder.id === currentId"
+            [style.padding-inline-start.rem]="0.5 + node.depth * 1" (click)="open(node)"
+            [attr.aria-expanded]="node.children.length ? expanded.has(node.folder.id) : null">
+            <span class="tree-toggle" (click)="node.children.length && toggle(node, $event)">
+              @if (node.children.length) {
+                <i-bs width="0.8em" height="0.8em" [name]="expanded.has(node.folder.id) ? 'chevron-down' : 'chevron-left'"></i-bs>
+              }
+            </span>
+            <i-bs width="1em" height="1em" [name]="node.folder.id === currentId ? 'folder2-open' : 'folder-fill'" class="text-warning"></i-bs>
+            <span class="tree-name" dir="auto">{{ node.folder.name }}</span>
+            @if (node.totalCount) {
+              <span class="badge rounded-pill text-bg-light border ms-auto">{{ node.totalCount }}</span>
+            }
+          </button>
+          @if (expanded.has(node.folder.id)) {
+            <ng-container *ngTemplateOutlet="branch; context: { $implicit: node.children }"></ng-container>
+          }
+        }
+      </ng-template>
+      <ng-container *ngTemplateOutlet="branch; context: { $implicit: tree.roots }"></ng-container>
+    </div>
+  </aside>
+
+  <section class="folders-main">
+    <!-- Where we are -->
+    <nav aria-label="مسار المجلد" class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item">
+          <a href="javascript:void(0)" (click)="open(null)">كل المجلدات</a>
+        </li>
+        @for (crumb of breadcrumbs; track crumb.folder.id; let last = $last) {
+          @if (last) {
+            <li class="breadcrumb-item active" aria-current="page" dir="auto">{{ crumb.folder.name }}</li>
+          } @else {
+            <li class="breadcrumb-item"><a href="javascript:void(0)" (click)="open(crumb)" dir="auto">{{ crumb.folder.name }}</a></li>
+          }
+        }
+      </ol>
+
+      @if (current) {
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="showInDocumentList()"
+            title="افتح قائمة المستندات مفلترة على هذا المجلد ومجلداته الفرعية، لاستعمال كل أدوات التعديل الجماعي">
+            <i-bs width="1em" height="1em" name="box-arrow-up-right"></i-bs>
+            <span class="ms-1">فتح في قائمة المستندات</span>
+          </button>
+          @if (canChangeCurrent) {
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="renameFolder(current)">
+              <i-bs width="1em" height="1em" name="pencil"></i-bs>
+              <span class="ms-1">إعادة تسمية</span>
+            </button>
+            @if (current.folder.parent !== null) {
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveUp(current)"
+                title="انقل المجلد خارج المجلد الذي يحتويه، مستوى واحداً إلى الأعلى">
+                <i-bs width="1em" height="1em" name="arrow-up"></i-bs>
+                <span class="ms-1">نقل للأعلى</span>
+              </button>
+            }
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="deleteFolder(current)">
+              <i-bs width="1em" height="1em" name="trash"></i-bs>
+              <span class="ms-1">حذف</span>
+            </button>
+          }
+        </div>
+      }
+    </nav>
+
+    <!-- Subfolders -->
+    @if (subfolders.length) {
+      <div class="folder-grid mb-4">
+        @for (node of subfolders; track node.folder.id) {
+          <button type="button" class="folder-card card" (click)="open(node)">
+            <i-bs width="2.2em" height="2.2em" name="folder-fill" class="text-warning flex-shrink-0"></i-bs>
+            <span class="folder-card-text">
+              <span class="folder-card-name" dir="auto">{{ node.folder.name }}</span>
+              <small class="text-muted">
+                {{ node.totalCount }} مستند
+                @if (node.children.length) {
+                  · {{ node.children.length }} مجلد فرعي
+                }
+              </small>
+            </span>
+          </button>
+        }
+      </div>
+    } @else if (!loadingFolders && !current) {
+      <div class="text-center text-muted py-5">
+        <i-bs width="3em" height="3em" name="folder"></i-bs>
+        <p class="mt-3 mb-1">لا توجد مجلدات بعد.</p>
+        <small>ارفع ملف ZIP ليُفكّ تلقائياً إلى مجلدات بنفس بنيته، أو أنشئ مجلداً جديداً.</small>
+      </div>
+    }
+
+    <!-- Documents of the open folder -->
+    @if (current) {
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <h6 class="mb-0">
+          المستندات
+          @if (!loadingDocuments) {
+            <span class="text-muted fw-normal">({{ documentCount }})</span>
+          }
+        </h6>
+        @if (current.children.length) {
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="include-subfolders"
+              [ngModel]="includeSubfolders" (ngModelChange)="setIncludeSubfolders($event)">
+            <label class="form-check-label small" for="include-subfolders">تضمين المجلدات الفرعية</label>
+          </div>
+        }
+      </div>
+
+      @if (loadingDocuments) {
+        <div class="text-muted small py-3"><span class="spinner-border spinner-border-sm me-2"></span>جارٍ التحميل…</div>
+      } @else if (!documents.length) {
+        <div class="text-muted small py-3">لا توجد مستندات في هذا المجلد{{ current.children.length && !includeSubfolders ? ' نفسه، بل في مجلداته الفرعية' : '' }}.</div>
+      } @else {
+        <div class="list-group">
+          @for (document of documents; track document.id) {
+            <div class="list-group-item doc-row">
+              <a [routerLink]="['/documents', document.id, 'details']" class="doc-thumb">
+                <img [src]="thumbUrl(document)" alt="" loading="lazy">
+              </a>
+              <div class="doc-text">
+                <a [routerLink]="['/documents', document.id, 'details']" class="doc-title" dir="auto">{{ document.title }}</a>
+                <small class="text-muted d-block" dir="auto">
+                  @if (fileExtension(document)) {
+                    <span class="badge text-bg-light border me-1">{{ fileExtension(document) }}</span>
+                  }
+                  {{ document.created | customDate }}
+                  @if (documentFolderName(document); as folderName) {
+                    · <i-bs width="0.9em" height="0.9em" name="folder"></i-bs> {{ folderName }}
+                  }
+                </small>
+              </div>
+              <a class="btn btn-sm btn-link" [href]="downloadUrl(document)" title="تنزيل الملف الأصلي">
+                <i-bs width="1em" height="1em" name="download"></i-bs>
+              </a>
+            </div>
+          }
+        </div>
+        @if (documentCount > pageSize) {
+          <ngb-pagination class="d-flex justify-content-center mt-3" [collectionSize]="documentCount"
+            [pageSize]="pageSize" [page]="page" (pageChange)="onPageChange($event)" [maxSize]="5"
+            [rotate]="true" size="sm"></ngb-pagination>
+        }
+      }
+    }
+  </section>
+</div>

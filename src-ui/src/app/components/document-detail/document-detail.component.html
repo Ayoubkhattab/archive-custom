@@ -193,6 +193,10 @@
                 (createNew)="createStoragePath($event)" [hideAddButton]="createDisabled(DataType.StoragePath)"
                 [suggestions]="suggestions?.storage_paths" i18n-placeholder placeholder="Default"
                 *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.StoragePath }"></pngx-input-select>
+              @if (folderOptions.length || documentForm.get('folder').value) {
+                <pngx-input-select [items]="folderOptions" i18n-title="@@document.folder" title="Folder"
+                  formControlName="folder" [allowNull]="true" [horizontal]="true" [hideAddButton]="true"></pngx-input-select>
+              }
               <pngx-input-tags #tagsInput formControlName="tags" [suggestions]="suggestions?.tags" [showFilter]="true"
                 [horizontal]="true" (filterDocuments)="filterDocuments($event, DataType.Tag)"
                 [hideAddButton]="createDisabled(DataType.Tag)"
@@ -500,6 +504,26 @@
   }
   @case (ContentRenderType.Other) {
   <object [data]="previewUrl | safeUrl" class="preview-sticky" width="100%"></object>
+  }
+  @case (ContentRenderType.Video) {
+  <div class="preview-sticky d-flex align-items-start justify-content-center">
+    <video [src]="previewUrl" controls preload="metadata" class="w-100 rounded"></video>
+  </div>
+  }
+  @case (ContentRenderType.Audio) {
+  <div class="preview-sticky d-flex flex-column align-items-center gap-3 p-4">
+    <img [src]="thumbUrl" alt="" class="no-preview-thumb">
+    <audio [src]="previewUrl" controls preload="metadata" class="w-100"></audio>
+  </div>
+  }
+  @case (ContentRenderType.NoPreview) {
+  <div class="preview-sticky d-flex flex-column align-items-center gap-3 p-4 text-center">
+    <img [src]="thumbUrl" alt="" class="no-preview-thumb">
+    <p class="text-muted mb-0" i18n="@@document.noPreview">This file type cannot be shown in the browser. Download it to open it.</p>
+    <a class="btn btn-primary" [href]="originalFileUrl">
+      <i-bs name="download"></i-bs>&nbsp;<ng-container i18n="@@document.downloadOriginal">Download file</ng-container>
+    </a>
+  </div>
   }
   }
   @if (requiresPassword) {

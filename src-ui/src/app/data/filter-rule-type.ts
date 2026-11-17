@@ -66,6 +66,9 @@ export const FILTER_CUSTOM_FIELDS_QUERY = 42
 
 export const FILTER_MIME_TYPE = 47
 
+// Documents in a folder or any of its subfolders.
+export const FILTER_FOLDER_TREE = 48
+
 export const FILTER_RULE_TYPES: FilterRuleType[] = [
   {
     id: FILTER_TITLE,
@@ -318,6 +321,12 @@ export const FILTER_RULE_TYPES: FilterRuleType[] = [
   {
     id: FILTER_SHARED_BY_USER,
     filtervar: 'shared_by__id',
+    datatype: 'number',
+    multi: true,
+  },
+  {
+    id: FILTER_FOLDER_TREE,
+    filtervar: 'folder__id__tree',
     datatype: 'number',
     multi: true,
   },

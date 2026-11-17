@@ -79,6 +79,12 @@ import {
 import { CorrespondentService } from 'src/app/services/rest/correspondent.service'
 import { CustomFieldsService } from 'src/app/services/rest/custom-fields.service'
 import { DocumentClassificationService } from 'src/app/services/rest/document-classification.service'
+import { FolderService } from 'src/app/services/rest/folder.service'
+import {
+  buildFolderTree,
+  flattenFolderTree,
+  folderPathLabel,
+} from 'src/app/data/folder'
 import { DocumentTypeService } from 'src/app/services/rest/document-type.service'
 import { DocumentService } from 'src/app/services/rest/document.service'
 import { SavedViewService } from 'src/app/services/rest/saved-view.service'
@@ -140,7 +146,21 @@ enum ContentRenderType {
   Other = 'other',
   Unknown = 'unknown',
   TIFF = 'tiff',
+  Video = 'video',
+  Audio = 'audio',
+  /** Nothing the browser can show (a drawing, an archive...): offer the file. */
+  NoPreview = 'no-preview',
 }
+
+/** Types a browser shows inline in an object tag, beyond PDF, text and images. */
+const INLINE_MIME_TYPES = new Set([
+  'text/html',
+  'application/xhtml+xml',
+  'text/xml',
+  'application/xml',
+  'application/json',
+  'text/markdown',
+])
 
 export enum ZoomSetting {
   PageFit = 'page-fit',
@@ -211,6 +231,7 @@ export class DocumentDetailComponent
   private toastService = inject(ToastService)
   private settings = inject(SettingsService)
   private storagePathService = inject(StoragePathService)
+  private folderService = inject(FolderService)
   private permissionsService = inject(PermissionsService)
   private userService = inject(UserService)
   private customFieldsService = inject(CustomFieldsService)
@@ -251,6 +272,8 @@ export class DocumentDetailComponent
   correspondents: Correspondent[]
   documentTypes: DocumentType[]
   documentClassifications: DocumentClassification[]
+  /** Folders as "Project / plans / old", for the folder select. */
+  folderOptions: { id: number; name: string }[] = []
   storagePaths: StoragePath[]
 
   documentForm: FormGroup = new FormGroup({
@@ -260,6 +283,7 @@ export class DocumentDetailComponent
     correspondent: new FormControl(),
     document_type: new FormControl(),
     storage_path: new FormControl(),
+    folder: new FormControl(),
     archive_serial_number: new FormControl(),
     tags: new FormControl([]),
     permissions_form: new FormControl(null),
@@ -357,8 +381,18 @@ export class DocumentDetailComponent
       return ContentRenderType.TIFF
     } else if (mimeType?.indexOf('image/') === 0) {
       return ContentRenderType.Image
+    } else if (mimeType.startsWith('video/')) {
+      return ContentRenderType.Video
+    } else if (mimeType.startsWith('audio/')) {
+      return ContentRenderType.Audio
+    } else if (INLINE_MIME_TYPES.has(mimeType)) {
+      return ContentRenderType.Other
     }
-    return ContentRenderType.Other
+    return ContentRenderType.NoPreview
+  }
+
+  get originalFileUrl(): string {
+    return this.documentsService.getDownloadUrl(this.documentId, true)
   }
 
   /** Whether the document's own detected language reads right-to-left. */
@@ -410,6 +444,7 @@ export class DocumentDetailComponent
       correspondent: originalDocument.correspondent,
       document_type: originalDocument.document_type,
       storage_path: originalDocument.storage_path,
+      folder: originalDocument.folder ?? null,
       archive_serial_number: originalDocument.archive_serial_number,
       sender: originalDocument.sender,
       recipient: originalDocument.recipient,
@@ -440,8 +475,18 @@ export class DocumentDetailComponent
       )
   }
 
-  private loadDocument(documentId: number): void {
-    this.previewUrl = this.documentsService.getPreviewUrl(documentId)
+  /**
+   * The text shown by the text preview. Fetched only for a text document (or
+   * one whose type is not known): reading a video or a large drawing as text
+   * would download all of it for nothing.
+   */
+  private loadPreviewText(doc: Document): void {
+    const type = this.getRenderType(
+      doc.archived_file_name ? 'application/pdf' : doc.mime_type
+    )
+    if (type !== ContentRenderType.Text && type !== ContentRenderType.Unknown) {
+      return
+    }
     this.http
       .get(this.previewUrl, { responseType: 'text' })
       .pipe(
@@ -456,6 +501,10 @@ export class DocumentDetailComponent
             err.message ?? err.toString()
           }`),
       })
+  }
+
+  private loadDocument(documentId: number): void {
+    this.previewUrl = this.documentsService.getPreviewUrl(documentId)
     this.thumbUrl = this.documentsService.getThumbUrl(documentId)
     this.documentsService
       .get(documentId)
@@ -475,6 +524,7 @@ export class DocumentDetailComponent
             return
           }
           this.documentId = doc.id
+          this.loadPreviewText(doc)
           this.suggestions = null
           this.recentDocumentsService.record(doc)
           const openDocument = this.openDocumentService.getOpenDocument(
@@ -556,6 +606,19 @@ export class DocumentDetailComponent
         .pipe(first(), takeUntil(this.unsubscribeNotifier))
         .subscribe((result) => (this.documentTypes = result.results))
     }
+    this.folderService
+      .list()
+      .pipe(first(), takeUntil(this.unsubscribeNotifier))
+      .subscribe({
+        next: (folders) =>
+          (this.folderOptions = flattenFolderTree(
+            buildFolderTree(folders)
+          ).map((node) => ({
+            id: node.folder.id,
+            name: folderPathLabel(node),
+          }))),
+        error: () => (this.folderOptions = []),
+      })
     this.documentClassificationService
       .listAll()
       .pipe(first(), takeUntil(this.unsubscribeNotifier))

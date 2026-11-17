@@ -171,5 +171,21 @@ Platform:      $PLATFORM
 AI model:      $([ "${NO_AI:-}" = 1 ] && echo "not bundled" || echo "$AI_MODEL (in $OLLAMA_IMAGE)")
 EOF
 
+# The bundle runs on Linux: a Windows checkout (core.autocrlf) or tool may
+# have produced CRLF, which breaks install.sh, SHA256SUMS and .env values.
+"$PYTHON" -I - "$OUT"/install.sh "$OUT"/docker-compose.yml "$OUT"/.env.example \
+  "$OUT"/README.md "$OUT"/SHA256SUMS "$OUT"/IMAGES.txt <<'PY'
+import pathlib, sys
+for name in sys.argv[1:]:
+    path = pathlib.Path(name)
+    path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+PY
+"$PYTHON" -I - "$OUT"/install.sh "$OUT"/docker-compose.yml "$OUT"/.env.example "$OUT"/SHA256SUMS <<'PY'
+import pathlib, sys
+bad = [n for n in sys.argv[1:] if bytes([13]) in pathlib.Path(n).read_bytes()]
+if bad:
+    sys.exit("ERROR: still Windows line endings in: " + ", ".join(bad))
+PY
+
 step "Done: $OUT"
 du -sh "$OUT"/images/* "$OUT"

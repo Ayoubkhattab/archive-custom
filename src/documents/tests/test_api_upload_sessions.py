@@ -132,6 +132,7 @@ class TestUploadSessions(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCas
         second = self.create(fingerprint="simple.pdf:1234:1800000000").data
         self.assertNotEqual(first["id"], second["id"])
 
+    @override_settings(CONSUMER_STORE_UNSUPPORTED=False)
     def test_unsupported_type_refused_on_first_chunk(self):
         self.data = bytes(range(256)) * 16
         session = self.create(filename="blob.bin").data

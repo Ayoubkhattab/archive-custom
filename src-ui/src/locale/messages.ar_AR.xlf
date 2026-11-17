@@ -13298,6 +13298,38 @@
         <source>Resuming upload from <x id="PH" equiv-text="Math.floor((sent / file.size) * 100)"/>%</source>
         <target state="translated">استئناف الرفع من <x id="PH" equiv-text="Math.floor((sent / file.size) * 100)"/>%</target>
       </trans-unit>
+      <trans-unit id="document.folder" datatype="html">
+        <source>Folder</source>
+        <target state="translated">المجلد</target>
+      </trans-unit>
+      <trans-unit id="bulk.folder.move" datatype="html">
+        <source>Move to folder</source>
+        <target state="translated">نقل إلى مجلد</target>
+      </trans-unit>
+      <trans-unit id="bulk.folder.empty" datatype="html">
+        <source>No folders yet</source>
+        <target state="translated">لا توجد مجلدات بعد</target>
+      </trans-unit>
+      <trans-unit id="bulk.folder.none" datatype="html">
+        <source>Not in a folder</source>
+        <target state="translated">خارج أي مجلد</target>
+      </trans-unit>
+      <trans-unit id="document.noPreview" datatype="html">
+        <source>This file type cannot be shown in the browser. Download it to open it.</source>
+        <target state="translated">لا يمكن عرض هذا النوع من الملفات في المتصفح. نزّله لفتحه.</target>
+      </trans-unit>
+      <trans-unit id="document.downloadOriginal" datatype="html">
+        <source>Download file</source>
+        <target state="translated">تنزيل الملف</target>
+      </trans-unit>
+      <trans-unit id="nav.folders" datatype="html">
+        <source>Folders</source>
+        <target state="translated">المجلدات</target>
+      </trans-unit>
+      <trans-unit id="filter.folder.remove" datatype="html">
+        <source>Remove the folder filter</source>
+        <target state="translated">إزالة فلتر المجلد</target>
+      </trans-unit>
       <trans-unit id="upload.chunked.finishing" datatype="html">
         <source>Finishing upload...</source>
         <target state="translated">جارٍ إنهاء الرفع...</target>

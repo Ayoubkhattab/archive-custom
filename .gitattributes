@@ -1,0 +1,5 @@
+# Files that run or are read on Linux servers keep LF line endings, even on a
+# Windows checkout with core.autocrlf=true: a CRLF install.sh fails at its
+# first line ("bash\r"), and CRLF in .env or SHA256SUMS corrupts every value.
+*.sh text eol=lf
+docker/offline/** text eol=lf

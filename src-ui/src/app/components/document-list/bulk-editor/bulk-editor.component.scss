@@ -9,3 +9,9 @@
 .btn-group .btn {
   white-space: nowrap;
 }
+
+.bulk-folder-menu {
+  max-height: 60vh;
+  overflow-y: auto;
+  min-width: 14rem;
+}

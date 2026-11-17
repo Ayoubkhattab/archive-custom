@@ -39,3 +39,7 @@
 ./docker/compose/consume
 ./docker/compose/export
 ./static
+
+# Offline bundles (docker/offline/export-bundle.sh): image archives, never build input
+archive-offline-bundle-*
+**/*.tar

@@ -119,6 +119,9 @@ export interface Document extends ObjectWithPermissions {
 
   storage_path?: number
 
+  /** The folder the document is filed in (see data/folder.ts). */
+  folder?: number | null
+
   title?: string
 
   content?: string

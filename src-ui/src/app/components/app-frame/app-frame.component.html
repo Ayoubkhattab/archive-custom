@@ -111,6 +111,13 @@
               <i-bs class="me-1" name="files"></i-bs><span>&nbsp;<ng-container i18n>Documents</ng-container></span>
             </a>
           </li>
+          <li class="nav-item app-link" *pngxIfPermissions="{ action: PermissionAction.View, type: PermissionType.Document }">
+            <a class="nav-link" routerLink="folders" routerLinkActive="active" (click)="closeMenu()"
+              ngbPopover="Folders" i18n-ngbPopover="@@nav.folders" [disablePopover]="!slimSidebarEnabled" placement="end"
+              container="body" triggers="mouseenter:mouseleave" popoverClass="popover-slim">
+              <i-bs class="me-1" name="folder"></i-bs><span>&nbsp;<ng-container i18n="@@nav.folders">Folders</ng-container></span>
+            </a>
+          </li>
           @if (aiEnabled) {
             <li class="nav-item app-link">
               <a class="nav-link" routerLink="/ai" routerLinkActive="active" (click)="closeMenu()"

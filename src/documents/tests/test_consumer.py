@@ -548,6 +548,7 @@ class TestConsumer(
             ) as consumer:
                 consumer.run()
 
+    @override_settings(CONSUMER_STORE_UNSUPPORTED=False)
     @mock.patch("documents.parsers.document_consumer_declaration.send")
     def testNoParsers(self, m):
         m.return_value = []
@@ -560,6 +561,20 @@ class TestConsumer(
                 consumer.run()
 
         self._assert_first_last_send_progress(last_status="FAILED")
+
+    @mock.patch("documents.parsers.document_consumer_declaration.send")
+    def testNoParsersStoresTheFileWithoutText(self, m):
+        m.return_value = []
+
+        with self.get_consumer(self.get_test_file()) as consumer:
+            consumer.run()
+
+        document = Document.objects.get()
+        self.assertEqual(document.content, "")
+        self.assertIsFile(document.source_path)
+        self.assertIsFile(document.thumbnail_path)
+        self.assertIsNone(document.archive_filename)
+        self._assert_first_last_send_progress()
 
     @mock.patch("documents.parsers.document_consumer_declaration.send")
     def testFaultyParser(self, m):
@@ -805,6 +820,7 @@ class TestConsumer(
 
         sanity_check()
 
+    @override_settings(CONSUMER_STORE_UNSUPPORTED=False)
     @mock.patch("documents.consumer.run_subprocess")
     def test_try_to_clean_invalid_pdf(self, m):
         shutil.copy(

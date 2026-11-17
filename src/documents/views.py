@@ -3552,6 +3552,8 @@ class FolderViewSet(ModelViewSet):
     """
 
     model = Folder
+    # Narrowed per user in get_queryset; named here for the API schema.
+    queryset = Folder.objects.all()
     serializer_class = FolderSerializer
     permission_classes = (IsAuthenticated,)
     pagination_class = None

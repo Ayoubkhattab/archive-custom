@@ -154,3 +154,6 @@ docker/compose/redis_data/
 # Debug files
 debug.log
 *.debug
+*.tar
+# Offline bundles (docker/offline/export-bundle.sh)
+archive-offline-bundle-*/
