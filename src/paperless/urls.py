@@ -46,6 +46,10 @@ from documents.views import TasksViewSet
 from documents.views import TrashView
 from documents.views import UiSettingsView
 from documents.views import UnifiedSearchViewSet
+from documents.views import UploadChunkView
+from documents.views import UploadCompleteView
+from documents.views import UploadSessionDetailView
+from documents.views import UploadSessionView
 from documents.views import WorkflowActionViewSet
 from documents.views import WorkflowTriggerViewSet
 from documents.views import WorkflowViewSet
@@ -144,6 +148,26 @@ urlpatterns = [
                                 "^post_document/",
                                 PostDocumentView.as_view(),
                                 name="post_document",
+                            ),
+                            re_path(
+                                "^upload_sessions/$",
+                                UploadSessionView.as_view(),
+                                name="upload_sessions",
+                            ),
+                            re_path(
+                                r"^upload_sessions/(?P<session_id>[0-9a-f]{32})/$",
+                                UploadSessionDetailView.as_view(),
+                                name="upload_session",
+                            ),
+                            re_path(
+                                r"^upload_sessions/(?P<session_id>[0-9a-f]{32})/chunks/(?P<index>\d+)/$",
+                                UploadChunkView.as_view(),
+                                name="upload_session_chunk",
+                            ),
+                            re_path(
+                                r"^upload_sessions/(?P<session_id>[0-9a-f]{32})/complete/$",
+                                UploadCompleteView.as_view(),
+                                name="upload_session_complete",
                             ),
                             re_path(
                                 "^chat/$",

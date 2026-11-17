@@ -77,6 +77,7 @@ from documents.permissions import set_permissions_for_object
 from documents.regex import validate_regex_pattern
 from documents.templating.filepath import validate_filepath_template_and_render
 from documents.templating.utils import convert_format_str_to_template_format
+from documents.upload_sessions import MAGIC_HEAD_BYTES
 from documents.validators import uri_validator
 from documents.validators import url_validator
 
@@ -1888,6 +1889,24 @@ class BulkEditSerializer(
         return attrs
 
 
+def validate_upload_type(filename: str, head: bytes) -> None:
+    """Raises a ValidationError unless the file, from its first bytes, can be consumed."""
+    mime_type = magic.from_buffer(head, mime=True)
+
+    if not is_mime_type_supported(mime_type):
+        if (
+            mime_type in settings.CONSUMER_PDF_RECOVERABLE_MIME_TYPES
+            and filename.endswith(
+                ".pdf",
+            )
+        ):
+            # If the file is an invalid PDF, we can try to recover it later in the consumer
+            return
+        raise serializers.ValidationError(
+            _("File type %(type)s not supported") % {"type": mime_type},
+        )
+
+
 class PostDocumentSerializer(serializers.Serializer):
     created = serializers.DateTimeField(
         label="Created",
@@ -1961,24 +1980,13 @@ class PostDocumentSerializer(serializers.Serializer):
     )
 
     def validate_document(self, document):
-        document_data = document.file.read()
-        mime_type = magic.from_buffer(document_data, mime=True)
-
-        if not is_mime_type_supported(mime_type):
-            if (
-                mime_type in settings.CONSUMER_PDF_RECOVERABLE_MIME_TYPES
-                and document.name.endswith(
-                    ".pdf",
-                )
-            ):
-                # If the file is an invalid PDF, we can try to recover it later in the consumer
-                mime_type = "application/pdf"
-            else:
-                raise serializers.ValidationError(
-                    _("File type %(type)s not supported") % {"type": mime_type},
-                )
-
-        return document.name, document_data
+        # Only the start of the file is needed to tell its type. Reading all of
+        # it would hold the whole upload in memory (Django has already
+        # streamed large ones to a temporary file).
+        head = document.read(MAGIC_HEAD_BYTES)
+        document.seek(0)
+        validate_upload_type(document.name, head)
+        return document.name, document
 
     def validate_correspondent(self, correspondent):
         if correspondent:
@@ -2063,6 +2071,37 @@ class PostDocumentSerializer(serializers.Serializer):
         # support datetime format for created for backwards compatibility
         if isinstance(created, datetime):
             return created.date()
+
+
+class UploadSessionCreateSerializer(serializers.Serializer):
+    filename = serializers.CharField(max_length=1024)
+    size = serializers.IntegerField(min_value=1)
+    # Identifies the same file selected again (the browser sends name, size
+    # and modification time), so an interrupted upload resumes.
+    fingerprint = serializers.CharField(max_length=512)
+    chunk_size = serializers.IntegerField(min_value=1, required=False)
+
+
+class UploadSessionSerializer(serializers.Serializer):
+    """State of a resumable upload, as returned by the API."""
+
+    id = serializers.CharField()
+    filename = serializers.CharField()
+    size = serializers.IntegerField()
+    chunk_size = serializers.IntegerField()
+    total_chunks = serializers.IntegerField()
+    received = serializers.ListField(child=serializers.IntegerField())
+    task_id = serializers.CharField(allow_null=True)
+
+
+class UploadChunkResponseSerializer(serializers.Serializer):
+    index = serializers.IntegerField()
+
+
+class UploadSessionCompleteSerializer(PostDocumentSerializer):
+    """The metadata post_document accepts, for a file sent in chunks."""
+
+    document = None
 
 
 class BulkDownloadSerializer(DocumentListSerializer):

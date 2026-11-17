@@ -9,6 +9,11 @@ import { AiReportExportService } from 'src/app/services/ai-report-export.service
 import { ChatService } from 'src/app/services/chat.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
+import {
+  FILTER_CREATED_FROM,
+  FILTER_HAS_DOCUMENT_TYPE_ANY,
+} from 'src/app/data/filter-rule-type'
+import { emptyAiSearchScope } from 'src/app/utils/ai-search-scope'
 import { AiPageComponent } from './ai-page.component'
 
 describe('AiPageComponent', () => {
@@ -64,7 +69,12 @@ describe('AiPageComponent', () => {
     component.input = '  ما هي العقود؟  '
     component.send()
 
-    expect(streamSpy).toHaveBeenCalledWith(undefined, 'ما هي العقود؟', 'deep')
+    expect(streamSpy).toHaveBeenCalledWith(
+      undefined,
+      'ما هي العقود؟',
+      'deep',
+      {}
+    )
     expect(component.loading).toBeTruthy()
     expect(component.input).toEqual('')
     expect(component.current.title).toEqual('ما هي العقود؟')
@@ -79,6 +89,56 @@ describe('AiPageComponent', () => {
     expect(answer.isStreaming).toBeFalsy()
     expect(answer.mode).toEqual('deep')
     expect(component.loading).toBeFalsy()
+  })
+
+  it('should send the search filters with the question', () => {
+    component.onScopeChange({
+      ...emptyAiSearchScope(),
+      filterRules: [
+        { rule_type: FILTER_HAS_DOCUMENT_TYPE_ANY, value: '3' },
+        { rule_type: FILTER_CREATED_FROM, value: '2024-01-01' },
+      ],
+      senders: [7],
+    })
+    expect(component.filterCount).toEqual(3)
+
+    component.input = 'كم فاتورة؟'
+    component.send()
+
+    const [, , , filters] = streamSpy.mock.calls[0]
+    expect(filters).toEqual({
+      document_type__id__in: '3',
+      created__date__gte: '2024-01-01',
+      sender__id__in: '7',
+    })
+    expect(component.current.messages[0].filterCount).toEqual(3)
+  })
+
+  it('should not mark questions asked without filters', () => {
+    component.input = 'سؤال'
+    component.send()
+    expect(component.current.messages[0].filterCount).toBeUndefined()
+  })
+
+  it('should restore the filters of a reopened conversation', () => {
+    component.onScopeChange({ ...emptyAiSearchScope(), recipients: [4] })
+    component.input = 'سؤال'
+    component.send()
+    stream.next('جواب')
+    stream.complete()
+    const saved = store.list()[0]
+
+    component.newConversation()
+    // Filters stay in effect for a new conversation...
+    expect(component.scope.recipients).toEqual([4])
+    component.onScopeChange(emptyAiSearchScope())
+
+    // ...and opening an earlier one brings back the filters it was asked with.
+    component.openConversation(saved)
+    expect(component.scope.recipients).toEqual([4])
+    // A copy: editing it does not alter the saved conversation.
+    component.scope.recipients.push(9)
+    expect(store.list()[0].scope.recipients).toEqual([4])
   })
 
   it('should save the conversation and list it in the history', () => {

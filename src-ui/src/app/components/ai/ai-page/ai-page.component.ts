@@ -37,17 +37,26 @@ import { DialogService } from 'src/app/services/dialog.service'
 import { SettingsService } from 'src/app/services/settings.service'
 import { ToastService } from 'src/app/services/toast.service'
 import {
+  AiSearchScope,
+  aiSearchScopeFilterCount,
+  aiSearchScopeToParams,
+  cloneAiSearchScope,
+  emptyAiSearchScope,
+} from 'src/app/utils/ai-search-scope'
+import {
   describeHttpFailure,
   isProxyErrorBody,
   stripHeartbeats,
 } from 'src/app/utils/stream-errors'
 import { PageHeaderComponent } from '../../common/page-header/page-header.component'
+import { AiScopeComponent } from '../ai-scope/ai-scope.component'
 
 @Component({
   selector: 'pngx-ai-page',
   templateUrl: './ai-page.component.html',
   styleUrls: ['./ai-page.component.scss'],
   imports: [
+    AiScopeComponent,
     FormsModule,
     NgbDropdownModule,
     NgxBootstrapIconsModule,
@@ -79,6 +88,12 @@ export class AiPageComponent implements OnInit, OnDestroy {
   /** False when this browser refused to keep the history. */
   storageOk = true
 
+  /** The filters limiting which documents the assistant reads. */
+  scope: AiSearchScope = emptyAiSearchScope()
+  showFilters = false
+  /** The panel is created on first open and then kept, filters and all. */
+  filtersOpened = false
+
   @ViewChild('scrollAnchor') private scrollAnchor?: ElementRef<HTMLElement>
   @ViewChild('composer') private composer?: ElementRef<HTMLTextAreaElement>
 
@@ -103,6 +118,10 @@ export class AiPageComponent implements OnInit, OnDestroy {
     return conversationToReport(this.current).entries.length
   }
 
+  get filterCount(): number {
+    return aiSearchScopeFilterCount(this.scope)
+  }
+
   get streaming(): AiMessage | undefined {
     return this.current.messages.find((m) => m.isStreaming)
   }
@@ -125,6 +144,16 @@ export class AiPageComponent implements OnInit, OnDestroy {
     this.store.setMode(mode)
   }
 
+  toggleFilters(): void {
+    this.showFilters = !this.showFilters
+    if (this.showFilters) this.filtersOpened = true
+  }
+
+  onScopeChange(scope: AiSearchScope): void {
+    this.scope = scope
+  }
+
+  /** The filters set stay in effect for the new conversation. */
   newConversation(): void {
     if (this.loading) this.stop()
     this.current = this.blankConversation()
@@ -136,6 +165,8 @@ export class AiPageComponent implements OnInit, OnDestroy {
     if (this.loading) this.stop()
     // A copy, so editing the open one does not alter the list until saved.
     this.current = JSON.parse(JSON.stringify(conversation))
+    // A conversation continues with the filters its questions were asked with.
+    this.scope = cloneAiSearchScope(this.current.scope)
     this.showHistory = false
     this.scrollToBottom()
   }
@@ -176,6 +207,8 @@ export class AiPageComponent implements OnInit, OnDestroy {
     }
 
     const now = Date.now()
+    const filters = aiSearchScopeToParams(this.scope)
+    const filterCount = this.filterCount
     const answer: AiMessage = {
       role: 'assistant',
       content: '',
@@ -184,9 +217,15 @@ export class AiPageComponent implements OnInit, OnDestroy {
       isStreaming: true,
     }
     this.current.messages.push(
-      { role: 'user', content: question, createdAt: now },
+      {
+        role: 'user',
+        content: question,
+        createdAt: now,
+        ...(filterCount ? { filterCount } : {}),
+      },
       answer
     )
+    this.current.scope = cloneAiSearchScope(this.scope)
     if (!this.current.title) {
       this.current.title = question.replace(/\s+/g, ' ').slice(0, 60)
     }
@@ -197,7 +236,7 @@ export class AiPageComponent implements OnInit, OnDestroy {
     this.scrollToBottom()
 
     this.subscription = this.chatService
-      .streamChat(undefined, question, this.mode)
+      .streamChat(undefined, question, this.mode, filters)
       .subscribe({
         // Each event carries the whole text received so far.
         next: (text) => {

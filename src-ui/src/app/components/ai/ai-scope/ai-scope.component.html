@@ -1,0 +1,88 @@
+<div class="ai-scope">
+  <pngx-filter-editor
+    [filterRules]="scope.filterRules"
+    (filterRulesChange)="onRulesChange($event)"
+    [unmodifiedFilterRules]="noRules"
+    [disabled]="disabled"
+  ></pngx-filter-editor>
+
+  <div class="ai-scope-correspondence">
+    @if (canViewCorrespondents) {
+      <ng-select
+        class="paperless-input-select"
+        [items]="correspondents"
+        bindLabel="name"
+        bindValue="id"
+        [multiple]="true"
+        [closeOnSelect]="false"
+        [disabled]="disabled"
+        placeholder="الجهة المرسِلة"
+        [(ngModel)]="scope.senders"
+        (change)="onCorrespondenceChange()"
+        [virtualScroll]="correspondents.length > 100"
+      ></ng-select>
+      <ng-select
+        class="paperless-input-select"
+        [items]="correspondents"
+        bindLabel="name"
+        bindValue="id"
+        [multiple]="true"
+        [closeOnSelect]="false"
+        [disabled]="disabled"
+        placeholder="الجهة المستقبِلة"
+        [(ngModel)]="scope.recipients"
+        (change)="onCorrespondenceChange()"
+        [virtualScroll]="correspondents.length > 100"
+      ></ng-select>
+    }
+    @if (classifications.length) {
+      <ng-select
+        class="paperless-input-select"
+        [items]="classifications"
+        bindLabel="name"
+        bindValue="id"
+        [multiple]="true"
+        [closeOnSelect]="false"
+        [disabled]="disabled"
+        placeholder="التصنيف"
+        [(ngModel)]="scope.classifications"
+        (change)="onCorrespondenceChange()"
+      ></ng-select>
+    }
+  </div>
+
+  <div class="ai-scope-status small">
+    <span class="text-muted">
+      <i-bs width="1em" height="1em" name="funnel" class="me-1"></i-bs>
+      @if (counting) {
+        <span
+          class="spinner-border spinner-border-sm me-1"
+          role="status"
+        ></span>
+        جارٍ حساب المستندات…
+      } @else if (countFailed) {
+        تعذّر حساب عدد المستندات المطابقة.
+      } @else if (isEmpty) {
+        سيبحث الذكاء الاصطناعي في كل مستنداتك{{
+          matchCount !== null ? ' (' + matchCount + ')' : ''
+        }}.
+      } @else if (matchCount === 0) {
+        <span class="text-danger">لا توجد مستندات تطابق هذه الفلاتر.</span>
+      } @else if (matchCount !== null) {
+        سيبحث الذكاء الاصطناعي في <strong>{{ matchCount }}</strong>
+        {{ matchCount === 1 ? 'مستند' : 'مستندات' }} فقط.
+      }
+    </span>
+    @if (!isEmpty) {
+      <button
+        type="button"
+        class="btn btn-sm btn-link text-danger p-0"
+        [disabled]="disabled"
+        (click)="clear()"
+      >
+        <i-bs width="1em" height="1em" name="x-circle" class="me-1"></i-bs>مسح
+        كل الفلاتر
+      </button>
+    }
+  </div>
+</div>

@@ -1,3 +1,5 @@
+import type { AiSearchScope } from 'src/app/utils/ai-search-scope'
+
 /**
  * How the assistant should answer.
  *
@@ -40,6 +42,11 @@ export interface AiMessage {
   isStreaming?: boolean
   /** True when the request failed or was stopped before completing. */
   incomplete?: boolean
+  /**
+   * How many search filters narrowed the documents for this question. Only
+   * set on user messages, and only when filters were in effect.
+   */
+  filterCount?: number
 }
 
 export interface AiConversation {
@@ -48,4 +55,6 @@ export interface AiConversation {
   createdAt: number
   updatedAt: number
   messages: AiMessage[]
+  /** The search filters last used, restored when the conversation is opened. */
+  scope?: AiSearchScope
 }

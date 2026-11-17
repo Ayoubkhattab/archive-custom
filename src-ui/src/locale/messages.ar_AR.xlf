@@ -13290,6 +13290,34 @@
         <source>Processed mail</source>
         <target state="translated">البريد المُعالَج</target>
       </trans-unit>
+      <trans-unit id="upload.chunked.progress" datatype="html">
+        <source>Uploading... <x id="PH" equiv-text="formatBytes(loaded)"/> of <x id="PH_1" equiv-text="formatBytes(file.size)"/></source>
+        <target state="translated">جارٍ الرفع... <x id="PH" equiv-text="formatBytes(loaded)"/> من <x id="PH_1" equiv-text="formatBytes(file.size)"/></target>
+      </trans-unit>
+      <trans-unit id="upload.chunked.resuming" datatype="html">
+        <source>Resuming upload from <x id="PH" equiv-text="Math.floor((sent / file.size) * 100)"/>%</source>
+        <target state="translated">استئناف الرفع من <x id="PH" equiv-text="Math.floor((sent / file.size) * 100)"/>%</target>
+      </trans-unit>
+      <trans-unit id="upload.chunked.finishing" datatype="html">
+        <source>Finishing upload...</source>
+        <target state="translated">جارٍ إنهاء الرفع...</target>
+      </trans-unit>
+      <trans-unit id="upload.chunked.interrupted" datatype="html">
+        <source>Upload interrupted at <x id="PH" equiv-text="Math.floor((sent / file.size) * 100)"/>%. Select the same file again to resume.</source>
+        <target state="translated">توقف الرفع عند <x id="PH" equiv-text="Math.floor((sent / file.size) * 100)"/>%. اختر الملف نفسه مرة أخرى ليُستأنف من حيث توقف.</target>
+      </trans-unit>
+      <trans-unit id="upload.chunked.proxyLimit" datatype="html">
+        <source>The web server in front of the archive refused the upload (413). Allow larger requests there (nginx: client_max_body_size) or lower PAPERLESS_UPLOAD_CHUNK_SIZE_MB.</source>
+        <target state="translated">رفض خادم الويب الذي أمام الأرشيف الرفع (413). اسمح فيه بطلبات أكبر (nginx: client_max_body_size) أو خفّض PAPERLESS_UPLOAD_CHUNK_SIZE_MB.</target>
+      </trans-unit>
+      <trans-unit id="upload.chunked.offline" datatype="html">
+        <source>No connection. The upload continues when it is back...</source>
+        <target state="translated">لا يوجد اتصال. سيُستأنف الرفع تلقائياً عند عودته...</target>
+      </trans-unit>
+      <trans-unit id="upload.chunked.retrying" datatype="html">
+        <source>Connection lost, retrying...</source>
+        <target state="translated">انقطع الاتصال، جارٍ إعادة المحاولة...</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

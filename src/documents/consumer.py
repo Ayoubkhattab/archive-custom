@@ -1,6 +1,6 @@
 import datetime
-import hashlib
 import os
+import shutil
 import tempfile
 from enum import Enum
 from pathlib import Path
@@ -46,6 +46,7 @@ from documents.signals.handlers import run_workflows
 from documents.templating.workflows import parse_w_workflow_placeholders
 from documents.utils import copy_basic_file_stats
 from documents.utils import copy_file_with_basic_stats
+from documents.utils import file_md5
 from documents.utils import run_subprocess
 from paperless_mail.parsers import MailDocumentParser
 
@@ -522,10 +523,7 @@ class ConsumerPlugin(
                             document.archive_path,
                         )
 
-                        with Path(archive_path).open("rb") as f:
-                            document.archive_checksum = hashlib.md5(
-                                f.read(),
-                            ).hexdigest()
+                        document.archive_checksum = file_md5(archive_path)
 
                 # Don't save with the lock active. Saving will cause the file
                 # renaming logic to acquire the lock as well.
@@ -662,7 +660,7 @@ class ConsumerPlugin(
             title=title[:127],
             content=text,
             mime_type=mime_type,
-            checksum=hashlib.md5(file_for_checksum.read_bytes()).hexdigest(),
+            checksum=file_md5(file_for_checksum),
             created=create_date,
             modified=create_date,
             storage_type=storage_type,
@@ -741,7 +739,7 @@ class ConsumerPlugin(
             Path(source).open("rb") as read_file,
             Path(target).open("wb") as write_file,
         ):
-            write_file.write(read_file.read())
+            shutil.copyfileobj(read_file, write_file, 16 * 1024 * 1024)
 
         # Attempt to copy file's original stats, but it's ok if we can't
         try:
@@ -779,8 +777,7 @@ class ConsumerPreflightPlugin(
         """
         Using the MD5 of the file, check this exact file doesn't already exist
         """
-        with Path(self.input_doc.original_file).open("rb") as f:
-            checksum = hashlib.md5(f.read()).hexdigest()
+        checksum = file_md5(self.input_doc.original_file)
         existing_doc = Document.global_objects.filter(
             Q(checksum=checksum) | Q(archive_checksum=checksum),
         )

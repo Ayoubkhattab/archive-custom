@@ -5,6 +5,7 @@ import {
   HttpHeaderResponse,
 } from '@angular/common/http'
 import { inject, Injectable } from '@angular/core'
+import { Params } from '@angular/router'
 import { filter, map, Observable } from 'rxjs'
 import { AiMode } from 'src/app/data/ai-conversation'
 import { environment } from 'src/environments/environment'
@@ -32,11 +33,14 @@ export class ChatService {
   /**
    * @param mode How to answer. Left out for the short default the navbar chat
    *   uses, so the request is unchanged for existing callers.
+   * @param filters Archive-wide chat only: document-list query parameters
+   *   (document type, dates, tags...) limiting which documents are searched.
    */
   streamChat(
     documentId: number,
     prompt: string,
-    mode?: AiMode
+    mode?: AiMode,
+    filters?: Params
   ): Observable<string> {
     return this.http
       .post(
@@ -45,6 +49,7 @@ export class ChatService {
           document_id: documentId,
           q: prompt,
           ...(mode ? { mode } : {}),
+          ...(filters && Object.keys(filters).length ? { filters } : {}),
         },
         {
           observe: 'events',

@@ -4,6 +4,7 @@ import logging
 import os
 import platform
 import re
+import shutil
 import tempfile
 import threading
 import time
@@ -99,6 +100,7 @@ from rest_framework.viewsets import ViewSet
 from documents import bulk_edit
 from documents import correspondence
 from documents import index
+from documents import upload_sessions
 from documents.bulk_download import ArchiveOnlyStrategy
 from documents.bulk_download import OriginalAndArchiveStrategy
 from documents.bulk_download import OriginalsOnlyStrategy
@@ -191,9 +193,14 @@ from documents.serialisers import TagSerializerVersion1
 from documents.serialisers import TasksViewSerializer
 from documents.serialisers import TrashSerializer
 from documents.serialisers import UiSettingsViewSerializer
+from documents.serialisers import UploadChunkResponseSerializer
+from documents.serialisers import UploadSessionCompleteSerializer
+from documents.serialisers import UploadSessionCreateSerializer
+from documents.serialisers import UploadSessionSerializer
 from documents.serialisers import WorkflowActionSerializer
 from documents.serialisers import WorkflowSerializer
 from documents.serialisers import WorkflowTriggerSerializer
+from documents.serialisers import validate_upload_type
 from documents.signals import document_updated
 from documents.tasks import consume_file
 from documents.tasks import empty_trash
@@ -233,6 +240,8 @@ from paperless_ai.matching import match_document_types_by_name
 from paperless_ai.matching import match_storage_paths_by_name
 from paperless_ai.matching import match_tags_by_name
 from paperless_ai.ratelimit import allow_request
+from paperless_ai.scope import ScopeError
+from paperless_ai.scope import apply_filters as apply_chat_filters
 from paperless_ai.streaming import STREAM_HEARTBEAT
 from paperless_ai.streaming import stream_from_sync
 from paperless_mail.models import MailAccount
@@ -1542,6 +1551,14 @@ class ChatStreamingSerializer(serializers.Serializer):
         required=False,
         help_text="fast: a short direct answer. deep: a longer, structured report.",
     )
+    filters = serializers.DictField(
+        required=False,
+        help_text=(
+            "Archive-wide chat only: the document list's filter parameters "
+            "(document_type__id__in, created__date__gte, tags__id__all, ...) "
+            "limiting which documents the answer may draw on."
+        ),
+    )
 
 
 @method_decorator(
@@ -1578,6 +1595,7 @@ class ChatStreamingView(GenericAPIView):
         doc_id = request.data.get("document_id")
         mode = normalize_mode(request.data.get("mode"))
         mode_settings = MODE_SETTINGS[mode]
+        filtered = False
 
         if doc_id:
             try:
@@ -1593,13 +1611,18 @@ class ChatStreamingView(GenericAPIView):
         else:
             # Only ids and modification times come from the database on each
             # question; the text itself is kept in memory (paperless_ai.corpus).
-            documents = corpus_for(
-                get_objects_for_user_owner_aware(
-                    request.user,
-                    "view_document",
-                    Document,
-                ),
+            filters = request.data.get("filters")
+            visible = get_objects_for_user_owner_aware(
+                request.user,
+                "view_document",
+                Document,
             )
+            try:
+                scoped = apply_chat_filters(visible, filters)
+            except ScopeError as exc:
+                return HttpResponseBadRequest(f"Invalid filters: {exc}")
+            documents = corpus_for(scoped)
+            filtered = scoped is not visible
             document = None
             document_text = ""
 
@@ -1668,7 +1691,12 @@ class ChatStreamingView(GenericAPIView):
                 # so responses are grounded in what's actually stored, not
                 # the model's general knowledge.
                 if not documents:
-                    yield "ليس لديك أي مستندات للبحث فيها بعد."
+                    yield (
+                        "لا توجد مستندات تطابق فلاتر البحث المحددة. "
+                        "وسّع الفلاتر أو امسحها ثم أعد السؤال."
+                        if filtered
+                        else "ليس لديك أي مستندات للبحث فيها بعد."
+                    )
                     return
                 yield from stream_chat_with_documents(question, documents, mode)
 
@@ -2360,57 +2388,217 @@ class PostDocumentView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        doc_name, doc_data = serializer.validated_data.get("document")
-        correspondent_id = serializer.validated_data.get("correspondent")
-        document_type_id = serializer.validated_data.get("document_type")
-        storage_path_id = serializer.validated_data.get("storage_path")
-        tag_ids = serializer.validated_data.get("tags")
-        title = serializer.validated_data.get("title")
-        created = serializer.validated_data.get("created")
-        archive_serial_number = serializer.validated_data.get("archive_serial_number")
-        cf = serializer.validated_data.get("custom_fields")
-        from_webui = serializer.validated_data.get("from_webui")
+        doc_name, upload = serializer.validated_data.get("document")
 
-        t = int(mktime(datetime.now().timetuple()))
+        temp_file_path = new_upload_path(doc_name)
+        if hasattr(upload, "temporary_file_path"):
+            # Django already streamed it to disk: move, don't load it.
+            shutil.move(upload.temporary_file_path(), temp_file_path)
+        else:
+            with temp_file_path.open("wb") as f:
+                for chunk in upload.chunks():
+                    f.write(chunk)
 
-        settings.SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
-
-        temp_file_path = Path(tempfile.mkdtemp(dir=settings.SCRATCH_DIR)) / Path(
-            pathvalidate.sanitize_filename(doc_name),
+        task_id = queue_uploaded_document(
+            request,
+            serializer.validated_data,
+            doc_name,
+            temp_file_path,
         )
+        return Response(task_id)
 
-        temp_file_path.write_bytes(doc_data)
 
-        os.utime(temp_file_path, times=(t, t))
+def new_upload_path(doc_name: str) -> Path:
+    """A fresh path in SCRATCH_DIR for an uploaded file awaiting consumption."""
+    settings.SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(dir=settings.SCRATCH_DIR)) / Path(
+        pathvalidate.sanitize_filename(doc_name),
+    )
 
-        input_doc = ConsumableDocument(
-            source=DocumentSource.WebUI if from_webui else DocumentSource.ApiUpload,
-            original_file=temp_file_path,
-        )
-        custom_fields = None
-        if isinstance(cf, dict) and cf:
-            custom_fields = cf
-        elif isinstance(cf, list) and cf:
-            custom_fields = dict.fromkeys(cf, None)
-        input_doc_overrides = DocumentMetadataOverrides(
-            filename=doc_name,
-            title=title,
-            correspondent_id=correspondent_id,
-            document_type_id=document_type_id,
-            storage_path_id=storage_path_id,
-            tag_ids=tag_ids,
-            created=created,
-            asn=archive_serial_number,
-            owner_id=request.user.id,
-            custom_fields=custom_fields,
-        )
 
-        async_task = consume_file.delay(
-            input_doc,
-            input_doc_overrides,
-        )
+def queue_uploaded_document(
+    request,
+    validated_data: dict,
+    doc_name: str,
+    temp_file_path: Path,
+) -> str:
+    """Hands an uploaded file to the consumer, returns the task id."""
+    correspondent_id = validated_data.get("correspondent")
+    document_type_id = validated_data.get("document_type")
+    storage_path_id = validated_data.get("storage_path")
+    tag_ids = validated_data.get("tags")
+    title = validated_data.get("title")
+    created = validated_data.get("created")
+    archive_serial_number = validated_data.get("archive_serial_number")
+    cf = validated_data.get("custom_fields")
+    from_webui = validated_data.get("from_webui")
 
-        return Response(async_task.id)
+    t = int(mktime(datetime.now().timetuple()))
+    os.utime(temp_file_path, times=(t, t))
+
+    input_doc = ConsumableDocument(
+        source=DocumentSource.WebUI if from_webui else DocumentSource.ApiUpload,
+        original_file=temp_file_path,
+    )
+    custom_fields = None
+    if isinstance(cf, dict) and cf:
+        custom_fields = cf
+    elif isinstance(cf, list) and cf:
+        custom_fields = dict.fromkeys(cf, None)
+    input_doc_overrides = DocumentMetadataOverrides(
+        filename=doc_name,
+        title=title,
+        correspondent_id=correspondent_id,
+        document_type_id=document_type_id,
+        storage_path_id=storage_path_id,
+        tag_ids=tag_ids,
+        created=created,
+        asn=archive_serial_number,
+        owner_id=request.user.id,
+        custom_fields=custom_fields,
+    )
+
+    async_task = consume_file.delay(
+        input_doc,
+        input_doc_overrides,
+    )
+
+    return async_task.id
+
+
+def _upload_error(e: upload_sessions.UploadError) -> Response:
+    # "document" is where the upload UI looks for the reason, as for
+    # post_document's validation errors.
+    return Response({"document": [e.message]}, status=e.status)
+
+
+class UploadSessionView(GenericAPIView):
+    """Starts or resumes a chunked upload."""
+
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UploadSessionCreateSerializer
+
+    @extend_schema(
+        description=(
+            "Start a resumable upload, or resume one for the same file. "
+            "The response lists the chunks the server already has."
+        ),
+        responses=UploadSessionSerializer,
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            session = upload_sessions.create_or_resume(
+                user_id=request.user.id,
+                filename=data["filename"],
+                size=data["size"],
+                fingerprint=data["fingerprint"],
+                requested_chunk_size=data.get("chunk_size"),
+            )
+        except upload_sessions.UploadError as e:
+            return _upload_error(e)
+        return Response(session.as_dict())
+
+
+class UploadSessionDetailView(GenericAPIView):
+    """Reports which chunks the server has (GET), or abandons the upload (DELETE)."""
+
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UploadSessionSerializer
+
+    def get(self, request, session_id, *args, **kwargs):
+        try:
+            session = upload_sessions.get_session(session_id, request.user.id)
+        except upload_sessions.UploadError as e:
+            return _upload_error(e)
+        return Response(session.as_dict())
+
+    def delete(self, request, session_id, *args, **kwargs):
+        try:
+            session = upload_sessions.get_session(session_id, request.user.id)
+        except upload_sessions.UploadError as e:
+            return _upload_error(e)
+        upload_sessions.delete_session(session)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UploadChunkView(GenericAPIView):
+    """PUT one chunk as the raw request body (application/octet-stream)."""
+
+    permission_classes = (IsAuthenticated,)
+    # The body is read as a stream, never parsed or held in memory.
+    parser_classes = ()
+    serializer_class = UploadChunkResponseSerializer
+
+    @extend_schema(
+        request={"application/octet-stream": OpenApiTypes.BINARY},
+        responses=UploadChunkResponseSerializer,
+    )
+    def put(self, request, session_id, index, *args, **kwargs):
+        try:
+            session = upload_sessions.get_session(session_id, request.user.id)
+
+            def validate_head(head: bytes):
+                try:
+                    validate_upload_type(session.filename, head)
+                except ValidationError as e:
+                    # Refused before the rest of the file is sent.
+                    upload_sessions.delete_session(session)
+                    raise upload_sessions.UploadError(str(e.detail[0]))
+
+            upload_sessions.write_chunk(
+                session,
+                int(index),
+                request.stream,
+                validate_head=validate_head,
+            )
+        except upload_sessions.UploadError as e:
+            return _upload_error(e)
+        return Response({"index": int(index)})
+
+
+class UploadCompleteView(GenericAPIView):
+    """Hands the assembled file to the consumer, like post_document."""
+
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UploadSessionCompleteSerializer
+
+    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
+    def post(self, request, session_id, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            session = upload_sessions.get_session(session_id, request.user.id)
+            task_id = session.completed_task_id()
+            if task_id is not None:
+                return Response(task_id)  # a retry after a lost response
+            missing = upload_sessions.missing_chunks(session)
+            if missing:
+                raise upload_sessions.UploadError(
+                    f"{missing} chunk(s) have not been received yet.",
+                    409,
+                )
+            temp_file_path = new_upload_path(session.filename)
+            upload_sessions.claim_file(session, temp_file_path)
+        except upload_sessions.UploadError as e:
+            return _upload_error(e)
+
+        try:
+            task_id = queue_uploaded_document(
+                request,
+                serializer.validated_data,
+                session.filename,
+                temp_file_path,
+            )
+        except Exception:
+            # e.g. the broker is down: put the file back so "complete" can
+            # simply be retried instead of sending gigabytes again.
+            temp_file_path.rename(session.data_path)
+            raise
+        upload_sessions.mark_completed(session, task_id)
+        return Response(task_id)
 
 
 @extend_schema_view(

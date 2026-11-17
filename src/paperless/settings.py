@@ -726,6 +726,28 @@ AUTH_PASSWORD_VALIDATORS = [
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = None
 
+# Resumable chunked uploads (documents/upload_sessions.py). Every chunk is one
+# request, so a reverse proxy in front must accept bodies of at least the
+# chunk size (nginx: client_max_body_size).
+UPLOAD_CHUNK_SIZE: Final[int] = max(
+    1,
+    __get_int("PAPERLESS_UPLOAD_CHUNK_SIZE_MB", 16),
+) * (1024**2)
+# Largest single file accepted, 0 for no limit.
+UPLOAD_MAX_SIZE: Final[int] = __get_int("PAPERLESS_UPLOAD_MAX_SIZE_GB", 20) * (
+    1024**3
+)
+# Unfinished uploads can be resumed for this long after their last chunk.
+UPLOAD_SESSION_EXPIRY_HOURS: Final[int] = __get_int(
+    "PAPERLESS_UPLOAD_SESSION_EXPIRY_HOURS",
+    72,
+)
+# Uploads are refused when they would leave less free disk space than this.
+UPLOAD_MIN_FREE_SPACE: Final[int] = __get_int(
+    "PAPERLESS_UPLOAD_MIN_FREE_SPACE_GB",
+    2,
+) * (1024**3)
+
 COOKIE_PREFIX = os.getenv("PAPERLESS_COOKIE_PREFIX", "")
 
 CSRF_COOKIE_NAME = f"{COOKIE_PREFIX}csrftoken"

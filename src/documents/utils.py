@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import shutil
 from os import utime
@@ -14,6 +15,12 @@ def _coerce_to_path(
     dest: Path | str,
 ) -> tuple[Path, Path]:
     return Path(source).resolve(), Path(dest).resolve()
+
+
+def file_md5(path: Path | str) -> str:
+    """MD5 of a file, read in blocks: documents can be gigabytes."""
+    with Path(path).open("rb") as f:
+        return hashlib.file_digest(f, "md5").hexdigest()
 
 
 def copy_basic_file_stats(source: Path | str, dest: Path | str) -> None:

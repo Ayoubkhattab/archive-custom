@@ -1,0 +1,23 @@
+.ai-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ai-scope-correspondence {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.5rem;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.ai-scope-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}

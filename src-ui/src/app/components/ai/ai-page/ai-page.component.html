@@ -68,17 +68,43 @@
           <span class="ms-1">المحادثات</span>
         </button>
 
-        <div class="btn-group btn-group-sm" role="group" aria-label="نمط الإجابة">
-          @for (m of modes; track m.id) {
-            <button type="button" class="btn" [class.btn-primary]="mode === m.id"
-              [class.btn-outline-primary]="mode !== m.id" [title]="m.hint" [disabled]="loading"
-              (click)="setMode(m.id)">
-              <i-bs width="1em" height="1em" [name]="m.id === 'fast' ? 'lightning-charge' : 'lightbulb'"></i-bs>
-              <span class="ms-1">{{ m.label }}</span>
-            </button>
-          }
+        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+          <button type="button" class="btn btn-sm" [class.btn-secondary]="showFilters"
+            [class.btn-outline-secondary]="!showFilters" (click)="toggleFilters()"
+            [attr.aria-expanded]="showFilters" aria-controls="ai-scope-panel"
+            title="حدّد المستندات التي يبحث فيها الذكاء الاصطناعي: النوع، التاريخ، المسار، الوسوم، الجهات…">
+            <i-bs width="1em" height="1em" name="funnel"></i-bs>
+            <span class="ms-1">تخصيص البحث</span>
+            @if (filterCount) {
+              <span class="badge rounded-pill text-bg-primary ms-1">{{ filterCount }}</span>
+            }
+          </button>
+
+          <div class="btn-group btn-group-sm" role="group" aria-label="نمط الإجابة">
+            @for (m of modes; track m.id) {
+              <button type="button" class="btn" [class.btn-primary]="mode === m.id"
+                [class.btn-outline-primary]="mode !== m.id" [title]="m.hint" [disabled]="loading"
+                (click)="setMode(m.id)">
+                <i-bs width="1em" height="1em" [name]="m.id === 'fast' ? 'lightning-charge' : 'lightbulb'"></i-bs>
+                <span class="ms-1">{{ m.label }}</span>
+              </button>
+            }
+          </div>
         </div>
       </div>
+
+      @if (filtersOpened) {
+        <div id="ai-scope-panel" class="ai-scope-panel border-bottom" [hidden]="!showFilters">
+          <pngx-ai-scope [scope]="scope" (scopeChange)="onScopeChange($event)"></pngx-ai-scope>
+        </div>
+      }
+      @if (filterCount && !showFilters) {
+        <button type="button" class="ai-scope-summary btn btn-link btn-sm text-start border-bottom rounded-0"
+          (click)="toggleFilters()">
+          <i-bs width="1em" height="1em" name="funnel" class="me-1"></i-bs>
+          البحث مقيّد بـ{{ filterCount === 1 ? 'فلتر واحد' : ' ' + filterCount + ' فلاتر' }}. اضغط للتعديل.
+        </button>
+      }
 
       <div class="ai-messages">
         @if (!current.messages.length) {
@@ -95,6 +121,12 @@
               [class.ai-bubble-assistant]="message.role !== 'user'">
               @if (message.role === 'user') {
                 <span class="ai-plain" dir="auto">{{ message.content }}</span>
+                @if (message.filterCount) {
+                  <small class="ai-filter-chip" title="طُرح هذا السؤال على المستندات المطابقة للفلاتر فقط">
+                    <i-bs width="0.85em" height="0.85em" name="funnel"></i-bs>
+                    بحث مخصّص ({{ message.filterCount }})
+                  </small>
+                }
               } @else if (message.isStreaming) {
                 @if (message.content) {
                   <span class="ai-plain" dir="auto">{{ message.content }}</span><span class="blinking-cursor">|</span>
