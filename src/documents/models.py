@@ -26,6 +26,7 @@ from django_softdelete.models import SoftDeleteModel
 
 from documents.data_models import DocumentSource
 from documents.parsers import get_default_file_extension
+from documents.parsers import is_mime_type_supported
 
 
 class ModelWithOwner(models.Model):
@@ -228,6 +229,42 @@ class StoragePath(MatchingModel):
         verbose_name_plural = _("storage paths")
 
 
+class Folder(ModelWithOwner):
+    """
+    A folder documents are filed in, such as one of the folders of an uploaded
+    ZIP archive. Folders nest; deleting one deletes its subfolders, while the
+    documents in them stay and are simply no longer in a folder.
+    """
+
+    MAX_NESTING_DEPTH: Final[int] = 20
+
+    name = models.CharField(_("name"), max_length=255)
+
+    parent = models.ForeignKey(
+        "self",
+        blank=True,
+        null=True,
+        related_name="children",
+        on_delete=models.CASCADE,
+        verbose_name=_("parent"),
+    )
+
+    created = models.DateTimeField(_("created"), default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = _("folder")
+        verbose_name_plural = _("folders")
+        indexes = [
+            models.Index(
+                fields=["parent", "name"], name="documents_folder_parent_name"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Document(SoftDeleteModel, ModelWithOwner):
     STORAGE_TYPE_UNENCRYPTED = "unencrypted"
     STORAGE_TYPE_GPG = "gpg"
@@ -252,6 +289,15 @@ class Document(SoftDeleteModel, ModelWithOwner):
         related_name="documents",
         on_delete=models.SET_NULL,
         verbose_name=_("storage path"),
+    )
+
+    folder = models.ForeignKey(
+        Folder,
+        blank=True,
+        null=True,
+        related_name="documents",
+        on_delete=models.SET_NULL,
+        verbose_name=_("folder"),
     )
 
     title = models.CharField(_("title"), max_length=128, blank=True, db_index=True)
@@ -595,6 +641,13 @@ class Document(SoftDeleteModel, ModelWithOwner):
 
     @property
     def file_type(self):
+        if self.original_filename and not is_mime_type_supported(self.mime_type):
+            # Stored without a parser (see CONSUMER_STORE_UNSUPPORTED): for a
+            # generic type such as application/octet-stream the guessed
+            # extension (".bin") would lose what the file is, a ".dwg" say.
+            suffix = Path(self.original_filename).suffix.lower()
+            if suffix and len(suffix) <= 16 and suffix[1:].isalnum():
+                return suffix
         return get_default_file_extension(self.mime_type)
 
     @property

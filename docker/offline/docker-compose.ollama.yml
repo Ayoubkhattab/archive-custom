@@ -1,0 +1,43 @@
+# The AI model in its own container instead of on the host, so the target
+# server needs nothing but Docker. The model is inside the image (see
+# export-bundle.sh): no download on first start. Same tuning as
+# setup-ollama.sh applies on a host install.
+#
+# Requires AI_ENDPOINT=http://ollama:11434 in .env.
+
+services:
+  webserver:
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  celery:
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # Not published on a host port: Ollama has no authentication, only the app
+  # containers reach it.
+  ollama:
+    image: paperless-ollama:gemma4-e4b
+    pull_policy: never
+    restart: always
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      # Must equal AI_CONTEXT_WINDOW, or the model reloads on every request.
+      - OLLAMA_CONTEXT_LENGTH=${AI_CONTEXT_WINDOW:-8192}
+    # CPU priority over OCR (other containers have the default 1024), so chat
+    # answers stay fast while documents are processed. Idle cores are shared.
+    cpu_shares: 8192
+    healthcheck:
+      test: ["CMD", "/bin/ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true

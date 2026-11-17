@@ -2,12 +2,11 @@ from allauth.account import views as allauth_account_views
 from allauth.mfa.base import views as allauth_mfa_views
 from allauth.socialaccount import views as allauth_social_account_views
 from allauth.urls import build_provider_urlpatterns
-from django.conf.urls.static import static
-from django.urls import include, path, re_path
 from django.conf import settings
 from django.conf.urls import include
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
+from django.urls import include
 from django.urls import path
 from django.urls import re_path
 from django.utils.translation import gettext_lazy as _
@@ -21,13 +20,14 @@ from documents.views import BulkDownloadView
 from documents.views import BulkEditObjectsView
 from documents.views import BulkEditView
 from documents.views import ChatStreamingView
+from documents.views import CorrespondenceAnalyticsView
+from documents.views import CorrespondentViewSet
+from documents.views import CustomFieldViewSet
 from documents.views import DocumentAskView
 from documents.views import DocumentAskWarmView
-from documents.views import CorrespondentViewSet
-from documents.views import CorrespondenceAnalyticsView
-from documents.views import CustomFieldViewSet
 from documents.views import DocumentClassificationViewSet
 from documents.views import DocumentTypeViewSet
+from documents.views import FolderViewSet
 from documents.views import GlobalSearchView
 from documents.views import IndexView
 from documents.views import LogViewSet
@@ -82,6 +82,7 @@ api_router.register(r"logs", LogViewSet, basename="logs")
 api_router.register(r"tags", TagViewSet)
 api_router.register(r"saved_views", SavedViewViewSet)
 api_router.register(r"storage_paths", StoragePathViewSet)
+api_router.register(r"folders", FolderViewSet, basename="folders")
 api_router.register(r"tasks", TasksViewSet, basename="tasks")
 api_router.register(r"users", UserViewSet, basename="users")
 api_router.register(r"groups", GroupViewSet, basename="groups")

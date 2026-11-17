@@ -79,6 +79,19 @@ def set_storage_path(doc_ids: list[int], storage_path: StoragePath) -> Literal["
     return "OK"
 
 
+def set_folder(doc_ids: list[int], folder: int | None) -> Literal["OK"]:
+    """
+    Move documents into a folder (or out of any, with None). The folder only
+    groups documents for browsing; their files do not move, so nothing needs
+    renaming afterwards.
+    """
+    Document.objects.filter(id__in=doc_ids).exclude(folder_id=folder).update(
+        folder_id=folder,
+        modified=timezone.now(),
+    )
+    return "OK"
+
+
 def set_document_type(doc_ids: list[int], document_type: DocumentType) -> Literal["OK"]:
     if document_type:
         document_type = DocumentType.objects.only("pk").get(id=document_type)

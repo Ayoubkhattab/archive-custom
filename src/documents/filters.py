@@ -689,6 +689,26 @@ class CustomFieldQueryParser:
 
 
 @extend_schema_field(serializers.CharField)
+class FolderTreeFilter(Filter):
+    """
+    Documents in the given folder(s) or anywhere below them, as when opening a
+    folder of an unpacked archive.
+    """
+
+    def filter(self, qs, value):
+        if not value:
+            return qs
+        try:
+            ids = [int(x) for x in str(value).split(",") if x.strip()]
+        except ValueError:
+            raise serializers.ValidationError(
+                {"folder__id__tree": ["Must be folder ids separated by commas."]},
+            )
+        from documents.folders import descendant_ids
+
+        return qs.filter(folder_id__in=descendant_ids(ids))
+
+
 class CustomFieldQueryFilter(Filter):
     def __init__(self, validation_prefix):
         """
@@ -770,6 +790,10 @@ class DocumentFilterSet(FilterSet):
 
     owner__id__none = ObjectFilter(field_name="owner", exclude=True)
 
+    folder__id__none = ObjectFilter(field_name="folder", exclude=True)
+
+    folder__id__tree = FolderTreeFilter()
+
     custom_fields__icontains = CustomFieldsFilter()
 
     custom_fields__id__all = ObjectFilter(field_name="custom_fields__field")
@@ -825,6 +849,8 @@ class DocumentFilterSet(FilterSet):
             "document_type__name": CHAR_KWARGS,
             "storage_path": ["isnull"],
             "storage_path__id": ID_KWARGS,
+            "folder": ["isnull"],
+            "folder__id": ID_KWARGS,
             "storage_path__name": CHAR_KWARGS,
             "owner": ["isnull"],
             "owner__id": ID_KWARGS,

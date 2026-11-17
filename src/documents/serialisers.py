@@ -50,12 +50,18 @@ if settings.AUDIT_LOG_ENABLED:
 from documents import bulk_edit
 from documents.data_models import DocumentSource
 from documents.filters import CustomFieldQueryParser
+from documents.folders import can_change_folder
+from documents.folders import depth_of
+from documents.folders import descendant_ids
+from documents.folders import height_of
+from documents.folders import visible_folder_ids
 from documents.models import Correspondent
 from documents.models import CustomField
 from documents.models import CustomFieldInstance
 from documents.models import Document
 from documents.models import DocumentClassification
 from documents.models import DocumentType
+from documents.models import Folder
 from documents.models import MatchingModel
 from documents.models import Note
 from documents.models import PaperlessTask
@@ -80,6 +86,7 @@ from documents.templating.utils import convert_format_str_to_template_format
 from documents.upload_sessions import MAGIC_HEAD_BYTES
 from documents.validators import uri_validator
 from documents.validators import url_validator
+from documents.zip_import import ZIP_MIME_TYPES
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -770,6 +777,87 @@ class DocumentClassificationField(serializers.PrimaryKeyRelatedField):
         return DocumentClassification.objects.all()
 
 
+def _request_user(context):
+    request = context.get("request") if context else None
+    return getattr(request, "user", None)
+
+
+class FolderField(serializers.PrimaryKeyRelatedField):
+    """A folder the requesting user can see."""
+
+    def get_queryset(self):
+        user = _request_user(self.context)
+        if user is None or user.is_superuser:
+            return Folder.objects.all()
+        return Folder.objects.filter(pk__in=visible_folder_ids(user))
+
+
+class FolderSerializer(serializers.ModelSerializer):
+    """
+    A folder of the tree. `document_count` counts the documents directly in it
+    that the user may see; the client adds up subfolders as it needs.
+    """
+
+    parent = FolderField(allow_null=True, required=False)
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
+    document_count = serializers.IntegerField(read_only=True, default=0)
+    user_can_change = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Folder
+        fields = (
+            "id",
+            "name",
+            "parent",
+            "owner",
+            "created",
+            "document_count",
+            "user_can_change",
+        )
+
+    def get_user_can_change(self, folder) -> bool:
+        user = _request_user(self.context)
+        return bool(user and can_change_folder(user, folder))
+
+    def validate_name(self, name: str) -> str:
+        name = " ".join(name.split())
+        if not name:
+            raise serializers.ValidationError(_("The name cannot be empty."))
+        if "/" in name or "\\" in name:
+            raise serializers.ValidationError(
+                _("A folder name cannot contain / or \\."),
+            )
+        return name
+
+    def validate(self, attrs):
+        parent = attrs.get("parent", self.instance.parent if self.instance else None)
+        name = attrs.get("name", self.instance.name if self.instance else None)
+
+        if self.instance is not None and parent is not None:
+            if parent.pk in descendant_ids([self.instance.pk]):
+                raise serializers.ValidationError(
+                    {"parent": _("A folder cannot be moved into itself.")},
+                )
+
+        height = height_of(self.instance) if self.instance is not None else 1
+        if depth_of(parent) + height > Folder.MAX_NESTING_DEPTH:
+            raise serializers.ValidationError(
+                {"parent": _("Maximum nesting depth exceeded.")},
+            )
+
+        siblings = Folder.objects.filter(parent=parent, name__iexact=name)
+        if self.instance is not None:
+            siblings = siblings.exclude(pk=self.instance.pk)
+        user = _request_user(self.context)
+        if user is not None and not user.is_superuser:
+            siblings = siblings.filter(pk__in=visible_folder_ids(user))
+        if siblings.exists():
+            raise serializers.ValidationError(
+                {"name": _("A folder of this name already exists here.")},
+            )
+        return attrs
+
+
 class CustomFieldSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         context = kwargs.get("context")
@@ -1099,6 +1187,7 @@ class DocumentSerializer(
     tags = TagsField(many=True)
     document_type = DocumentTypeField(allow_null=True)
     storage_path = StoragePathField(allow_null=True)
+    folder = FolderField(allow_null=True, required=False)
     sender = CorrespondentField(allow_null=True, required=False)
     recipient = CorrespondentField(allow_null=True, required=False)
     classification = DocumentClassificationField(allow_null=True, required=False)
@@ -1338,6 +1427,7 @@ class DocumentSerializer(
             "correspondent",
             "document_type",
             "storage_path",
+            "folder",
             "title",
             "content",
             "tags",
@@ -1551,6 +1641,7 @@ class BulkEditSerializer(
             "set_correspondent",
             "set_document_type",
             "set_storage_path",
+            "set_folder",
             "add_tag",
             "remove_tag",
             "modify_tags",
@@ -1615,6 +1706,8 @@ class BulkEditSerializer(
             return bulk_edit.set_document_type
         elif method == "set_storage_path":
             return bulk_edit.set_storage_path
+        elif method == "set_folder":
+            return bulk_edit.set_folder
         elif method == "add_tag":
             return bulk_edit.add_tag
         elif method == "remove_tag":
@@ -1693,6 +1786,23 @@ class BulkEditSerializer(
                 )
         else:
             raise serializers.ValidationError("storage path not specified")
+
+    def _validate_folder(self, parameters):
+        if "folder" not in parameters:
+            raise serializers.ValidationError("folder not specified")
+        folder_id = parameters["folder"]
+        if folder_id is None:
+            return
+        if not isinstance(folder_id, int):
+            raise serializers.ValidationError("folder must be an integer")
+        user = _request_user(self.context)
+        visible = (
+            Folder.objects.all()
+            if user is None or user.is_superuser
+            else Folder.objects.filter(pk__in=visible_folder_ids(user))
+        )
+        if not visible.filter(pk=folder_id).exists():
+            raise serializers.ValidationError("Folder does not exist")
 
     def _validate_parameters_modify_tags(self, parameters):
         if "add_tags" in parameters:
@@ -1857,6 +1967,8 @@ class BulkEditSerializer(
             self._validate_parameters_modify_tags(parameters)
         elif method == bulk_edit.set_storage_path:
             self._validate_storage_path(parameters)
+        elif method == bulk_edit.set_folder:
+            self._validate_folder(parameters)
         elif method == bulk_edit.modify_custom_fields:
             self._validate_parameters_modify_custom_fields(parameters)
         elif method == bulk_edit.set_permissions:
@@ -1892,6 +2004,12 @@ class BulkEditSerializer(
 def validate_upload_type(filename: str, head: bytes) -> None:
     """Raises a ValidationError unless the file, from its first bytes, can be consumed."""
     mime_type = magic.from_buffer(head, mime=True)
+
+    if settings.CONSUMER_STORE_UNSUPPORTED:
+        # Any file is kept: what no parser reads is stored without text.
+        return
+    if settings.CONSUMER_ZIP_EXTRACT and mime_type in ZIP_MIME_TYPES:
+        return
 
     if not is_mime_type_supported(mime_type):
         if (
@@ -1958,6 +2076,13 @@ class PostDocumentSerializer(serializers.Serializer):
         required=False,
     )
 
+    folder = FolderField(
+        label="Folder",
+        allow_null=True,
+        write_only=True,
+        required=False,
+    )
+
     archive_serial_number = serializers.IntegerField(
         label="ASN",
         write_only=True,
@@ -2005,6 +2130,9 @@ class PostDocumentSerializer(serializers.Serializer):
             return storage_path.id
         else:
             return None
+
+    def validate_folder(self, folder):
+        return folder.id if folder else None
 
     def validate_tags(self, tags):
         if tags:

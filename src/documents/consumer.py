@@ -20,12 +20,14 @@ from documents.data_models import ConsumableDocument
 from documents.data_models import DocumentMetadataOverrides
 from documents.file_handling import create_source_path_directory
 from documents.file_handling import generate_unique_filename
+from documents.generic_parser import GenericDocumentParser
 from documents.loggers import LoggingMixin
 from documents.models import Correspondent
 from documents.models import CustomField
 from documents.models import CustomFieldInstance
 from documents.models import Document
 from documents.models import DocumentType
+from documents.models import Folder
 from documents.models import StoragePath
 from documents.models import Tag
 from documents.models import WorkflowTrigger
@@ -341,6 +343,13 @@ class ConsumerPlugin(
             parser_class: type[DocumentParser] | None = get_parser_class_for_mime_type(
                 mime_type,
             )
+            if not parser_class and settings.CONSUMER_STORE_UNSUPPORTED:
+                # Kept as a file without text: still downloadable, searchable
+                # by its title and metadata, and filed like any document.
+                self.log.info(
+                    f"No parser reads {mime_type}; storing {self.filename} without text",
+                )
+                parser_class = GenericDocumentParser
             if not parser_class:
                 tempdir.cleanup()
                 self._fail(
@@ -693,6 +702,14 @@ class ConsumerPlugin(
             document.storage_path = StoragePath.objects.get(
                 pk=self.metadata.storage_path_id,
             )
+
+        if self.metadata.folder_id:
+            # The folder may have been deleted while the file waited in the
+            # queue (a ZIP queues all of its files at once); the document is
+            # then simply not in a folder.
+            document.folder = Folder.objects.filter(
+                pk=self.metadata.folder_id,
+            ).first()
 
         if self.metadata.asn is not None and not self.metadata.skip_asn:
             document.archive_serial_number = self.metadata.asn

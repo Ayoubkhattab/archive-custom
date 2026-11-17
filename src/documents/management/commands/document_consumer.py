@@ -231,7 +231,11 @@ class ConsumerFilter(DefaultFilter):
         """
         # Get supported extensions
         if supported_extensions is None:
-            supported_extensions = frozenset(get_supported_file_extensions())
+            extensions = set(get_supported_file_extensions())
+            if settings.CONSUMER_ZIP_EXTRACT:
+                # Unpacked into folders by the consume task.
+                extensions.add(".zip")
+            supported_extensions = frozenset(extensions)
         self._supported_extensions = supported_extensions
 
         # Combine default and user patterns

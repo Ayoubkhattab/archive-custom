@@ -59,6 +59,7 @@ from django.utils.decorators import method_decorator
 from django.utils.timezone import make_aware
 from django.utils.translation import get_language
 from django.utils.translation import get_language_info
+from django.utils.translation import gettext as _
 from django.views import View
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -82,6 +83,7 @@ from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter
 from rest_framework.filters import SearchFilter
@@ -136,6 +138,9 @@ from documents.filters import PaperlessTaskFilterSet
 from documents.filters import ShareLinkFilterSet
 from documents.filters import StoragePathFilterSet
 from documents.filters import TagFilterSet
+from documents.folders import can_change_folder
+from documents.folders import visible_documents
+from documents.folders import visible_folder_ids
 from documents.mail import EmailAttachment
 from documents.mail import send_email
 from documents.matching import match_correspondents
@@ -147,6 +152,7 @@ from documents.models import CustomField
 from documents.models import Document
 from documents.models import DocumentClassification
 from documents.models import DocumentType
+from documents.models import Folder
 from documents.models import Note
 from documents.models import PaperlessTask
 from documents.models import SavedView
@@ -180,6 +186,7 @@ from documents.serialisers import DocumentListSerializer
 from documents.serialisers import DocumentSerializer
 from documents.serialisers import DocumentTypeSerializer
 from documents.serialisers import EmailSerializer
+from documents.serialisers import FolderSerializer
 from documents.serialisers import NotesSerializer
 from documents.serialisers import PostDocumentSerializer
 from documents.serialisers import RunTaskViewSerializer
@@ -2196,6 +2203,7 @@ class BulkEditView(PassUserMixin):
         "set_correspondent": "correspondent",
         "set_document_type": "document_type",
         "set_storage_path": "storage_path",
+        "set_folder": "folder",
         "add_tag": "tags",
         "remove_tag": "tags",
         "modify_tags": "tags",
@@ -2322,6 +2330,7 @@ class BulkEditView(PassUserMixin):
                         "correspondent",
                         "document_type",
                         "storage_path",
+                        "folder",
                         "tags",
                         "custom_fields",
                         "deleted_at",
@@ -2426,6 +2435,7 @@ def queue_uploaded_document(
     correspondent_id = validated_data.get("correspondent")
     document_type_id = validated_data.get("document_type")
     storage_path_id = validated_data.get("storage_path")
+    folder_id = validated_data.get("folder")
     tag_ids = validated_data.get("tags")
     title = validated_data.get("title")
     created = validated_data.get("created")
@@ -2451,6 +2461,7 @@ def queue_uploaded_document(
         correspondent_id=correspondent_id,
         document_type_id=document_type_id,
         storage_path_id=storage_path_id,
+        folder_id=folder_id,
         tag_ids=tag_ids,
         created=created,
         asn=archive_serial_number,
@@ -3531,6 +3542,52 @@ class BulkDownloadView(GenericAPIView):
 
 
 @extend_schema_view(**generate_object_with_permissions_schema(StoragePathSerializer))
+class FolderViewSet(ModelViewSet):
+    """
+    The folder tree. Every folder the user can see comes in one list (folders
+    are few), each with its parent, so the client builds the tree itself.
+
+    Deleting a folder deletes its subfolders; the documents in them stay and
+    are no longer in a folder.
+    """
+
+    model = Folder
+    serializer_class = FolderSerializer
+    permission_classes = (IsAuthenticated,)
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Folder.objects.all()
+        if not user.is_superuser:
+            queryset = queryset.filter(pk__in=visible_folder_ids(user))
+        visible_docs = visible_documents(user).values("pk")
+        return queryset.annotate(
+            document_count=Count(
+                "documents",
+                filter=Q(documents__in=visible_docs),
+                distinct=True,
+            ),
+        ).order_by(Lower("name"))
+
+    def _check_can_change(self, folder):
+        if not can_change_folder(self.request.user, folder):
+            raise PermissionDenied(_("You cannot change this folder."))
+
+    def perform_create(self, serializer):
+        if not self.request.user.has_perm("documents.add_document"):
+            raise PermissionDenied(_("You cannot create folders."))
+        serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        self._check_can_change(serializer.instance)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_can_change(instance)
+        instance.delete()
+
+
 class StoragePathViewSet(ModelViewSet, PermissionsAwareDocumentCountMixin):
     model = StoragePath
 

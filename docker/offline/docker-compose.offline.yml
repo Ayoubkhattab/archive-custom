@@ -1,0 +1,28 @@
+# Offline / local-server variant of docker-compose.prod.yml.
+#
+# export-bundle.sh merges this (and docker-compose.ollama.yml) onto the
+# production file into the bundle's docker-compose.yml: every image comes from
+# the bundle, nothing is built or pulled on the target server.
+
+services:
+  webserver:
+    build: !reset null
+    pull_policy: never
+
+  celery:
+    pull_policy: never
+
+  celery-beat:
+    pull_policy: never
+
+  postgres:
+    pull_policy: never
+
+  broker:
+    pull_policy: never
+
+  gotenberg:
+    pull_policy: never
+
+  tika:
+    pull_policy: never

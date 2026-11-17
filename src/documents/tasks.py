@@ -54,6 +54,7 @@ from documents.signals.handlers import cleanup_document_deletion
 from documents.signals.handlers import run_workflows
 from documents.utils import file_md5
 from documents.workflows.utils import get_workflows_for_trigger
+from documents.zip_plugin import ZipArchivePlugin
 from paperless.config import AIConfig
 
 try:
@@ -158,6 +159,7 @@ def consume_file(
 
     plugins: list[type[ConsumeTaskPlugin]] = [
         ConsumerPreflightPlugin,
+        ZipArchivePlugin,
         CollatePlugin,
         BarcodePlugin,
         WorkflowTriggerPlugin,

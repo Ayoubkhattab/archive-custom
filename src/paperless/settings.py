@@ -1107,6 +1107,27 @@ CONSUMER_STABILITY_DELAY = float(os.getenv("PAPERLESS_CONSUMER_STABILITY_DELAY",
 
 CONSUMER_DELETE_DUPLICATES = __get_boolean("PAPERLESS_CONSUMER_DELETE_DUPLICATES")
 
+# Files no parser can read (video, audio, CAD drawings...) are still stored as
+# documents, without extracted text, instead of being refused.
+CONSUMER_STORE_UNSUPPORTED: Final[bool] = __get_boolean(
+    "PAPERLESS_CONSUMER_STORE_UNSUPPORTED",
+    "YES",
+)
+
+# A ZIP archive is unpacked: every file in it becomes a document, filed in a
+# folder tree that mirrors the archive's own folders.
+CONSUMER_ZIP_EXTRACT: Final[bool] = __get_boolean(
+    "PAPERLESS_CONSUMER_ZIP_EXTRACT",
+    "YES",
+)
+# Limits against archives that unpack to far more than they weigh.
+CONSUMER_ZIP_MAX_FILES: Final[int] = __get_int("PAPERLESS_CONSUMER_ZIP_MAX_FILES", 5000)
+CONSUMER_ZIP_MAX_UNCOMPRESSED_MB: Final[int] = __get_int(
+    "PAPERLESS_CONSUMER_ZIP_MAX_UNCOMPRESSED_MB",
+    20 * 1024,
+)
+CONSUMER_ZIP_MAX_RATIO: Final[int] = __get_int("PAPERLESS_CONSUMER_ZIP_MAX_RATIO", 200)
+
 CONSUMER_RECURSIVE = __get_boolean("PAPERLESS_CONSUMER_RECURSIVE")
 
 # Ignore regex patterns, matched against filename only
@@ -1426,7 +1447,7 @@ def _get_nltk_language_setting(ocr_lang: str) -> str | None:
     The common intersection between all languages in those 3 is handled here
 
     """
-    ocr_lang = ocr_lang.split("+")[0]
+    ocr_lang = ocr_lang.split("+", maxsplit=1)[0]
     iso_code_to_nltk = {
         # No punkt model for Arabic; the classifier tokenizes it itself.
         "ara": "arabic",
