@@ -189,7 +189,10 @@ def decide(*, actor, action: str, resource: Resource, context=None) -> Decision:
         and getattr(resource.obj, "is_superuser", False)
         and not actor.is_superuser
     ):
-        return _deny("superuser-protected", "Superuser accounts are protected")
+        return _deny(
+            "superuser-protected",
+            "Superusers can only be modified by other superusers",
+        )
 
     # 1. global admin
     if is_system_admin(actor):

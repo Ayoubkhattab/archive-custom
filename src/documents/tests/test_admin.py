@@ -144,9 +144,18 @@ class TestPaperlessAdmin(DirectoriesMixin, TestCase):
             {"first_name": "Updated"},
             content_type="application/json",
         )
+        # Without view_user the superuser is not even visible (no leak).
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        user.user_permissions.add(Permission.objects.get(codename="view_user"))
+        response = self.client.patch(
+            f"/api/users/{superuser.pk}/",
+            {"first_name": "Updated"},
+            content_type="application/json",
+        )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(
-            response.content.decode(),
+            response.json()["detail"],
             "Superusers can only be modified by other superusers",
         )
 

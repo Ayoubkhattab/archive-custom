@@ -152,6 +152,9 @@ def check_user_update(actor, target: User, data: dict) -> dict:
     Authorize an update of ``target`` with validated ``data``.
     Returns the privileged changes (for the audit log).
     """
+    # The most specific refusal first: superuser status itself.
+    if "is_superuser" in data:
+        _check_flags(actor, target, {"is_superuser": data["is_superuser"]})
     # Relationship + role check for the update itself (includes the
     # descendant-to-ancestor guard and superuser protection).
     require(actor, C.Action.UPDATE, Resource.user(target))
