@@ -22,12 +22,24 @@ RUN apt-get update && \
 
 # Install dependencies first, in their own layer, so source-only edits
 # (the common case) don't invalidate the pnpm install layer.
-COPY src-ui/package.json src-ui/pnpm-lock.yaml ./
+# .npmrc must be here too: its shamefully-hoist=true puts pdfjs-dist (a
+# dependency of ng2-pdf-viewer) at node_modules/pdfjs-dist, which is where
+# angular.json copies the PDF.js worker from. Without it the copy silently
+# matches nothing and every PDF preview fails with "could not be displayed".
+COPY src-ui/package.json src-ui/pnpm-lock.yaml src-ui/.npmrc ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
 COPY src-ui/ .
 RUN pnpm exec ng build --output-path /frontend-build/ --configuration production
+
+# Fail the build if any locale is missing the PDF.js worker (see above).
+RUN set -e; found=0; \
+    for index in $(find /frontend-build -name index.html); do \
+      found=1; dir=$(dirname "$index"); \
+      test -s "$dir/assets/js/pdf.worker.min.mjs" || { echo "PDF.js worker missing in $dir"; exit 1; }; \
+    done; \
+    test "$found" = 1 || { echo "no frontend build output"; exit 1; }
 
 # ─── Stage 2: Production Image ─────────────────────────────────────────────────
 FROM ${PAPERLESS_BASE}

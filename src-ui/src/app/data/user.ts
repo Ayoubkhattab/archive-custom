@@ -21,7 +21,7 @@ export interface User extends ObjectWithId {
   // re-checks every request and never trusts these.
   /** Holder of system.manage.all (or superuser). */
   is_system_admin?: boolean
-  /** Effective dotted policy permissions, e.g. "image.upload.self". */
+  /** Effective dotted policy permissions, e.g. "pdf.view.self". */
   access?: string[]
   /** Parent, grandparent, ... of the current user. */
   ancestors?: number[]

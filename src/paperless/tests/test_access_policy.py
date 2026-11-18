@@ -15,6 +15,7 @@ from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -463,6 +464,7 @@ class TestProtectedSeedAdmin(APITestCase):
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.first_name, "")
 
+    @override_settings(IMAGES_ENABLED=True)
     def test_cannot_be_chosen_as_image_owner(self):
         self.client.force_authenticate(self.other_root)
         from django.core.files.uploadedfile import SimpleUploadedFile

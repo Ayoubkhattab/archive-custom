@@ -27,8 +27,8 @@
 | Range/ETag streaming | `src/paperless/streaming.py` |
 | Angular `PermissionsService` | `src-ui/src/app/services/permissions.service.ts` |
 | Angular `PdfViewerComponent` | `src-ui/src/app/components/common/pdf-viewer/` |
-| Angular `ImageUploaderComponent` | `src-ui/src/app/components/common/image-uploader/` |
-| صفحة الصور (lazy route `/images`) | `src-ui/src/app/components/images/` |
+| Angular `ImageUploaderComponent` | أُزيل مع صفحة الصور |
+| صفحة الصور (`/images`) | أُزيلت: الصور لم تكن مرتبطة بالمستندات |
 
 **نماذج البيانات المطلوبة وما يقابلها** (لم نُنشئ نظام مصادقة موازياً لنظام Django):
 
@@ -172,7 +172,7 @@ after_json, ip, user_agent, request_id, created_at }`. يُكتب من طبقة 
 
 | المتغير | الافتراضي |
 |---|---|
-| `PAPERLESS_IMAGES_ENABLED` | `yes` |
+| `PAPERLESS_IMAGES_ENABLED` | `no` (صفحة الصور أُزيلت من الواجهة؛ الـ API يبقى ويُفعَّل بـ `yes`) |
 | `PAPERLESS_IMAGES_MAX_UPLOAD_BYTES` | `10485760` (10 MB) |
 | `PAPERLESS_IMAGES_MAX_FILES_PER_REQUEST` | `1` |
 | `PAPERLESS_IMAGES_ALLOWED_TYPES` | `image/jpeg,image/png,image/webp,image/avif,image/gif` |
@@ -273,7 +273,7 @@ location / {
 ### الهجرات والتراجع (rollback)
 
 - `python3 manage.py migrate` يطبّق `paperless.0007` و `0008`.
-- للتراجع عن الصور: `PAPERLESS_IMAGES_ENABLED=no` (الواجهة تختفي من القائمة إن أزلت الصلاحيات).
+- الصور معطّلة افتراضياً (`PAPERLESS_IMAGES_ENABLED=no`) ولا توجد لها صفحة في الواجهة.
 - للتراجع عن الهجرات: `python3 manage.py migrate paperless 0006` (يحذف الجداول الجديدة وسجل التدقيق).
 - عارض PDF: إعداد «استخدام عارض PDF الأصلي للمتصفح» الموجود في الإعدادات يتجاوز المكوّن الجديد كلياً.
 
@@ -291,7 +291,7 @@ location / {
   `audit_target_idx`، `jobrecord_kind_status_idx`، وفهارس `created_at/actor_id/action` للتدقيق.
 - `select_related("ownership")` في قائمة المستخدمين، و`Prefetch` للنسخ في قائمة الصور (لا N+1)، وترقيم
   للقوائم الجديدة.
-- Angular: صفحة الصور lazy (`loadComponent`)، كل المكوّنات الجديدة `OnPush`، `@for … track`،
+- Angular: كل المكوّنات الجديدة `OnPush`، `@for … track`،
   `takeUntilDestroyed`، timeouts على كل طلبات الصور.
 
 **لم يُقَس في هذه البيئة:** Lighthouse/LCP/INP/TTFB وp95 تتطلب تشغيل النظام كاملاً بقاعدة بيانات

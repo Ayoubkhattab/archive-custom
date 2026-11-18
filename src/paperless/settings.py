@@ -565,7 +565,9 @@ ACCESS_IMPLICIT_PERMISSIONS = tuple(
 # Images (paperless/images)                                                   #
 ###############################################################################
 
-IMAGES_ENABLED = __get_boolean("PAPERLESS_IMAGES_ENABLED", "yes")
+# Off by default: the standalone Images page was removed from the UI (images
+# were not linked to documents). The API, tables and permissions are kept.
+IMAGES_ENABLED = __get_boolean("PAPERLESS_IMAGES_ENABLED", "no")
 IMAGES_MAX_UPLOAD_BYTES = __get_int("PAPERLESS_IMAGES_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
 IMAGES_MAX_FILES_PER_REQUEST = __get_int("PAPERLESS_IMAGES_MAX_FILES_PER_REQUEST", 1)
 IMAGES_ALLOWED_TYPES = tuple(

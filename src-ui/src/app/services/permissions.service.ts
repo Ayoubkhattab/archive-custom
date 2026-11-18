@@ -37,8 +37,6 @@ export type PolicyFamily =
   | 'user.update'
   | 'user.delete'
   | 'pdf.view'
-  | 'image.upload'
-  | 'image.delete'
 
 export const SYSTEM_MANAGE_ALL = 'system.manage.all'
 

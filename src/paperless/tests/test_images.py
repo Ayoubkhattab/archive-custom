@@ -54,7 +54,12 @@ class ImageTestBase(APITestCase):
     def setUp(self):
         super().setUp()
         self.storage_dir = Path(tempfile.mkdtemp())
-        self.override = override_settings(IMAGES_STORAGE_DIR=self.storage_dir)
+        # The feature is off by default (the UI page was removed); the API
+        # is still tested with it switched on.
+        self.override = override_settings(
+            IMAGES_ENABLED=True,
+            IMAGES_STORAGE_DIR=self.storage_dir,
+        )
         self.override.enable()
         get_storage.cache_clear()
         cache.clear()
