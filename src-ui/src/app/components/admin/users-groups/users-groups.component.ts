@@ -96,7 +96,26 @@ export class UsersAndGroupsComponent
     this.unsubscribeNotifier.next(true)
   }
 
+  /**
+   * Mirrors the server policy for the edit/delete buttons: superuser
+   * accounts are only managed by superusers, and nobody manages an account
+   * above them in the hierarchy (a son never edits his father). The server
+   * enforces both regardless of what the UI shows.
+   */
+  canManageUser(user: User): boolean {
+    if (!user) return true
+    if (user.is_superuser && !this.permissionsService.isSuperUser())
+      return false
+    return !this.permissionsService.isAncestorOfCurrentUser(user.id)
+  }
+
   editUser(user: User = null) {
+    if (user && !this.canManageUser(user) && !user.is_superuser) {
+      this.toastService.showError(
+        $localize`You cannot modify an account above you in the hierarchy`
+      )
+      return
+    }
     // إضافة تحقق إضافي
     if (user && user.is_superuser && !this.permissionsService.isSuperUser()) {
       this.toastService.showError(
@@ -145,6 +164,12 @@ export class UsersAndGroupsComponent
   }
 
   deleteUser(user: User) {
+    if (!this.canManageUser(user) && !user.is_superuser) {
+      this.toastService.showError(
+        $localize`You cannot modify an account above you in the hierarchy`
+      )
+      return
+    }
     // إضافة تحقق إضافي
     if (user.is_superuser && !this.permissionsService.isSuperUser()) {
       this.toastService.showError(

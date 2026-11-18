@@ -32,7 +32,9 @@ class TestAPIMailAccounts(DirectoriesMixin, APITestCase):
         super().setUp()
 
         self.user = User.objects.create_user(username="temp_admin")
-        self.user.user_permissions.add(*Permission.objects.all())
+        self.user.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         self.user.save()
         self.client.force_authenticate(user=self.user)
 
@@ -347,7 +349,9 @@ class TestAPIMailRules(DirectoriesMixin, APITestCase):
         super().setUp()
 
         self.user = User.objects.create_user(username="temp_admin")
-        self.user.user_permissions.add(*Permission.objects.all())
+        self.user.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         self.user.save()
         self.client.force_authenticate(user=self.user)
 
@@ -732,7 +736,9 @@ class TestAPIProcessedMails(DirectoriesMixin, APITestCase):
         super().setUp()
 
         self.user = User.objects.create_user(username="temp_admin")
-        self.user.user_permissions.add(*Permission.objects.all())
+        self.user.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         self.user.save()
         self.client.force_authenticate(user=self.user)
 

@@ -7,6 +7,7 @@ import operator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
+from paperless.access.policy import is_system_admin
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Case
 from django.db.models import CharField
@@ -906,6 +907,8 @@ class ObjectOwnedOrGrantedPermissionsFilter(ObjectPermissionsFilter):
     """
 
     def filter_queryset(self, request, queryset, view):
+        if is_system_admin(request.user):
+            return queryset
         objects_with_perms = super().filter_queryset(request, queryset, view)
         objects_owned = queryset.filter(owner=request.user)
         objects_unowned = queryset.filter(owner__isnull=True)
@@ -919,7 +922,7 @@ class ObjectOwnedPermissionsFilter(ObjectPermissionsFilter):
     """
 
     def filter_queryset(self, request, queryset, view):
-        if request.user.is_superuser:
+        if is_system_admin(request.user):
             return queryset
         objects_owned = queryset.filter(owner=request.user)
         objects_unowned = queryset.filter(owner__isnull=True)

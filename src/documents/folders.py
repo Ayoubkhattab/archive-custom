@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from paperless.access.policy import is_system_admin
 from django.db.models import Q
 
 from documents.models import Document
@@ -63,7 +64,7 @@ def visible_documents(user: User):
 
 def visible_folder_ids(user: User) -> set[int]:
     parents = _parents()
-    if user.is_superuser:
+    if is_system_admin(user):
         return set(parents)
     own = Folder.objects.filter(Q(owner=user) | Q(owner__isnull=True)).values_list(
         "pk",
@@ -79,7 +80,7 @@ def visible_folder_ids(user: User) -> set[int]:
 
 
 def can_change_folder(user: User, folder: Folder) -> bool:
-    if user.is_superuser or folder.owner_id == user.pk:
+    if is_system_admin(user) or folder.owner_id == user.pk:
         return True
     return folder.owner_id is None and user.has_perm("documents.change_document")
 

@@ -1,3 +1,4 @@
+from paperless.access.policy import is_system_admin
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
@@ -208,7 +209,7 @@ def get_document_count_filter_for_user(user, relation: str = "documents"):
                 f"{relation}__owner__isnull": True,
             },
         )
-    if getattr(user, "is_superuser", False):
+    if is_system_admin(user):
         return Q(**{f"{relation}__deleted_at__isnull": True})
     return Q(
         **{
@@ -223,6 +224,8 @@ def get_document_count_filter_for_user(user, relation: str = "documents"):
 
 
 def get_objects_for_user_owner_aware(user, perms, Model) -> QuerySet:
+    if is_system_admin(user):
+        return Model.objects.all()
     objects_owned = Model.objects.filter(owner=user)
     objects_unowned = Model.objects.filter(owner__isnull=True)
     objects_with_perms = get_objects_for_user(
@@ -235,6 +238,8 @@ def get_objects_for_user_owner_aware(user, perms, Model) -> QuerySet:
 
 
 def has_perms_owner_aware(user, perms, obj):
+    if is_system_admin(user):
+        return True
     checker = ObjectPermissionChecker(user)
     return obj.owner is None or obj.owner == user or checker.has_perm(perms, obj)
 

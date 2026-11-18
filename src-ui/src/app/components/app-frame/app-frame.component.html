@@ -118,6 +118,15 @@
               <i-bs class="me-1" name="folder"></i-bs><span>&nbsp;<ng-container i18n="@@nav.folders">Folders</ng-container></span>
             </a>
           </li>
+          @if (permissionsService.holdsAny('image.upload')) {
+            <li class="nav-item app-link">
+              <a class="nav-link" routerLink="images" routerLinkActive="active" (click)="closeMenu()"
+                ngbPopover="Images" i18n-ngbPopover="@@nav.images" [disablePopover]="!slimSidebarEnabled" placement="end"
+                container="body" triggers="mouseenter:mouseleave" popoverClass="popover-slim">
+                <i-bs class="me-1" name="images"></i-bs><span>&nbsp;<ng-container i18n="@@nav.images">Images</ng-container></span>
+              </a>
+            </li>
+          }
           @if (aiEnabled) {
             <li class="nav-item app-link">
               <a class="nav-link" routerLink="/ai" routerLinkActive="active" (click)="closeMenu()"

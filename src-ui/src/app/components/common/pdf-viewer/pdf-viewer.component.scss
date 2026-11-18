@@ -1,0 +1,14 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.pdf-status {
+  background: var(--bs-body-bg);
+  border-radius: var(--bs-border-radius);
+  z-index: 2;
+}
+
+::ng-deep .pngx-pdf-viewer pdf-viewer.invisible {
+  visibility: hidden;
+}

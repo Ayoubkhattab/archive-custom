@@ -31,6 +31,17 @@ export enum PermissionType {
   ProcessedMail = '%s_processedmail',
 }
 
+/** Policy permission names, mirrored from paperless/access/constants.py. */
+export type PolicyFamily =
+  | 'user.read'
+  | 'user.update'
+  | 'user.delete'
+  | 'pdf.view'
+  | 'image.upload'
+  | 'image.delete'
+
+export const SYSTEM_MANAGE_ALL = 'system.manage.all'
+
 @Injectable({
   providedIn: 'root',
 })
@@ -52,8 +63,55 @@ export class PermissionsService {
     type: PermissionType
   ): boolean {
     return (
-      this.currentUser?.is_superuser ||
+      this.isSystemAdmin() ||
       this._permissions?.includes(this.getPermissionCode(action, type))
+    )
+  }
+
+  /** Holder of system.manage.all (or Django superuser). */
+  public isSystemAdmin(): boolean {
+    return !!(
+      this.currentUser?.is_superuser || this.currentUser?.is_system_admin
+    )
+  }
+
+  /** Is ``userId`` the parent, grandparent, ... of the current user? */
+  public isAncestorOfCurrentUser(userId: number): boolean {
+    return !!userId && (this.currentUser?.ancestors ?? []).includes(userId)
+  }
+
+  /**
+   * UI mirror of the backend decision order (paperless/access/policy.py):
+   * global admin -> self -> direct child -> deny descendant-to-ancestor ->
+   * ".any" -> deny. Only used to hide controls; the server decides.
+   *
+   * @param target the account the action is about (owner of an image, the
+   *               user being edited, the owner of a document)
+   */
+  public canOnTarget(
+    family: PolicyFamily,
+    target: { id?: number; parent?: number | null } | null
+  ): boolean {
+    const me = this.currentUser
+    if (!me || !target?.id) return false
+    const access = me.access ?? []
+    const mutating = family !== 'user.read' && family !== 'pdf.view'
+    const isSelf = target.id === me.id
+    if (isSelf && family === 'user.delete') return false
+    if (this.isSystemAdmin()) return true
+    if (isSelf) return access.includes(`${family}.self`)
+    if (target.parent === me.id && access.includes(`${family}.child`))
+      return true
+    if (mutating && this.isAncestorOfCurrentUser(target.id)) return false
+    return access.includes(`${family}.any`)
+  }
+
+  /** Does the user hold the family in any scope (coarse gate, e.g. menus)? */
+  public holdsAny(family: PolicyFamily): boolean {
+    if (this.isSystemAdmin()) return true
+    const access = this.currentUser?.access ?? []
+    return ['self', 'child', 'any'].some((s) =>
+      access.includes(`${family}.${s}`)
     )
   }
 
@@ -69,7 +127,7 @@ export class PermissionsService {
     return (
       !object ||
       !object.owner ||
-      this.currentUser.is_superuser ||
+      this.isSystemAdmin() ||
       object.owner === this.currentUser.id
     )
   }

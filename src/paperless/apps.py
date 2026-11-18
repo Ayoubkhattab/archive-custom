@@ -19,4 +19,8 @@ class PaperlessConfig(AppConfig):
 
         social_account_updated.connect(handle_social_account_updated)
 
+        # Register the image Celery tasks (not an app of their own, so
+        # autodiscover_tasks() would not find them).
+        import paperless.images.tasks  # noqa: F401
+
         AppConfig.ready(self)

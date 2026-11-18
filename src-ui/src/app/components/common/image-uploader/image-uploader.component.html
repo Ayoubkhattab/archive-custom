@@ -1,0 +1,53 @@
+@if (canUpload) {
+  <div class="image-uploader">
+    <label class="drop-zone d-flex flex-column align-items-center justify-content-center p-4 rounded text-center"
+      [class.dragging]="dragging"
+      (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+      <i-bs width="2em" height="2em" name="cloud-arrow-up"></i-bs>
+      <span class="mt-2" i18n>Drop images here or click to choose</span>
+      <span class="small text-muted" i18n>JPEG, PNG, WebP, AVIF or GIF, up to {{maxMegabytes}} MB</span>
+      <input class="visually-hidden" type="file" [accept]="accept" multiple (change)="onFileInput($event)"
+        aria-label="Choose images" i18n-aria-label />
+    </label>
+
+    @if (items.length) {
+      <ul class="list-unstyled mt-3 mb-0">
+        @for (item of items; track item.localId) {
+          <li class="upload-item d-flex align-items-center gap-3 py-2 border-bottom" [attr.data-status]="item.status">
+            <div class="preview flex-shrink-0 rounded overflow-hidden bg-body-secondary">
+              @if (item.previewUrl) {
+                <img [src]="item.previewUrl" width="56" height="56" alt="" decoding="async" />
+              }
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="text-truncate" [title]="item.file.name">{{item.file.name}}</div>
+              @if (item.status === 'uploading') {
+                <div class="progress mt-1" role="progressbar" [attr.aria-valuenow]="item.progress" aria-valuemin="0" aria-valuemax="100" aria-label="Upload progress" i18n-aria-label>
+                  <div class="progress-bar" [style.width.%]="item.progress">{{item.progress}}%</div>
+                </div>
+              } @else if (item.status === 'done') {
+                <div class="small text-success" i18n>Uploaded</div>
+              } @else if (item.status === 'cancelled') {
+                <div class="small text-muted" i18n>Cancelled</div>
+              }
+              @if (item.error) {
+                <div class="small text-danger error" role="alert">{{item.error}}</div>
+              }
+            </div>
+            <div class="btn-group btn-group-sm flex-shrink-0">
+              @if (item.status === 'uploading') {
+                <button type="button" class="btn btn-outline-secondary cancel" (click)="cancel(item)" i18n>Cancel</button>
+              }
+              @if (canRetry(item)) {
+                <button type="button" class="btn btn-outline-primary retry" (click)="retry(item)" i18n>Retry</button>
+              }
+              @if (item.status !== 'uploading' && canRemove(item)) {
+                <button type="button" class="btn btn-outline-danger remove" (click)="remove(item)" i18n>Remove</button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+}

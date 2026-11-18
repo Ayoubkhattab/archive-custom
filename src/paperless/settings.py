@@ -368,6 +368,9 @@ REST_FRAMEWORK = {
         "token": os.getenv("PAPERLESS_TOKEN_RATE_LIMIT", "10/min"),
         # LLM calls are expensive; limit each user so one cannot starve the rest.
         "ai": os.getenv("PAPERLESS_AI_RATE_LIMIT", "30/min"),
+        # Per user limits for image uploads and deletions.
+        "image_upload": os.getenv("PAPERLESS_IMAGE_UPLOAD_RATE_LIMIT", "30/min"),
+        "image_delete": os.getenv("PAPERLESS_IMAGE_DELETE_RATE_LIMIT", "60/min"),
     },
     # Number of reverse proxies in front of the app. With 0, DRF trusts only the
     # socket address, so a client cannot dodge throttling by forging
@@ -406,7 +409,7 @@ MIDDLEWARE = [
 
 # Optional to enable compression
 if __get_boolean("PAPERLESS_ENABLE_COMPRESSION", "yes"):  # pragma: no cover
-    MIDDLEWARE.insert(0, "compression_middleware.middleware.CompressionMiddleware")
+    MIDDLEWARE.insert(0, "paperless.middleware.SafeCompressionMiddleware")
 
 # Workaround to not compress streaming responses (e.g. chat).
 # See https://github.com/friedelwolff/django-compression-middleware/pull/7
@@ -533,7 +536,64 @@ AUTHENTICATION_BACKENDS = [
     "guardian.backends.ObjectPermissionBackend",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
+    # Grants every permission (except audit log ones) to holders of
+    # system.manage.all. Authorization only, it never logs anyone in.
+    "paperless.access.backends.SystemManageAllBackend",
 ]
+
+###############################################################################
+# Access control (paperless/access)                                           #
+###############################################################################
+
+# Self-scoped permissions every active account has without an explicit grant.
+# Set PAPERLESS_ACCESS_IMPLICIT_PERMISSIONS="" for a strict deny-everything
+# default where even these must be granted through roles.
+ACCESS_IMPLICIT_PERMISSIONS = tuple(
+    __get_list(
+        "PAPERLESS_ACCESS_IMPLICIT_PERMISSIONS",
+        [
+            "user.read.self",
+            "user.update.self",
+            "pdf.view.self",
+            "image.upload.self",
+            "image.delete.self",
+        ],
+    ),
+)
+
+###############################################################################
+# Images (paperless/images)                                                   #
+###############################################################################
+
+IMAGES_ENABLED = __get_boolean("PAPERLESS_IMAGES_ENABLED", "yes")
+IMAGES_MAX_UPLOAD_BYTES = __get_int("PAPERLESS_IMAGES_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
+IMAGES_MAX_FILES_PER_REQUEST = __get_int("PAPERLESS_IMAGES_MAX_FILES_PER_REQUEST", 1)
+IMAGES_ALLOWED_TYPES = tuple(
+    __get_list(
+        "PAPERLESS_IMAGES_ALLOWED_TYPES",
+        ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"],
+    ),
+)
+# Decompression bomb guard: refuse images with more pixels than this.
+IMAGES_MAX_PIXELS = __get_int("PAPERLESS_IMAGES_MAX_PIXELS", 50_000_000)
+IMAGES_OUTPUT_FORMAT = os.getenv("PAPERLESS_IMAGES_OUTPUT_FORMAT", "webp").lower()
+IMAGES_OUTPUT_QUALITY = __get_int("PAPERLESS_IMAGES_OUTPUT_QUALITY", 82)
+IMAGES_KEEP_ORIGINAL = __get_boolean("PAPERLESS_IMAGES_KEEP_ORIGINAL", "no")
+IMAGES_STORAGE_BACKEND = os.getenv("PAPERLESS_IMAGES_STORAGE", "local").lower()
+# Not under any URL: files are only ever streamed through the API.
+IMAGES_STORAGE_DIR = __get_path("PAPERLESS_IMAGES_STORAGE_DIR", MEDIA_ROOT / "images")
+# Optional Nginx "internal" location for X-Accel-Redirect hand-off, e.g.
+# "/_protected_images" (see docs/access-images-pdf.md). Empty = Django streams.
+IMAGES_X_ACCEL_PREFIX = os.getenv("PAPERLESS_IMAGES_X_ACCEL_PREFIX", "")
+IMAGES_S3_BUCKET = os.getenv("PAPERLESS_IMAGES_S3_BUCKET", "")
+IMAGES_S3_PREFIX = os.getenv("PAPERLESS_IMAGES_S3_PREFIX", "images/")
+IMAGES_S3_ENDPOINT_URL = os.getenv("PAPERLESS_IMAGES_S3_ENDPOINT_URL") or None
+IMAGES_S3_REGION = os.getenv("PAPERLESS_IMAGES_S3_REGION") or None
+# Optional ClamAV scan of uploads (clamd over TCP or a unix socket).
+IMAGES_CLAMAV_ENABLED = __get_boolean("PAPERLESS_IMAGES_CLAMAV_ENABLED", "no")
+IMAGES_CLAMAV_HOST = os.getenv("PAPERLESS_IMAGES_CLAMAV_HOST", "clamav")
+IMAGES_CLAMAV_PORT = __get_int("PAPERLESS_IMAGES_CLAMAV_PORT", 3310)
+IMAGES_CLAMAV_TIMEOUT = __get_int("PAPERLESS_IMAGES_CLAMAV_TIMEOUT", 30)
 
 ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.getenv(
@@ -1006,6 +1066,16 @@ CELERY_ACCEPT_CONTENT = ["application/json", "application/x-python-serialize"]
 
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#beat-schedule
 CELERY_BEAT_SCHEDULE = _parse_beat_schedule()
+
+# Safety net for image cleanup / stuck variant jobs (paperless/images/tasks.py)
+_image_sweep_cron = os.getenv("PAPERLESS_IMAGES_SWEEP_TASK_CRON", "*/30 * * * *")
+if IMAGES_ENABLED and _image_sweep_cron != "disable":
+    _m, _h, _dom, _mon, _dow = _image_sweep_cron.split(" ")
+    CELERY_BEAT_SCHEDULE["Sweep images"] = {
+        "task": "paperless.images.tasks.sweep_images",
+        "schedule": crontab(_m, _h, _dow, _dom, _mon),
+        "options": {"expires": 29.0 * 60.0},
+    }
 
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#beat-schedule-filename
 CELERY_BEAT_SCHEDULE_FILENAME = str(DATA_DIR / "celerybeat-schedule.db")

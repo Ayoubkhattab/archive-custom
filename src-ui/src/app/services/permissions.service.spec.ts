@@ -460,4 +460,42 @@ describe('PermissionsService', () => {
 
     expect(permissionsService.isSuperUser()).toBeFalsy()
   })
+
+  describe('hierarchy mirror (canOnTarget)', () => {
+    const father = { id: 1 }
+    const son = {
+      id: 2,
+      parent: 1,
+      ancestors: [1],
+      access: ['user.update.any', 'image.upload.self', 'image.upload.child'],
+    }
+    const grandson = { id: 3, parent: 2 }
+
+    it('never lets a son mutate his father, even with .any', () => {
+      permissionsService.initialize([], son as any)
+      expect(permissionsService.canOnTarget('user.update', father)).toBe(false)
+      expect(permissionsService.canOnTarget('image.upload', father)).toBe(false)
+    })
+
+    it('allows self and direct children per scope', () => {
+      permissionsService.initialize([], son as any)
+      expect(permissionsService.canOnTarget('image.upload', son)).toBe(true)
+      expect(permissionsService.canOnTarget('image.upload', grandson)).toBe(true)
+      expect(permissionsService.canOnTarget('user.update', { id: 99 })).toBe(true)
+      expect(permissionsService.canOnTarget('user.delete', son)).toBe(false)
+    })
+
+    it('global admins can act on anyone', () => {
+      permissionsService.initialize([], { id: 5, is_system_admin: true } as any)
+      expect(permissionsService.canOnTarget('user.update', father)).toBe(true)
+      expect(permissionsService.isSystemAdmin()).toBe(true)
+      expect(permissionsService.holdsAny('image.delete')).toBe(true)
+    })
+
+    it('denies by default', () => {
+      permissionsService.initialize([], { id: 7, access: [] } as any)
+      expect(permissionsService.canOnTarget('image.upload', { id: 7 })).toBe(false)
+      expect(permissionsService.holdsAny('image.upload')).toBe(false)
+    })
+  })
 })

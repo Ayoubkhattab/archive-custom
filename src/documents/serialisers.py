@@ -10,6 +10,7 @@ from typing import Literal
 
 import magic
 from celery import states
+from paperless.access.policy import is_system_admin
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import User
@@ -787,7 +788,7 @@ class FolderField(serializers.PrimaryKeyRelatedField):
 
     def get_queryset(self):
         user = _request_user(self.context)
-        if user is None or user.is_superuser:
+        if user is None or is_system_admin(user):
             return Folder.objects.all()
         return Folder.objects.filter(pk__in=visible_folder_ids(user))
 
@@ -849,7 +850,7 @@ class FolderSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             siblings = siblings.exclude(pk=self.instance.pk)
         user = _request_user(self.context)
-        if user is not None and not user.is_superuser:
+        if user is not None and not is_system_admin(user):
             siblings = siblings.filter(pk__in=visible_folder_ids(user))
         if siblings.exists():
             raise serializers.ValidationError(
@@ -1798,7 +1799,7 @@ class BulkEditSerializer(
         user = _request_user(self.context)
         visible = (
             Folder.objects.all()
-            if user is None or user.is_superuser
+            if user is None or is_system_admin(user)
             else Folder.objects.filter(pk__in=visible_folder_ids(user))
         )
         if not visible.filter(pk=folder_id).exists():

@@ -79,10 +79,24 @@ class UserSerializer(PasswordValidationMixin, serializers.ModelSerializer):
     inherited_permissions = serializers.SerializerMethodField()
     is_mfa_enabled = serializers.SerializerMethodField()
     created_by_id = serializers.SerializerMethodField(read_only=True)
+    # The account's parent ("father") in the hierarchy. Writable only for
+    # holders of system.manage.all; the view enforces that through the
+    # policy engine, this field only validates the value.
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
 
     def get_is_mfa_enabled(self, user: User) -> bool:
         mfa_adapter = get_mfa_adapter()
         return mfa_adapter.is_mfa_enabled(user)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["parent"] = data.get("created_by_id")
+        return data
 
     def get_created_by_id(self, obj) -> int | None:
         try:
@@ -108,31 +122,19 @@ class UserSerializer(PasswordValidationMixin, serializers.ModelSerializer):
             "inherited_permissions",
             "is_mfa_enabled",
             "created_by_id",
+            "parent",
         )
 
     def get_inherited_permissions(self, obj) -> list[str]:
         return obj.get_group_permissions()
 
-    def validate_is_superuser(self, value):
-        request = self.context.get('request')
-        if request and not request.user.is_superuser and value:
-            raise serializers.ValidationError(
-                "Superuser status can only be granted by a superuser"
-            )
-        return value
-
-    def validate_is_staff(self, value):
-        request = self.context.get('request')
-        if request and not request.user.is_superuser and value:
-            # Allow if instance already has is_staff=True (no change)
-            if self.instance and self.instance.is_staff:
-                return value
-            raise serializers.ValidationError(
-                "Staff status can only be granted by a superuser"
-            )
-        return value
+    # is_superuser / is_staff / groups / user_permissions / parent are
+    # authorized by paperless.access.service (403), not here: a validator
+    # would turn a forbidden escalation into a 400.
 
     def update(self, instance, validated_data):
+        # The hierarchy lives on UserOwnership; the view writes it.
+        validated_data.pop("parent", None)
         password = validated_data.pop("password", None)
         if self._has_real_password(password):
             instance.set_password(password)
@@ -142,6 +144,7 @@ class UserSerializer(PasswordValidationMixin, serializers.ModelSerializer):
         return instance
 
     def create(self, validated_data):
+        validated_data.pop("parent", None)
         groups = None
         if "groups" in validated_data:
             groups = validated_data.pop("groups")

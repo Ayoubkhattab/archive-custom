@@ -184,7 +184,9 @@ class TestTasks(DirectoriesMixin, APITestCase):
         """
 
         regular_user = User.objects.create_user(username="test")
-        regular_user.user_permissions.add(*Permission.objects.all())
+        regular_user.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         self.client.logout()
         self.client.force_authenticate(user=regular_user)
 
@@ -397,7 +399,9 @@ class TestTasks(DirectoriesMixin, APITestCase):
             - The task is not run
         """
         regular_user = User.objects.create_user(username="test")
-        regular_user.user_permissions.add(*Permission.objects.all())
+        regular_user.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         self.client.logout()
         self.client.force_authenticate(user=regular_user)
 

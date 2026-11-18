@@ -5,6 +5,8 @@ from channels.exceptions import AcceptConnection
 from channels.exceptions import DenyConnection
 from channels.generic.websocket import WebsocketConsumer
 
+from paperless.access.policy import is_system_admin
+
 
 class StatusConsumer(WebsocketConsumer):
     def _authenticated(self):
@@ -16,7 +18,7 @@ class StatusConsumer(WebsocketConsumer):
         users_can_view = data.get("users_can_view", [])
         groups_can_view = data.get("groups_can_view", [])
         return (
-            user.is_superuser
+            is_system_admin(user)
             or user.id == owner_id
             or user.id in users_can_view
             or any(

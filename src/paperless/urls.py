@@ -65,6 +65,9 @@ from paperless.views import ProfileView
 from paperless.views import SocialAccountProvidersView
 from paperless.views import TOTPView
 from paperless.views import UserViewSet
+from paperless.access.views import SecurityAuditLogViewSet
+from paperless.images.views import ImageViewSet
+from paperless.pdfs.views import PdfFileView
 from paperless_mail.views import MailAccountViewSet
 from paperless_mail.views import MailRuleViewSet
 from paperless_mail.views import OauthCallbackView
@@ -86,6 +89,8 @@ api_router.register(r"folders", FolderViewSet, basename="folders")
 api_router.register(r"tasks", TasksViewSet, basename="tasks")
 api_router.register(r"users", UserViewSet, basename="users")
 api_router.register(r"groups", GroupViewSet, basename="groups")
+api_router.register(r"audit_logs", SecurityAuditLogViewSet, basename="audit_logs")
+api_router.register(r"images", ImageViewSet, basename="images")
 api_router.register(r"mail_accounts", MailAccountViewSet)
 api_router.register(r"mail_rules", MailRuleViewSet)
 api_router.register(r"share_links", ShareLinkViewSet)
@@ -290,6 +295,11 @@ urlpatterns = [
                 re_path(
                     "^$",  # Redirect to the API swagger view
                     RedirectView.as_view(url="schema/view/"),
+                ),
+                re_path(
+                    r"^pdfs/(?P<pk>\d+)/file/$",
+                    PdfFileView.as_view(),
+                    name="pdf-file",
                 ),
                 *api_router.urls,
             ],

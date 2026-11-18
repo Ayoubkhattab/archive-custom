@@ -66,3 +66,35 @@ class ArabicAccountPagesMiddleware:
             translation.activate(self.LANGUAGE)
             request.LANGUAGE_CODE = self.LANGUAGE
         return self.get_response(request)
+
+
+try:
+    from compression_middleware.middleware import CompressionMiddleware
+except ImportError:  # pragma: no cover
+    CompressionMiddleware = None
+
+
+if CompressionMiddleware is not None:
+
+    class SafeCompressionMiddleware(CompressionMiddleware):
+        """
+        Response compression that leaves byte-range capable media alone.
+
+        Compressing a 206 body would make Content-Range point into the
+        compressed stream (corrupting PDF.js range loading), and PDFs or
+        images are already compressed, so it only burns CPU.
+        """
+
+        SKIP_STATUS = {206, 304, 416}
+        SKIP_TYPES = ("application/pdf", "image/", "video/", "audio/")
+
+        def process_response(self, request, response):
+            content_type = response.get("Content-Type", "")
+            if (
+                response.status_code in self.SKIP_STATUS
+                or response.get("Accept-Ranges") == "bytes"
+                or response.has_header("X-Accel-Redirect")
+                or content_type.startswith(self.SKIP_TYPES)
+            ):
+                return response
+            return super().process_response(request, response)

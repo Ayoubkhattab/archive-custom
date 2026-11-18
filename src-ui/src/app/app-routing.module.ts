@@ -1,4 +1,4 @@
-import { NgModule } from '@angular/core'
+import { inject, NgModule } from '@angular/core'
 import { RouterModule, Routes } from '@angular/router'
 import { ConfigComponent } from './components/admin/config/config.component'
 import { LogsComponent } from './components/admin/logs/logs.component'
@@ -26,6 +26,7 @@ import { DirtyDocGuard } from './guards/dirty-doc.guard'
 import { DirtyFormGuard } from './guards/dirty-form.guard'
 import { DirtySavedViewGuard } from './guards/dirty-saved-view.guard'
 import { PermissionsGuard } from './guards/permissions.guard'
+import { PermissionsService } from './services/permissions.service'
 import {
   PermissionAction,
   PermissionType,
@@ -68,6 +69,19 @@ export const routes: Routes = [
           },
           componentName: 'FoldersComponent',
         },
+      },
+      {
+        // Lazy-loaded: the uploader/gallery code is only fetched when used.
+        path: 'images',
+        loadComponent: () =>
+          import('./components/images/images.component').then(
+            (m) => m.ImagesComponent
+          ),
+        canActivate: [
+          () =>
+            inject(PermissionsService).holdsAny('image.upload') ||
+            inject(PermissionsService).holdsAny('image.delete'),
+        ],
       },
       {
         path: 'folders/:id',

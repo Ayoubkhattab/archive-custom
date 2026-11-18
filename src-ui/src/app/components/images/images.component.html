@@ -1,0 +1,47 @@
+<pngx-page-header title="الصور" i18n-title subTitle="ارفع الصور بأمان؛ تتم إعادة ترميزها وإزالة بياناتها الوصفية على الخادم" i18n-subTitle>
+</pngx-page-header>
+
+<pngx-image-uploader (uploaded)="onUploaded()"></pngx-image-uploader>
+
+<div class="mt-4">
+  @if (loadError) {
+    <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+      <span i18n>The images could not be loaded.</span>
+      <button type="button" class="btn btn-sm btn-outline-danger" (click)="load()" i18n>Retry</button>
+    </div>
+  } @else if (loading && !images.length) {
+    <div class="d-flex align-items-center" role="status">
+      <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div><span i18n>Loading...</span>
+    </div>
+  } @else if (!images.length) {
+    <p class="text-muted" i18n>No images yet.</p>
+  } @else {
+    <div class="row g-3">
+      @for (image of images; track image.id; let i = $index) {
+        <div class="col-6 col-md-4 col-xl-3">
+          <figure class="card h-100 mb-0">
+            <pngx-responsive-image class="card-img-top" [image]="image" [eager]="i < 4"
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"></pngx-responsive-image>
+            <figcaption class="card-body py-2 d-flex align-items-center justify-content-between gap-2">
+              <span class="small text-truncate" [title]="image.original_name">{{image.original_name}}</span>
+              @if (image.status === 'pending') {
+                <span class="badge text-bg-secondary" i18n>Processing</span>
+              } @else if (image.status === 'failed') {
+                <span class="badge text-bg-danger" i18n>Failed</span>
+              }
+              @if (image.can_delete) {
+                <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="delete(image)" title="Delete" i18n-title>
+                  <i-bs width="1em" height="1em" name="trash"></i-bs>
+                </button>
+              }
+            </figcaption>
+          </figure>
+        </div>
+      }
+    </div>
+    @if (count > pageSize) {
+      <ngb-pagination class="d-flex justify-content-center mt-3" [collectionSize]="count" [pageSize]="pageSize"
+        [page]="page" (pageChange)="load($event)" [maxSize]="5" [rotate]="true"></ngb-pagination>
+    }
+  }
+</div>

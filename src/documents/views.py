@@ -24,6 +24,10 @@ import httpx
 import magic
 import pathvalidate
 from celery import states
+from paperless.access.hierarchy import get_ancestor_ids
+from paperless.access.hierarchy import get_parent_id
+from paperless.access.policy import is_system_admin
+from paperless.access.service import effective_permissions
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import User
@@ -1015,11 +1019,12 @@ class DocumentViewSet(
         )
 
     def file_response(self, pk, request, disposition):
+        from paperless.pdfs.service import can_view_pdf
+
         doc = Document.global_objects.select_related("owner").get(id=pk)
-        if request.user is not None and not has_perms_owner_aware(
-            request.user,
-            "view_document",
-            doc,
+        if request.user is not None and not (
+            has_perms_owner_aware(request.user, "view_document", doc)
+            or can_view_pdf(request.user, doc)
         ):
             return HttpResponseForbidden("Insufficient permissions")
         return serve_file(
@@ -1027,6 +1032,7 @@ class DocumentViewSet(
             use_archive=not self.original_requested(request)
             and doc.has_archive_version,
             disposition=disposition,
+            request=request,
         )
 
     def get_metadata(self, file, mime_type):
@@ -1422,7 +1428,7 @@ class DocumentViewSet(
             if not request.user.has_perm("auditlog.view_logentry") or (
                 doc.owner is not None
                 and doc.owner != request.user
-                and not request.user.is_superuser
+                and not is_system_admin(request.user)
             ):
                 return HttpResponseForbidden(
                     "Insufficient permissions",
@@ -2239,7 +2245,7 @@ class BulkEditView(PassUserMixin):
         ]:
             parameters["user"] = user
 
-        if not user.is_superuser:
+        if not is_system_admin(user):
             document_objs = Document.objects.select_related("owner").filter(
                 pk__in=documents,
             )
@@ -3561,7 +3567,7 @@ class FolderViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = Folder.objects.all()
-        if not user.is_superuser:
+        if not is_system_admin(user):
             queryset = queryset.filter(pk__in=visible_folder_ids(user))
         visible_docs = visible_documents(user).values("pk")
         return queryset.annotate(
@@ -3704,6 +3710,12 @@ class UiSettingsView(GenericAPIView):
             "username": user.username,
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
+            # Mirrors of the server-side policy for hiding controls in the UI.
+            # Never trusted by the backend, which re-checks every request.
+            "is_system_admin": is_system_admin(user),
+            "access": effective_permissions(user),
+            "parent": get_parent_id(user.pk),
+            "ancestors": get_ancestor_ids(user.pk),
             "groups": list(user.groups.values_list("id", flat=True)),
         }
 
@@ -3868,7 +3880,7 @@ class TasksViewSet(ReadOnlyModelViewSet):
 
         try:
             tasks = PaperlessTask.objects.filter(id__in=task_ids)
-            if request.user is not None and not request.user.is_superuser:
+            if request.user is not None and not is_system_admin(request.user):
                 tasks = tasks.filter(owner=request.user) | tasks.filter(owner=None)
             result = tasks.update(
                 acknowledged=True,
@@ -3883,7 +3895,7 @@ class TasksViewSet(ReadOnlyModelViewSet):
         serializer.is_valid(raise_exception=True)
         task_name = serializer.validated_data.get("task_name")
 
-        if not request.user.is_superuser:
+        if not is_system_admin(request.user):
             return HttpResponseForbidden("Insufficient permissions")
 
         try:
@@ -3931,23 +3943,52 @@ class SharedLinkView(View):
         )
 
 
-def serve_file(*, doc: Document, use_archive: bool, disposition: str):
+def serve_file(*, doc: Document, use_archive: bool, disposition: str, request=None):
     if use_archive:
-        file_handle = doc.archive_file
+        path = doc.archive_path
         filename = doc.get_public_filename(archive=True)
         mime_type = "application/pdf"
+        checksum = doc.archive_checksum
     else:
-        file_handle = doc.source_file
+        path = doc.source_path
         filename = doc.get_public_filename()
         mime_type = doc.mime_type
+        checksum = doc.checksum
         # Support browser previewing csv files by using text mime type
         if mime_type in {"application/csv", "text/csv"} and disposition == "inline":
             mime_type = "text/plain"
 
+    from paperless.pdfs.service import content_disposition
+    from paperless.streaming import ranged_file_response
+
+    if (
+        request is not None
+        and "Range" in request.headers
+        and doc.storage_type != Document.STORAGE_TYPE_GPG
+    ):
+        # Byte ranges (206 / 416): PDF.js fetches large PDFs piecewise
+        # instead of downloading everything before showing page one.
+        if not Path(path).is_file():
+            raise FileNotFoundError(path)
+        return ranged_file_response(
+            request,
+            open_file=lambda: Path(path).open("rb"),
+            size=Path(path).stat().st_size,
+            content_type=mime_type,
+            etag=checksum,
+            last_modified=doc.modified,
+            disposition=content_disposition(disposition, filename),
+            cache_control="private, no-cache",
+        )
+
+    file_handle = doc.archive_file if use_archive else doc.source_file
     if doc.storage_type == Document.STORAGE_TYPE_GPG:
         file_handle = GnuPG.decrypted(file_handle)
 
     response = HttpResponse(file_handle, content_type=mime_type)
+    if doc.storage_type != Document.STORAGE_TYPE_GPG:
+        response["Accept-Ranges"] = "bytes"
+    response["X-Content-Type-Options"] = "nosniff"
     # Firefox is not able to handle unicode characters in filename field
     # RFC 5987 addresses this issue
     # see https://datatracker.ietf.org/doc/html/rfc5987#section-4.2
@@ -4005,7 +4046,7 @@ class BulkEditObjectsView(PassUserMixin):
 
         objs = object_class.objects.select_related("owner").filter(pk__in=object_ids)
 
-        if not user.is_superuser:
+        if not is_system_admin(user):
             model_name = object_class._meta.model_name
             perm = (
                 f"documents.change_{model_name}"
@@ -4136,7 +4177,7 @@ class CustomFieldViewSet(ModelViewSet):
     def get_queryset(self):
         filter = (
             Q(fields__document__deleted_at__isnull=True)
-            if self.request.user is None or self.request.user.is_superuser
+            if self.request.user is None or is_system_admin(self.request.user)
             else (
                 Q(
                     fields__document__deleted_at__isnull=True,

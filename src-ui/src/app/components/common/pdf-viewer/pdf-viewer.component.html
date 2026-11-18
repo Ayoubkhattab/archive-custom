@@ -1,0 +1,52 @@
+<div class="pngx-pdf-viewer position-relative h-100" [attr.data-state]="state" [attr.aria-busy]="state === 'loading' || state === 'rendering'">
+  @if (pdfSrc) {
+    <pdf-viewer class="h-100" [class.invisible]="state !== 'success'"
+      [src]="pdfSrc" [original-size]="originalSize" [show-borders]="showBorders" [show-all]="showAll"
+      [render-text]="renderText" [page]="page" (pageChange)="pageChange.emit($event)"
+      [zoom]="zoom" [zoom-scale]="zoomScale"
+      (after-load-complete)="onLoadComplete($event)" (error)="onRenderError($event)">
+    </pdf-viewer>
+  }
+
+  @if (state === 'loading' || state === 'rendering') {
+    <div class="pdf-status position-absolute top-0 start-0 m-2 p-2 d-flex align-items-center" role="status">
+      <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
+      @if (state === 'loading') {
+        <span i18n>Loading...</span>
+        @if (progress !== null) { <span class="ms-1">{{progress}}%</span> }
+      } @else {
+        <span i18n>Rendering...</span>
+      }
+    </div>
+  }
+
+  @if (state === 'error' || state === 'password') {
+    <div class="pdf-error alert m-3" [class.alert-danger]="state === 'error'" [class.alert-warning]="state === 'password'" role="alert">
+      <div class="d-flex align-items-start">
+        <i-bs class="me-2" name="exclamation-triangle"></i-bs>
+        <div>
+          <p class="mb-2">{{errorMessage}}</p>
+          @if (state === 'password') {
+            <p class="mb-0 small" i18n>Enter the password in the field above to open it.</p>
+          } @else {
+            <div class="d-flex flex-wrap gap-2">
+              @if (errorKind !== 'forbidden' && errorKind !== 'not_found') {
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="retry()">
+                  <i-bs width="1em" height="1em" name="arrow-clockwise"></i-bs>&nbsp;<ng-container i18n>Retry</ng-container>
+                </button>
+              }
+              @if (errorKind === 'unauthorized') {
+                <a class="btn btn-sm btn-primary" href="accounts/login/" i18n>Sign in</a>
+              }
+              @if (errorKind !== 'forbidden' && errorKind !== 'not_found' && errorKind !== 'unauthorized' && fallbackUrl) {
+                <a class="btn btn-sm btn-outline-primary" [href]="fallbackUrl" target="_blank" rel="noopener" download>
+                  <i-bs width="1em" height="1em" name="download"></i-bs>&nbsp;<ng-container i18n>Download</ng-container>
+                </a>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

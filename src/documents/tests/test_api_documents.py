@@ -2591,7 +2591,9 @@ class TestDocumentApi(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCase):
             - Notes are neither created nor deleted
         """
         user1 = User.objects.create_user(username="test1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
 
         user2 = User.objects.create_user(username="test2")
@@ -2864,7 +2866,9 @@ class TestDocumentApi(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCase):
             - Links only shown if user has permissions
         """
         user1 = User.objects.create_user(username="test1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
 
         user2 = User.objects.create_user(username="test2")
@@ -2905,7 +2909,9 @@ class TestDocumentApi(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCase):
             - ASN +1 from user2's doc is returned for user1
         """
         user1 = User.objects.create_user(username="test1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
 
         user2 = User.objects.create_user(username="test2")
@@ -2949,7 +2955,9 @@ class TestDocumentApi(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCase):
             - ASN 1 is returned
         """
         user1 = User.objects.create_user(username="test1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
 
         doc1 = Document.objects.create(
@@ -3156,7 +3164,9 @@ class TestDocumentApi(DirectoriesMixin, DocumentConsumeDelayMixin, APITestCase):
             - Error response is returned
         """
         user1 = User.objects.create_user(username="test1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
 
         doc = Document.objects.create(

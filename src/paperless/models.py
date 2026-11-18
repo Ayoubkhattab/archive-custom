@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.validators import FileExtensionValidator
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -367,3 +369,220 @@ class GroupOwnership(models.Model):
 
     class Meta:
         app_label = 'paperless'
+
+
+# ---------------------------------------------------------------------------
+# Access control (see paperless/access/)
+# ---------------------------------------------------------------------------
+
+
+class AccessPermission(models.Model):
+    """
+    Holder for the policy engine's global permissions (``system.manage.all``,
+    ``user.update.child``...). No table: it only gives Django a content type
+    to hang the Permission rows on, so they can be assigned to users and
+    groups like any other permission.
+    """
+
+    class Meta:
+        app_label = "paperless"
+        managed = False
+        default_permissions = ()
+        permissions = [
+            ("system_manage_all", "System: manage everything (except audit logs)"),
+            ("user_read_self", "Users: read own account"),
+            ("user_update_self", "Users: update own account"),
+            ("user_read_child", "Users: read direct child accounts"),
+            ("user_update_child", "Users: update direct child accounts"),
+            ("user_create_child", "Users: create child accounts"),
+            ("user_delete_child", "Users: delete direct child accounts"),
+            ("user_read_any", "Users: read any account"),
+            ("user_update_any", "Users: update any unrelated account"),
+            ("user_delete_any", "Users: delete any unrelated account"),
+            ("pdf_view_self", "PDF: view own documents"),
+            ("pdf_view_child", "PDF: view documents of direct children"),
+            ("pdf_view_any", "PDF: view any document"),
+            ("image_upload_self", "Images: upload own images"),
+            ("image_upload_child", "Images: upload images for direct children"),
+            ("image_upload_any", "Images: upload images for anyone"),
+            ("image_delete_self", "Images: delete own images"),
+            ("image_delete_child", "Images: delete images of direct children"),
+            ("image_delete_any", "Images: delete anyone's images"),
+        ]
+
+
+class ImmutableQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise PermissionError("Audit log entries are immutable")
+
+    def delete(self):
+        raise PermissionError("Audit log entries are immutable")
+
+    def bulk_update(self, *args, **kwargs):
+        raise PermissionError("Audit log entries are immutable")
+
+
+class SecurityAuditLog(models.Model):
+    """
+    Append-only security audit trail ("AuditLog"). The actor is stored by
+    value (id + username), not as a foreign key, so deleting a user never
+    rewrites history (ON DELETE SET NULL would be an UPDATE).
+    """
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    actor_id = models.IntegerField(null=True, db_index=True)
+    actor_username = models.CharField(max_length=150, blank=True)
+    action = models.CharField(max_length=64, db_index=True)
+    target_type = models.CharField(max_length=32)
+    target_id = models.CharField(max_length=64, blank=True)
+    outcome = models.CharField(max_length=16, default="success")
+    before_json = models.JSONField(default=dict)
+    after_json = models.JSONField(default=dict)
+    ip = models.GenericIPAddressField(null=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    request_id = models.CharField(max_length=64, blank=True)
+
+    objects = ImmutableQuerySet.as_manager()
+
+    class Meta:
+        app_label = "paperless"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["target_type", "target_id"], name="audit_target_idx"),
+        ]
+        # Only "view" exists; nobody can be granted add/change/delete.
+        default_permissions = ("view",)
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise PermissionError("Audit log entries are immutable")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("Audit log entries are immutable")
+
+
+# ---------------------------------------------------------------------------
+# Images (see paperless/images/)
+# ---------------------------------------------------------------------------
+
+
+class Image(models.Model):
+    class Status(models.TextChoices):
+        PENDING = ("pending", _("pending"))
+        READY = ("ready", _("ready"))
+        FAILED = ("failed", _("failed"))
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        User,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="images",
+    )
+    uploaded_by = models.ForeignKey(
+        User,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_images",
+    )
+    # Display only, sanitised; never used on disk.
+    original_name = models.CharField(max_length=255, blank=True)
+    alt_text = models.CharField(max_length=500, blank=True)
+    # Type detected from the bytes (magic), not from the client.
+    source_mime_type = models.CharField(max_length=64)
+    # Type of the generated variants.
+    mime_type = models.CharField(max_length=64, blank=True)
+    size_bytes = models.BigIntegerField()
+    width = models.PositiveIntegerField(null=True)
+    height = models.PositiveIntegerField(null=True)
+    # Private key of the uploaded source while it awaits processing (and
+    # afterwards only if keeping originals is enabled).
+    storage_key = models.CharField(max_length=255)
+    checksum = models.CharField(max_length=64, db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    error = models.CharField(max_length=255, blank=True)
+    idempotency_key = models.CharField(max_length=128, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    files_purged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        app_label = "paperless"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=["owner", "deleted_at", "-created_at"],
+                name="image_owner_live_idx",
+            ),
+            models.Index(
+                fields=["deleted_at", "files_purged_at"],
+                name="image_purge_idx",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["uploaded_by", "idempotency_key"],
+                name="image_unique_idempotency_key",
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Image {self.pk}"
+
+
+class ImageVariant(models.Model):
+    class Kind(models.TextChoices):
+        THUMBNAIL = ("thumbnail", _("thumbnail"))
+        SMALL = ("small", _("small"))
+        MEDIUM = ("medium", _("medium"))
+        LARGE = ("large", _("large"))
+
+    image = models.ForeignKey(Image, on_delete=models.CASCADE, related_name="variants")
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    storage_key = models.CharField(max_length=255)
+    format = models.CharField(max_length=16)
+    size_bytes = models.BigIntegerField()
+    # sha256 of the encoded bytes: the ETag, and makes URLs cache-busting.
+    checksum = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = "paperless"
+        constraints = [
+            # Idempotency of variant generation: one row per (image, kind).
+            models.UniqueConstraint(fields=["image", "kind"], name="imagevariant_unique_kind"),
+        ]
+
+
+class JobRecord(models.Model):
+    """
+    Bookkeeping for background jobs (variant generation, file cleanup):
+    the idempotency key makes re-delivered or retried Celery tasks no-ops
+    once they succeeded, and attempts/last_error make failures visible.
+    """
+
+    class Status(models.TextChoices):
+        QUEUED = ("queued", _("queued"))
+        RUNNING = ("running", _("running"))
+        SUCCEEDED = ("succeeded", _("succeeded"))
+        FAILED = ("failed", _("failed"))
+
+    kind = models.CharField(max_length=32)
+    idempotency_key = models.CharField(max_length=128, unique=True)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "paperless"
+        indexes = [models.Index(fields=["kind", "status"], name="jobrecord_kind_status_idx")]

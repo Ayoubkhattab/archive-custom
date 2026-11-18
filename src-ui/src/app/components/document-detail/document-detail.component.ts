@@ -18,7 +18,7 @@ import {
   NgbNavModule,
 } from '@ng-bootstrap/ng-bootstrap'
 import { dirtyCheck, DirtyComponent } from '@ngneat/dirty-check-forms'
-import { PDFDocumentProxy, PdfViewerModule } from 'ng2-pdf-viewer'
+import { PDFDocumentProxy } from 'ng2-pdf-viewer'
 import { NgxBootstrapIconsModule } from 'ngx-bootstrap-icons'
 import { DeviceDetectorService } from 'ngx-device-detector'
 import { BehaviorSubject, Observable, of, Subject, timer } from 'rxjs'
@@ -119,6 +119,10 @@ import { TextAreaComponent } from '../common/input/textarea/textarea.component'
 import { UrlComponent } from '../common/input/url/url.component'
 import { PageHeaderComponent } from '../common/page-header/page-header.component'
 import {
+  PdfViewerState,
+  PdfViewerComponent as PngxPdfViewerComponent,
+} from '../common/pdf-viewer/pdf-viewer.component'
+import {
   PDFEditorComponent,
   PdfEditorEditMode,
 } from '../common/pdf-editor/pdf-editor.component'
@@ -206,7 +210,7 @@ export enum ZoomSetting {
     NgbNavModule,
     NgbDropdownModule,
     NgxBootstrapIconsModule,
-    PdfViewerModule,
+    PngxPdfViewerComponent,
     TextAreaComponent,
     PasswordRemovalConfirmDialogComponent,
   ],
@@ -395,6 +399,13 @@ export class DocumentDetailComponent
     return this.documentsService.getDownloadUrl(this.documentId, true)
   }
 
+  /** Download fallback offered by the PDF viewer when it cannot render. */
+  get downloadUrl(): string {
+    return this.documentId
+      ? this.documentsService.getDownloadUrl(this.documentId)
+      : null
+  }
+
   /** Whether the document's own detected language reads right-to-left. */
   get isRTL() {
     return isRtlLanguage(this.metadata?.lang)
@@ -504,6 +515,11 @@ export class DocumentDetailComponent
   }
 
   private loadDocument(documentId: number): void {
+    if (documentId !== this.documentId) {
+      // Show the loading overlay again for a different document; the
+      // viewer (or the metadata call) clears it on a terminal state.
+      this.previewLoaded = false
+    }
     this.previewUrl = this.documentsService.getPreviewUrl(documentId)
     this.thumbUrl = this.documentsService.getThumbUrl(documentId)
     this.documentsService
@@ -793,6 +809,14 @@ export class DocumentDetailComponent
         },
         error: (error) => {
           this.metadata = {} // allow display to fallback to <object> tag
+          // The in-app PDF viewer reports its own state; everything else
+          // must not stay behind the "Loading..." overlay.
+          if (
+            this.archiveContentRenderType !== ContentRenderType.PDF ||
+            this.useNativePdfViewer
+          ) {
+            this.previewLoaded = true
+          }
           this.toastService.showError(
             $localize`Error retrieving metadata`,
             error
@@ -1312,16 +1336,19 @@ export class DocumentDetailComponent
   pdfPreviewLoaded(pdf: PDFDocumentProxy) {
     this.previewNumPages = pdf.numPages
     if (this.password) this.requiresPassword = false
-    setTimeout(() => {
-      this.previewLoaded = true
-    }, 300)
   }
 
-  onError(event) {
-    if (event.name == 'PasswordException') {
-      this.requiresPassword = true
-      this.previewLoaded = true
-    }
+  onPasswordRequired() {
+    this.requiresPassword = true
+  }
+
+  /**
+   * The thumbnail + "Loading..." overlay goes away on every terminal state
+   * (success, error, password), never only on success: before, any error
+   * other than a password prompt left the overlay up forever.
+   */
+  onPdfStateChange(state: PdfViewerState) {
+    this.previewLoaded = state !== 'loading' && state !== 'rendering'
   }
 
   onPasswordKeyUp(event: KeyboardEvent) {

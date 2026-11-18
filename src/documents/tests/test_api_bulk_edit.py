@@ -942,7 +942,9 @@ class TestBulkEditAPI(DirectoriesMixin, APITestCase):
         self.doc1.owner = User.objects.get(username="temp_admin")
         self.doc1.save()
         user1 = User.objects.create(username="user1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
         self.client.force_authenticate(user=user1)
 
@@ -997,7 +999,9 @@ class TestBulkEditAPI(DirectoriesMixin, APITestCase):
         self.doc1.save()
         user1 = User.objects.create(username="user1")
         assign_perm("view_document", user1, self.doc1)
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
         self.client.force_authenticate(user=user1)
 
@@ -1118,7 +1122,9 @@ class TestBulkEditAPI(DirectoriesMixin, APITestCase):
         self.doc1.owner = User.objects.get(username="temp_admin")
         self.doc1.save()
         user1 = User.objects.create(username="user1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user1.save()
         self.client.force_authenticate(user=user1)
 

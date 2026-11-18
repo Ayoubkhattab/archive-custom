@@ -775,7 +775,7 @@ describe('DocumentDetailComponent', () => {
 
   it('should support password-protected PDFs with a password field', () => {
     initNormally()
-    component.onError({ name: 'PasswordException' }) // normally dispatched by pdf viewer
+    component.onPasswordRequired() // normally dispatched by pdf viewer
     expect(component.requiresPassword).toBeTruthy()
     fixture.detectChanges()
     expect(
@@ -789,7 +789,7 @@ describe('DocumentDetailComponent', () => {
   it('should support Enter key in password field', () => {
     initNormally()
     component.metadata = { has_archive_version: true }
-    component.onError({ name: 'PasswordException' }) // normally dispatched by pdf viewer
+    component.onPasswordRequired() // normally dispatched by pdf viewer
     fixture.detectChanges()
     expect(component.password).toBeUndefined()
     const pwField = fixture.debugElement.query(By.css('input[type=password]'))
@@ -806,14 +806,20 @@ describe('DocumentDetailComponent', () => {
     expect(component.previewNumPages).toEqual(1000)
   })
 
-  it('should include delay of 300ms after previewloaded before showing pdf', fakeAsync(() => {
+  it('should hide the loading overlay on every terminal pdf viewer state', () => {
     initNormally()
+    component.onPdfStateChange('loading')
     expect(component.previewLoaded).toBeFalsy()
-    component.pdfPreviewLoaded({ numPages: 1000 } as any)
-    expect(component.previewNumPages).toEqual(1000)
-    tick(300)
-    expect(component.previewLoaded).toBeTruthy()
-  }))
+    component.onPdfStateChange('rendering')
+    expect(component.previewLoaded).toBeFalsy()
+    // regression: any error other than a password used to leave
+    // "Loading..." on screen forever
+    for (const state of ['success', 'error', 'password'] as const) {
+      component.onPdfStateChange('loading')
+      component.onPdfStateChange(state)
+      expect(component.previewLoaded).toBeTruthy()
+    }
+  })
 
   it('should support zoom controls', () => {
     initNormally()
@@ -974,7 +980,7 @@ describe('DocumentDetailComponent', () => {
     jest.spyOn(settingsService, 'get').mockReturnValue(false)
     expect(component.useNativePdfViewer).toBeFalsy()
     fixture.detectChanges()
-    expect(fixture.debugElement.query(By.css('pdf-viewer'))).not.toBeNull()
+    expect(fixture.debugElement.query(By.css('pngx-pdf-viewer'))).not.toBeNull()
   })
 
   it('should display native pdf viewer if enabled', () => {

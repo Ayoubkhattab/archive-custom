@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from typing import Literal
 
 from dateutil.relativedelta import relativedelta
+from paperless.access.policy import is_system_admin
 from django.conf import settings
 from django.utils import timezone as django_timezone
 from django.utils.timezone import get_current_timezone
@@ -581,7 +582,7 @@ def autocomplete(
 def get_permissions_criterias(user: User | None = None) -> list:
     user_criterias = [query.Term("has_owner", text=False)]
     if user is not None:
-        if user.is_superuser:  # superusers see all docs
+        if is_system_admin(user):  # superusers see all docs
             user_criterias = []
         else:
             user_criterias.append(query.Term("owner_id", user.id))

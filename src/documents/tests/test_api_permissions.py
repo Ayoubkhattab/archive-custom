@@ -140,7 +140,9 @@ class TestApiAuth(DirectoriesMixin, APITestCase):
 
     def test_api_sufficient_permissions(self):
         user = User.objects.create_user(username="test")
-        user.user_permissions.add(*Permission.objects.all())
+        user.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user.is_staff = True
         self.client.force_authenticate(user)
 
@@ -785,7 +787,8 @@ class TestApiUser(DirectoriesMixin, APITestCase):
 
         regular_user = User.objects.create_user(username="regular_user")
         regular_user.user_permissions.add(
-            *Permission.objects.all(),
+            # every permission except the global admin one
+            *Permission.objects.exclude(codename="system_manage_all"),
         )
         self.client.force_authenticate(regular_user)
         Authenticator.objects.create(
@@ -811,7 +814,9 @@ class TestApiUser(DirectoriesMixin, APITestCase):
         """
 
         user1 = User.objects.create_user(username="user1")
-        user1.user_permissions.add(*Permission.objects.all())
+        user1.user_permissions.add(
+            *Permission.objects.exclude(codename="system_manage_all"),
+        )
         user2 = User.objects.create_superuser(username="user2")
 
         self.client.force_authenticate(user1)
