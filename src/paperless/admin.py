@@ -58,18 +58,28 @@ class PaperlessUserAdmin(UserAdmin):
         form.request = request
         return form
 
+    def get_queryset(self, request):
+        # The seeded admin is not listed here either.
+        from paperless.access.protected import exclude_protected
+
+        return exclude_protected(super().get_queryset(request))
+
     def has_change_permission(self, request, obj=None):
         if obj is None:
             return super().has_change_permission(request, obj)
         return can(
-            actor=request.user, action=Action.UPDATE, resource=Resource.user(obj),
+            actor=request.user,
+            action=Action.UPDATE,
+            resource=Resource.user(obj),
         )
 
     def has_delete_permission(self, request, obj=None):
         if obj is None:
             return super().has_delete_permission(request, obj)
         return can(
-            actor=request.user, action=Action.DELETE, resource=Resource.user(obj),
+            actor=request.user,
+            action=Action.DELETE,
+            resource=Resource.user(obj),
         )
 
     def delete_queryset(self, request, queryset):

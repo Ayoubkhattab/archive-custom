@@ -5,6 +5,9 @@ from argparse import RawTextHelpFormatter
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
+from paperless.access.protected import protect_account
+from paperless.access.protected import protect_seed_admin
+
 logger = logging.getLogger("paperless.management.superuser")
 
 
@@ -32,6 +35,9 @@ class Command(BaseCommand):
 
         # Check if there's already a user called admin
         if User.objects.filter(username=username).exists():
+            # Seeded on an earlier start-up: make sure it stays protected
+            # (hidden from the users list, not modifiable).
+            protect_seed_admin(username)
             self.stdout.write(
                 self.style.NOTICE(
                     f"Did not create superuser, a user {username} already exists",
@@ -58,7 +64,8 @@ class Command(BaseCommand):
             )
         else:
             # Create superuser with password based on env variable
-            User.objects.create_superuser(username, mail, password)
+            user = User.objects.create_superuser(username, mail, password)
+            protect_account(user, "seed_admin")
             self.stdout.write(
                 self.style.SUCCESS(
                     f'Created superuser "{username}" with provided password.',

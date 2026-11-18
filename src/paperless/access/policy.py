@@ -7,6 +7,7 @@ Decision order (first matching rule wins, everything else is denied):
 
     0. unauthenticated / inactive actor                           -> deny
        Hard guards that no grant lifts:
+       - mutating a protected system account (the seeded admin)    -> deny
        - changing your own privileges / parent / deleting yourself -> deny
          (no self escalation; Django superusers excepted)
        - mutating a Django superuser account as a non-superuser    -> deny
@@ -177,6 +178,16 @@ def decide(*, actor, action: str, resource: Resource, context=None) -> Decision:
     mutating = action in C.Action.MUTATING
 
     # Guards that no grant can lift:
+    # (0) protected system accounts (the seeded admin) are immutable for
+    #     everyone, superusers and system.manage.all included;
+    if resource.type == "user" and mutating and target_id is not None:
+        from paperless.access.protected import is_protected
+
+        if is_protected(target_id):
+            return _deny(
+                "protected-account",
+                "This system account cannot be modified",
+            )
     # (a) nobody changes their own authority (no self escalation);
     if is_self and key in _NEVER_ON_SELF and not actor.is_superuser:
         return _deny("self-escalation", "You cannot change this on your own account")

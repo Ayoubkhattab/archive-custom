@@ -43,7 +43,13 @@ def require(actor, action: str, resource: Resource, context=None) -> None:
 
 
 def readable_users(actor, queryset: QuerySet[User]) -> QuerySet[User]:
-    """Users the actor may see: everyone with ``user.read.any``, else self + children."""
+    """
+    Users the actor may see: everyone with ``user.read.any``, else self +
+    children. Protected system accounts (the seeded admin) are never listed.
+    """
+    from paperless.access.protected import exclude_protected
+
+    queryset = exclude_protected(queryset)
     if is_system_admin(actor) or has_permission(actor, C.USER_READ_ANY):
         return queryset
     visible = (

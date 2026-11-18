@@ -586,3 +586,27 @@ class JobRecord(models.Model):
     class Meta:
         app_label = "paperless"
         indexes = [models.Index(fields=["kind", "status"], name="jobrecord_kind_status_idx")]
+
+
+class ProtectedAccount(models.Model):
+    """
+    System accounts that no one can see in the users list or modify through
+    the API / Django admin, e.g. the admin seeded on first start-up
+    (PAPERLESS_ADMIN_USER). Stored by id, so renaming the account does not
+    lift the protection. Removing it requires shell access:
+
+        python3 manage.py shell -c "from paperless.models import ProtectedAccount; \
+ProtectedAccount.objects.filter(user__username='admin').delete()"
+    """
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="protected_account",
+    )
+    reason = models.CharField(max_length=64, default="seed_admin")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = "paperless"
+        default_permissions = ()

@@ -40,6 +40,10 @@ if not User.objects.filter(username=username).exists():
     print(f'✅ Superuser "{username}" created successfully!')
 else:
     print(f'✅ Superuser "{username}" already exists')
+# The seeded admin is a protected system account: hidden from the users
+# list and not modifiable through the API or Django admin.
+from paperless.access.protected import protect_seed_admin
+protect_seed_admin(username)
 EOF
 
 # Set up document structure (idempotent)

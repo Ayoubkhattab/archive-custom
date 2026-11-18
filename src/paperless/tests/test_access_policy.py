@@ -38,7 +38,8 @@ def grant(user: User, *perms: str) -> User:
             app_label, codename = C.APP_LABEL, C.codename(perm)
         user.user_permissions.add(
             Permission.objects.get(
-                content_type__app_label=app_label, codename=codename,
+                content_type__app_label=app_label,
+                codename=codename,
             ),
         )
     # Drop Django's permission caches.
@@ -72,7 +73,9 @@ class TestPolicyEngine(HierarchyMixin, TestCase):
                 C.Action.CHANGE_PRIVILEGES,
             ):
                 decision = decide(
-                    actor=son, action=action, resource=Resource.user(ancestor),
+                    actor=son,
+                    action=action,
+                    resource=Resource.user(ancestor),
                 )
                 self.assertFalse(decision.allowed, (ancestor, action))
                 self.assertEqual(decision.rule, "descendant-to-ancestor")
@@ -114,13 +117,17 @@ class TestPolicyEngine(HierarchyMixin, TestCase):
         stranger = self.stranger
         self.assertFalse(
             can(
-                actor=stranger, action=C.Action.UPDATE, resource=Resource.user(self.son),
+                actor=stranger,
+                action=C.Action.UPDATE,
+                resource=Resource.user(self.son),
             ),
         )
         stranger = grant(stranger, C.USER_UPDATE_ANY)
         self.assertTrue(
             can(
-                actor=stranger, action=C.Action.UPDATE, resource=Resource.user(self.son),
+                actor=stranger,
+                action=C.Action.UPDATE,
+                resource=Resource.user(self.son),
             ),
         )
 
@@ -213,7 +220,8 @@ class TestUsersApiHierarchy(HierarchyMixin, APITestCase):
         response = self.patch(son, self.father, {"parent": self.son.pk})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(
-            UserOwnership.objects.get(user=self.father).created_by, self.grandfather,
+            UserOwnership.objects.get(user=self.father).created_by,
+            self.grandfather,
         )
 
     def test_son_changes_his_own_role_403(self):
@@ -252,12 +260,16 @@ class TestUsersApiHierarchy(HierarchyMixin, APITestCase):
     def test_father_cannot_grant_what_he_does_not_have(self):
         father = grant(self.father, C.USER_READ_CHILD, C.USER_UPDATE_CHILD)
         response = self.patch(
-            father, self.son, {"user_permissions": ["delete_document"]},
+            father,
+            self.son,
+            {"user_permissions": ["delete_document"]},
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         father = grant(father, "documents.delete_document")
         response = self.patch(
-            father, self.son, {"user_permissions": ["delete_document"]},
+            father,
+            self.son,
+            {"user_permissions": ["delete_document"]},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -270,7 +282,8 @@ class TestUsersApiHierarchy(HierarchyMixin, APITestCase):
         response = self.patch(self.admin, self.son, {"parent": self.stranger.pk})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            UserOwnership.objects.get(user=self.son).created_by, self.stranger,
+            UserOwnership.objects.get(user=self.son).created_by,
+            self.stranger,
         )
 
         response = self.patch(self.admin, self.son, {"parent": self.grandson.pk})
@@ -317,7 +330,8 @@ class TestUsersApiHierarchy(HierarchyMixin, APITestCase):
         self.patch(son, self.father, {"first_name": "x"})
         self.assertTrue(
             SecurityAuditLog.objects.filter(
-                action="user.update", outcome="denied",
+                action="user.update",
+                outcome="denied",
             ).exists(),
         )
 
@@ -354,7 +368,9 @@ class TestUsersApiHierarchy(HierarchyMixin, APITestCase):
         )
         self.client.force_authenticate(son)
         group = self.client.post(
-            "/api/groups/", {"name": "g", "permissions": []}, format="json",
+            "/api/groups/",
+            {"name": "g", "permissions": []},
+            format="json",
         )
         # created by son, but father joins it
         group_obj = Group.objects.get(pk=group.data["id"])
@@ -384,3 +400,129 @@ class TestDjangoAdminRespectsHierarchy(HierarchyMixin, TestCase):
         self.assertIn(response.status_code, (302, 403))
         self.father.refresh_from_db()
         self.assertEqual(self.father.first_name, "")
+
+
+class TestProtectedSeedAdmin(APITestCase):
+    """The admin seeded on first start-up is hidden and immutable."""
+
+    def setUp(self):
+        from paperless.access.protected import protect_seed_admin
+
+        self.admin = User.objects.create_superuser(username="admin", password="x" * 12)
+        self.assertTrue(protect_seed_admin("admin"))
+        self.other_root = User.objects.create_superuser(username="root2")
+        self.global_admin = grant(child_of(None, "ga"), C.SYSTEM_MANAGE_ALL)
+
+    def test_hidden_from_users_list_for_everyone(self):
+        for actor in (self.other_root, self.global_admin, self.admin):
+            self.client.force_authenticate(actor)
+            names = {u["username"] for u in self.client.get(ENDPOINT).data["results"]}
+            self.assertNotIn("admin", names, actor)
+            self.assertEqual(
+                self.client.get(f"{ENDPOINT}{self.admin.pk}/").status_code,
+                status.HTTP_404_NOT_FOUND,
+            )
+
+    def test_nobody_can_modify_or_delete_it(self):
+        for actor in (self.other_root, self.global_admin):
+            self.client.force_authenticate(actor)
+            r = self.client.patch(
+                f"{ENDPOINT}{self.admin.pk}/", {"first_name": "x"}, format="json"
+            )
+            self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+            r = self.client.delete(f"{ENDPOINT}{self.admin.pk}/")
+            self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+            r = self.client.post(f"{ENDPOINT}{self.admin.pk}/deactivate_totp/")
+            self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk, first_name="").exists())
+
+    def test_policy_denies_every_mutation_even_for_superusers(self):
+        for actor in (self.other_root, self.global_admin, self.admin):
+            for action in (
+                C.Action.UPDATE,
+                C.Action.DELETE,
+                C.Action.CHANGE_PRIVILEGES,
+                C.Action.CHANGE_RELATIONSHIP,
+            ):
+                decision = decide(
+                    actor=actor, action=action, resource=Resource.user(self.admin)
+                )
+                self.assertFalse(decision.allowed, (actor, action))
+                self.assertEqual(decision.rule, "protected-account")
+
+    def test_hidden_and_locked_in_django_admin(self):
+        self.client.force_login(self.other_root)
+        listing = self.client.get("/admin/auth/user/")
+        self.assertEqual(listing.status_code, 200)
+        self.assertNotContains(listing, f"/admin/auth/user/{self.admin.pk}/change/")
+        response = self.client.post(
+            f"/admin/auth/user/{self.admin.pk}/change/",
+            {"username": "admin", "first_name": "hacked"},
+        )
+        self.assertNotEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.first_name, "")
+
+    def test_cannot_be_chosen_as_image_owner(self):
+        self.client.force_authenticate(self.other_root)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        r = self.client.post(
+            "/api/images/",
+            {"file": SimpleUploadedFile("a.jpg", b"x"), "owner": self.admin.pk},
+            format="multipart",
+        )
+        self.assertEqual(r.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    def test_the_admin_still_uses_its_own_profile(self):
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch("/api/profile/", {"first_name": "Root"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.client.force_authenticate(self.admin)
+        self.assertTrue(
+            self.client.get("/api/ui_settings/").data["user"]["is_superuser"]
+        )
+
+
+class TestSeedCommandProtectsAdmin(TestCase):
+    def test_manage_superuser_creates_a_protected_admin(self):
+        import os
+        from io import StringIO
+        from unittest import mock
+
+        from django.core.management import call_command
+
+        from paperless.access.protected import is_protected
+
+        env = {
+            "PAPERLESS_ADMIN_USER": "seedadmin",
+            "PAPERLESS_ADMIN_PASSWORD": "pw" * 8,
+        }
+        with mock.patch.dict(os.environ, env):
+            call_command("manage_superuser", stdout=StringIO())
+        user = User.objects.get(username="seedadmin")
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(is_protected(user))
+
+    def test_rerun_protects_an_admin_seeded_before_this_feature(self):
+        import os
+        from io import StringIO
+        from unittest import mock
+
+        from django.core.management import call_command
+
+        from paperless.access.protected import is_protected
+
+        user = User.objects.create_superuser(username="oldadmin")
+        self.assertFalse(is_protected(user))
+        with mock.patch.dict(os.environ, {"PAPERLESS_ADMIN_USER": "oldadmin"}):
+            call_command("manage_superuser", stdout=StringIO())
+        self.assertTrue(is_protected(user))
+
+    def test_a_regular_user_with_that_name_is_not_protected(self):
+        from paperless.access.protected import is_protected
+        from paperless.access.protected import protect_seed_admin
+
+        user = User.objects.create_user(username="admin")
+        self.assertFalse(protect_seed_admin("admin"))
+        self.assertFalse(is_protected(user))

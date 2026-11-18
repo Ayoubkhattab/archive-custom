@@ -115,6 +115,23 @@ can(actor=request.user, action=Action.VIEW,   resource=Resource.pdf(document))
 - `system.manage.all` تعمل فعلياً عبر `SystemManageAllBackend` (يجيب «نعم» على كل `has_perm` عدا
   صلاحيات سجلات التدقيق) ومن خلال `is_system_admin()` في فلاتر رؤية المستندات/المجلدات/البحث.
 
+### حساب المدير المُنشأ عند أول تشغيل (seed admin)
+
+الحساب الذي يُنشأ تلقائياً من `PAPERLESS_ADMIN_USER` (عبر `manage_superuser` أو `entrypoint-prod.sh`
+أو `entrypoint-dev.sh`) يُعلَّم كـ **حساب نظام محمي** (`ProtectedAccount`، محفوظ بالمعرّف وليس بالاسم):
+
+- **مخفي** من قائمة المستخدمين (`/api/users/`)، ومن لوحة Django admin، ومن قوائم اختيار المالك،
+  لكل الحسابات بما فيها superuser آخر و`system.manage.all`. طلبه بالمعرّف يعيد 404.
+- **غير قابل للتعديل** عبر محرّك السياسات: تعديل، حذف، تغيير الصلاحيات أو الأب، إلغاء 2FA ← مرفوض للجميع.
+- الحساب نفسه يعمل بشكل طبيعي: تسجيل الدخول، صفحة الملف الشخصي، كلمة المرور، و2FA الخاص به.
+- التثبيتات القديمة: الهجرة `0009` تحمي الحساب الموجود باسم `PAPERLESS_ADMIN_USER` (الافتراضي `admin`)
+  إن كان superuser، وكذلك كل تشغيل لاحق لـ `manage_superuser`.
+- لإزالة الحماية (من الخادم فقط):
+
+```bash
+python3 manage.py shell -c "from paperless.models import ProtectedAccount; ProtectedAccount.objects.filter(user__username='admin').delete()"
+```
+
 ### سجل التدقيق
 
 `SecurityAuditLog { actor_id, actor_username, action, target_type, target_id, outcome, before_json,
